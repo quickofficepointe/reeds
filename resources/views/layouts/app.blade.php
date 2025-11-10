@@ -6,10 +6,17 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>QR Feeding System</title>
 
+    <link rel="icon" href="https://reedsafricaconsult.com/wp-content/uploads/2024/04/cropped-reeds_logo-32x32.png" sizes="32x32">
+    <link rel="icon" href="https://reedsafricaconsult.com/wp-content/uploads/2024/04/cropped-reeds_logo-192x192.png" sizes="192x192">
+    <link rel="apple-touch-icon" href="https://reedsafricaconsult.com/wp-content/uploads/2024/04/cropped-reeds_logo-180x180.png">
+    <meta name="msapplication-TileImage" content="https://reedsafricaconsult.com/wp-content/uploads/2024/04/cropped-reeds_logo-270x270.png">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Custom Colors -->
+     <meta name="theme-color" content="#e82b2a">
+
     <script>
         tailwind.config = {
             theme: {
