@@ -181,33 +181,27 @@
 
                         <!-- Meal Card Preview -->
                         <div id="mealCardContainer" class="bg-gradient-to-br from-amber-50 to-amber-100 shadow-2xl overflow-hidden mx-auto"
-                             style="width: 600px; height: 1050px;">
+                            style="width: 600px; height: 1050px;">
 
                             <div class="p-12 flex flex-col items-center h-full">
-                                <!-- Logo -->
                                 <div class="mb-8">
-                                    <img src="{{ asset('Assets/images/Reeds_Logo.png') }}"
-                                         alt="Reeds Africa Consult Logo"
-                                         class="h-24 mx-auto object-contain">
+                                    <img src="{{ asset('Assets/images/Logo-reeds-africa') }}"
+                                        alt="Reeds Africa Consult Logo"
+                                        class="h-24 mx-auto object-contain">
                                 </div>
 
-                                <!-- Title -->
                                 <h1 class="text-3xl font-bold tracking-wider text-gray-900 mt-8 mb-12 text-center">
                                     OFFICIAL MEAL CARD
                                 </h1>
 
-                                <!-- QR Code Container -->
                                 <div class="w-[450px] h-[450px] border-[15px] border-amber-900 bg-white p-4 flex items-center justify-center mb-8">
                                     <div class="w-full h-full flex items-center justify-center text-center">
                                         <div id="previewQrCode" class="flex items-center justify-center">
-                                            <!-- Preview QR code will be generated here -->
-                                        </div>
+                                            </div>
                                     </div>
                                 </div>
 
-                                <!-- Employee Details -->
-                                <div class="bg-red-600 text-white p-8 w-full rounded-lg">
-                                    <div class="space-y-3">
+                                <div class="bg-red-600 text-white p-8 w-full rounded-lg -mx-12"> <div class="space-y-3">
                                         <p class="text-xl font-light">
                                             <span class="font-semibold">Employee No:</span>
                                             <span id="previewEmpNo" class="ml-2 italic"></span>
@@ -223,13 +217,12 @@
                                     </div>
                                 </div>
 
-                                <!-- Footer -->
                                 <div class="flex justify-between items-center w-full mt-auto pt-4 border-t border-gray-300">
                                     <p class="text-sm text-gray-600">
                                         Powered By: <span class="font-semibold text-blue-600">www.biztrak.ke</span>
                                     </p>
-                                    <div class="w-16 h-8 bg-blue-600 text-white flex items-center justify-center text-xs font-bold rounded">
-                                        BizTrak
+                                    <div class="w-16 h-8">
+                                        <img src="{{ asset('Assets/images/Biztrak-main-logo.png') }}" alt="BizTrak Logo" class="w-full h-full object-contain">
                                     </div>
                                 </div>
                             </div>
