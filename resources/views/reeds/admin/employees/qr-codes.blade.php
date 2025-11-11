@@ -7,7 +7,7 @@
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
             <div class="mb-4 lg:mb-0">
                 <h1 class="text-3xl font-bold text-gray-900">Employee QR Codes</h1>
-                <p class="text-gray-600 mt-2">Manage and download employee meal card QR codes</p>
+                <p class="text-gray-600 mt-2">Manage and download employee meal card PDFs</p>
             </div>
             <div class="flex flex-wrap gap-3">
                 <a href="{{ route('admin.employees.index') }}"
@@ -18,7 +18,7 @@
                 <button onclick="downloadAllMealCards()"
                         class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
                     <i class="fas fa-download mr-2"></i>
-                    Download All
+                    Download All PDFs
                 </button>
                 <button onclick="printQRCodes()"
                         class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700 focus:bg-red-700 active:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition ease-in-out duration-150">
@@ -72,12 +72,12 @@
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
-                            <i class="fas fa-print text-white text-sm"></i>
+                            <i class="fas fa-file-pdf text-white text-sm"></i>
                         </div>
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Ready for Printing</dt>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Ready for PDF</dt>
                             <dd class="text-lg font-semibold text-gray-900">{{ $employees->count() }}</dd>
                         </dl>
                     </div>
@@ -93,7 +93,7 @@
                 Generated QR Codes
             </h3>
             <p class="mt-1 text-sm text-gray-500">
-                Click on any card to preview and download individual meal cards
+                Click on any card to preview and download individual meal card PDFs
             </p>
         </div>
 
@@ -127,8 +127,8 @@
                             <!-- Action Button -->
                             <button onclick="downloadMealCard({{ $employee->id }})"
                                     class="w-full inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
-                                <i class="fas fa-download mr-2 text-xs"></i>
-                                Download Card
+                                <i class="fas fa-file-pdf mr-2 text-xs"></i>
+                                Download PDF
                             </button>
                         </div>
                     </div>
@@ -159,97 +159,13 @@
     </div>
 </div>
 
-<!-- Meal Card Preview Modal -->
-<div id="mealCardPreviewModal" class="fixed inset-0 overflow-y-auto z-50 hidden">
-    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <!-- Background overlay -->
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeMealCardPreview()"></div>
-
-        <!-- Modal panel -->
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div class="sm:flex sm:items-start">
-                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg leading-6 font-medium text-gray-900">Meal Card Preview</h3>
-                            <button type="button"
-                                    onclick="closeMealCardPreview()"
-                                    class="text-gray-400 hover:text-gray-600 transition-colors duration-200">
-                                <i class="fas fa-times text-xl"></i>
-                            </button>
-                        </div>
-
-                        <!-- Meal Card Preview -->
-                        <div id="mealCardContainer" class="bg-gradient-to-br from-amber-50 to-amber-100 shadow-2xl overflow-hidden mx-auto"
-                            style="width: 600px; height: 1050px;">
-
-                            <div class="p-12 flex flex-col items-center h-full">
-                                <div class="mb-8">
-                                    <img src="{{ asset('Assets/images/Logo-reeds-africa') }}"
-                                        alt="Reeds Africa Consult Logo"
-                                        class="h-24 mx-auto object-contain">
-                                </div>
-
-                                <h1 class="text-3xl font-bold tracking-wider text-gray-900 mt-8 mb-12 text-center">
-                                    OFFICIAL MEAL CARD
-                                </h1>
-
-                                <div class="w-[450px] h-[450px] border-[15px] border-amber-900 bg-white p-4 flex items-center justify-center mb-8">
-                                    <div class="w-full h-full flex items-center justify-center text-center">
-                                        <div id="previewQrCode" class="flex items-center justify-center">
-                                            </div>
-                                    </div>
-                                </div>
-
-                                <div class="bg-red-600 text-white p-8 w-full rounded-lg -mx-12"> <div class="space-y-3">
-                                        <p class="text-xl font-light">
-                                            <span class="font-semibold">Employee No:</span>
-                                            <span id="previewEmpNo" class="ml-2 italic"></span>
-                                        </p>
-                                        <p class="text-xl font-light">
-                                            <span class="font-semibold">Name:</span>
-                                            <span id="previewEmpName" class="ml-2 italic"></span>
-                                        </p>
-                                        <p class="text-xl font-light">
-                                            <span class="font-semibold">Designation:</span>
-                                            <span id="previewEmpPos" class="ml-2 italic"></span>
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div class="flex justify-between items-center w-full mt-auto pt-4 border-t border-gray-300">
-                                    <p class="text-sm text-gray-600">
-                                        Powered By: <span class="font-semibold text-blue-600">www.biztrak.ke</span>
-                                    </p>
-                                    <div class="w-16 h-8">
-                                        <img src="{{ asset('Assets/images/Biztrak-main-logo.png') }}" alt="BizTrak Logo" class="w-full h-full object-contain">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Download Button -->
-                        <div class="mt-6 flex justify-center">
-                            <button id="downloadPreviewCardBtn"
-                                    class="inline-flex items-center px-6 py-3 bg-blue-600 border border-transparent rounded-md font-semibold text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                                <i class="fas fa-download mr-2"></i>
-                                Download Meal Card
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Loading Overlay -->
 <div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
     <div class="flex items-center justify-center min-h-screen">
         <div class="bg-white rounded-lg p-6 shadow-xl">
             <div class="flex items-center">
                 <i class="fas fa-spinner fa-spin text-blue-600 text-2xl mr-3"></i>
-                <span class="text-gray-700 font-medium">Processing your request...</span>
+                <span class="text-gray-700 font-medium">Generating PDF...</span>
             </div>
         </div>
     </div>
@@ -259,8 +175,8 @@
 @section('scripts')
 <!-- QRCode.js CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<!-- html2canvas CDN -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- jsPDF CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
     // Employee data from backend
@@ -340,7 +256,7 @@
         }
     }
 
-    // Function to download individual meal card
+    // Function to download individual meal card as PDF
     async function downloadMealCard(employeeId) {
         const employee = employees.find(emp => emp.id === employeeId);
         if (!employee) {
@@ -369,40 +285,18 @@
                 throw new Error('Failed to fetch QR data');
             }
 
-            // Update preview modal with dynamic data
-            document.getElementById('previewEmpNo').textContent = data.qr_data.employee_code;
-            document.getElementById('previewEmpName').textContent = data.qr_data.formal_name;
-            document.getElementById('previewEmpPos').textContent = data.qr_data.designation;
-
-            // Generate QR code for preview
-            const previewContainer = document.getElementById('previewQrCode');
-            previewContainer.innerHTML = '';
-            new QRCode(previewContainer, {
-                text: data.qr_data.qr_data,
-                width: 380,
-                height: 380,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H
-            });
-
-            // Set up download button for this specific employee
-            document.getElementById('downloadPreviewCardBtn').onclick = function() {
-                downloadEmployeeCard(employee, data.qr_data);
-            };
-
-            // Show preview modal
-            document.getElementById('mealCardPreviewModal').classList.remove('hidden');
+            // Generate and download PDF
+            await generateAndDownloadPDF(data.qr_data, employee);
 
         } catch (error) {
-            console.error('Error fetching QR data:', error);
-            alert('Failed to load employee data. Please try again.');
+            console.error('Error downloading meal card:', error);
+            alert('Failed to download PDF. Please try again.');
         } finally {
             hideLoading();
         }
     }
 
-    // Function to download all meal cards
+    // Function to download all meal cards as PDFs
     async function downloadAllMealCards() {
         if (employees.length === 0) {
             alert('No employees found to download.');
@@ -435,137 +329,199 @@
                     continue;
                 }
 
-                await generateAndDownloadCard(qrData.qr_data, employee);
+                await generateAndDownloadPDF(qrData.qr_data, employee);
 
                 // Add a small delay between downloads
                 if (i < employees.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
 
-            alert(`Successfully downloaded ${employees.length} meal cards!`);
+            alert(`Successfully downloaded ${employees.length} PDF meal cards!`);
 
         } catch (error) {
             console.error('Error downloading meal cards:', error);
-            alert('An error occurred while downloading the meal cards. Please try again.');
+            alert('An error occurred while downloading the PDFs. Please try again.');
         } finally {
             hideLoading();
         }
     }
 
-    // Helper function to generate and download a single card
-    async function generateAndDownloadCard(qrData, employee) {
+    // Helper function to generate and download a single PDF
+    async function generateAndDownloadPDF(qrData, employee) {
         return new Promise((resolve, reject) => {
             try {
-                // Create a temporary meal card
-                const tempCard = document.createElement('div');
-                tempCard.className = 'meal-card';
-                tempCard.style.width = '600px';
-                tempCard.style.height = '1050px';
-                tempCard.style.background = 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
-
-                tempCard.innerHTML = `
-                    <div style="padding: 3rem; display: flex; flex-direction: column; align-items: center; height: 100%;">
-                        <div style="margin-bottom: 2rem;">
-                            <img src="{{ asset('Assets/images/Reeds_Logo.png') }}"
-                                 alt="Reeds Africa Consult Logo"
-                                 style="height: 6rem; margin: 0 auto; object-fit: contain;">
-                        </div>
-
-                        <h1 style="font-size: 1.875rem; font-weight: bold; letter-spacing: 0.1em; color: #1f2937; margin-top: 2rem; margin-bottom: 3rem; text-align: center;">
-                            OFFICIAL MEAL CARD
-                        </h1>
-
-                        <div style="width: 450px; height: 450px; border: 15px solid #78350f; background: white; padding: 1rem; display: flex; align-items: center; justify-content: center; margin-bottom: 2rem;">
-                            <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center;">
-                                <div id="tempQrCode-${employee.id}"></div>
-                            </div>
-                        </div>
-
-                        <div style="background: #dc2626; color: white; padding: 3rem; width: 100%; border-radius: 0.5rem;">
-                            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                                <p style="font-size: 1.25rem; font-weight: 300;">
-                                    <span style="font-weight: 600;">Employee No:</span>
-                                    <span style="margin-left: 0.5rem; font-style: italic;">${qrData.employee_code}</span>
-                                </p>
-                                <p style="font-size: 1.25rem; font-weight: 300;">
-                                    <span style="font-weight: 600;">Name:</span>
-                                    <span style="margin-left: 0.5rem; font-style: italic;">${qrData.formal_name}</span>
-                                </p>
-                                <p style="font-size: 1.25rem; font-weight: 300;">
-                                    <span style="font-weight: 600;">Designation:</span>
-                                    <span style="margin-left: 0.5rem; font-style: italic;">${qrData.designation}</span>
-                                </p>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: auto; padding-top: 1rem; border-top: 1px solid #d1d5db;">
-                            <p style="font-size: 0.75rem; color: #6b7280;">
-                                Powered By: <span style="font-weight: 600; color: #2563eb;">www.biztrak.ke</span>
-                            </p>
-                            <div style="width: 4rem; height: 2rem; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; border-radius: 0.25rem;">
-                                BizTrak
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                document.body.appendChild(tempCard);
-
-                // Generate QR code
-                const qrContainer = document.getElementById(`tempQrCode-${employee.id}`);
-                new QRCode(qrContainer, {
-                    text: qrData.qr_data,
-                    width: 380,
-                    height: 380,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
                 });
 
-                // Wait for QR code to render
-                setTimeout(() => {
-                    html2canvas(tempCard, {
-                        scale: 2,
-                        useCORS: true,
-                        allowTaint: false,
-                        backgroundColor: null
-                    }).then(canvas => {
-                        const link = document.createElement('a');
-                        link.download = `MealCard_${qrData.formal_name.replace(/\s+/g, '_')}.png`;
-                        link.href = canvas.toDataURL('image/png');
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        document.body.removeChild(tempCard);
+                // Page dimensions
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+
+                // Add background gradient
+                doc.setFillColor(254, 243, 199); // amber-50
+                doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+                // Add Reeds Africa Logo (centered at top)
+                const addReedsLogo = () => {
+                    return new Promise((resolveLogo) => {
+                        const img = new Image();
+                        img.crossOrigin = 'Anonymous';
+                        img.src = 'https://reeds.biztrak.ke/images/Logo-reeds-africa.png';
+
+                        img.onload = function() {
+                            const logoWidth = 50;
+                            const logoHeight = (img.height * logoWidth) / img.width;
+                            const logoX = (pageWidth - logoWidth) / 2;
+                            const logoY = 20;
+
+                            doc.addImage(img, 'PNG', logoX, logoY, logoWidth, logoHeight);
+                            resolveLogo();
+                        };
+
+                        img.onerror = function() {
+                            // If logo fails to load, just continue
+                            console.warn('Reeds logo failed to load');
+                            resolveLogo();
+                        };
+                    });
+                };
+
+                // Add title
+                const addTitle = () => {
+                    doc.setFontSize(24);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(31, 41, 55); // gray-900
+                    doc.text('OFFICIAL MEAL CARD', pageWidth / 2, 100, { align: 'center' });
+                };
+
+                // Add QR Code
+                const addQRCode = () => {
+                    return new Promise((resolveQR) => {
+                        // Create a temporary container for QR code
+                        const tempDiv = document.createElement('div');
+                        tempDiv.style.width = '150px';
+                        tempDiv.style.height = '150px';
+                        document.body.appendChild(tempDiv);
+
+                        // Generate QR code
+                        new QRCode(tempDiv, {
+                            text: qrData.qr_data,
+                            width: 150,
+                            height: 150,
+                            colorDark: "#000000",
+                            colorLight: "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+
+                        // Wait for QR code to render
+                        setTimeout(() => {
+                            const canvas = tempDiv.querySelector('canvas');
+                            if (canvas) {
+                                const qrDataURL = canvas.toDataURL('image/png');
+                                const qrSize = 80;
+                                const qrX = (pageWidth - qrSize) / 2;
+                                const qrY = 120;
+
+                                doc.addImage(qrDataURL, 'PNG', qrX, qrY, qrSize, qrSize);
+                            }
+
+                            document.body.removeChild(tempDiv);
+                            resolveQR();
+                        }, 100);
+                    });
+                };
+
+                // Add employee information box
+                const addEmployeeInfo = () => {
+                    const boxWidth = pageWidth - 40;
+                    const boxHeight = 50;
+                    const boxX = 20;
+                    const boxY = 220;
+
+                    // Red background
+                    doc.setFillColor(220, 38, 38); // red-600
+                    doc.roundedRect(boxX, boxY, boxWidth, boxHeight, 3, 3, 'F');
+
+                    // White text
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(14);
+                    doc.setFont('helvetica', 'normal');
+
+                    const lineHeight = 7;
+                    let currentY = boxY + 15;
+
+                    doc.text(`Employee No: ${qrData.employee_code}`, boxX + 10, currentY);
+                    currentY += lineHeight;
+                    doc.text(`Name: ${qrData.formal_name}`, boxX + 10, currentY);
+                    currentY += lineHeight;
+                    doc.text(`Designation: ${qrData.designation}`, boxX + 10, currentY);
+                };
+
+                // Add footer with BizTrak logo
+                const addFooter = () => {
+                    return new Promise((resolveFooter) => {
+                        const img = new Image();
+                        img.crossOrigin = 'Anonymous';
+                        img.src = 'https://reeds.biztrak.ke/images/Biztrak-main-logo.png';
+
+                        img.onload = function() {
+                            const logoWidth = 30;
+                            const logoHeight = (img.height * logoWidth) / img.width;
+                            const logoX = pageWidth - logoWidth - 20;
+                            const logoY = pageHeight - logoHeight - 20;
+
+                            doc.addImage(img, 'PNG', logoX, logoY, logoWidth, logoHeight);
+
+                            // Powered by text
+                            doc.setTextColor(107, 114, 128); // gray-500
+                            doc.setFontSize(10);
+                            doc.setFont('helvetica', 'normal');
+                            doc.text('Powered By: www.biztrak.ke', 20, logoY + (logoHeight / 2));
+
+                            resolveFooter();
+                        };
+
+                        img.onerror = function() {
+                            // If logo fails to load, just add text
+                            doc.setTextColor(107, 114, 128);
+                            doc.setFontSize(10);
+                            doc.setFont('helvetica', 'normal');
+                            doc.text('Powered By: www.biztrak.ke', 20, pageHeight - 15);
+                            resolveFooter();
+                        };
+                    });
+                };
+
+                // Execute all steps in sequence
+                addReedsLogo()
+                    .then(() => {
+                        addTitle();
+                        return addQRCode();
+                    })
+                    .then(() => {
+                        addEmployeeInfo();
+                        return addFooter();
+                    })
+                    .then(() => {
+                        // Save the PDF
+                        const fileName = `MealCard_${qrData.formal_name.replace(/\s+/g, '_')}.pdf`;
+                        doc.save(fileName);
                         resolve();
-                    }).catch(reject);
-                }, 500);
+                    })
+                    .catch(error => {
+                        console.error('Error generating PDF:', error);
+                        reject(error);
+                    });
 
             } catch (error) {
                 reject(error);
             }
         });
-    }
-
-    // Function to download a specific employee's card
-    async function downloadEmployeeCard(employee, qrData) {
-        showLoading();
-
-        try {
-            await generateAndDownloadCard(qrData, employee);
-            closeMealCardPreview();
-        } catch (error) {
-            console.error('Error downloading meal card:', error);
-            alert('An error occurred while downloading the meal card. Please try again.');
-        } finally {
-            hideLoading();
-        }
-    }
-
-    // Function to close the meal card preview
-    function closeMealCardPreview() {
-        document.getElementById('mealCardPreviewModal').classList.add('hidden');
     }
 
     // Function to print all QR codes
@@ -578,39 +534,16 @@
             alert('Print functionality would generate a PDF with all QR codes. This feature can be implemented with a PDF generation library.');
         }, 1000);
     }
-
-    // Close modal when clicking outside
-    document.addEventListener('click', function(event) {
-        const modal = document.getElementById('mealCardPreviewModal');
-        if (event.target === modal) {
-            closeMealCardPreview();
-        }
-    });
-
-    // Close modal with Escape key
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            closeMealCardPreview();
-        }
-    });
 </script>
 
 <style>
-    .meal-card {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-
     .qrcode-container img {
         border-radius: 8px;
     }
 
-    /* Smooth transitions for modal */
-    #mealCardPreviewModal {
+    /* Smooth transitions */
+    #loadingOverlay {
         transition: opacity 0.3s ease-in-out;
-    }
-
-    #mealCardPreviewModal:not(.hidden) {
-        display: block !important;
     }
 </style>
 @endsection
