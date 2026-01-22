@@ -30,7 +30,7 @@ class EmployeeController extends Controller
     }
 
     /**
-     * Get QR code data for employee
+     * Get QR code data for employee - UPDATED
      */
     public function getQrData(Employee $employee)
     {
@@ -39,7 +39,8 @@ class EmployeeController extends Controller
 
             return response()->json([
                 'success' => true,
-                'qr_data' => $qrData
+                'qr_data' => $qrData,
+                'message' => 'QR code uses minimal format for faster scanning'
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -149,7 +150,9 @@ class EmployeeController extends Controller
                 $employee->generateQrCode();
             });
 
-            return response()->json(['success' => 'Employee created successfully! QR code generated.']);
+            return response()->json([
+                'success' => 'Employee created successfully! Minimal QR code generated.'
+            ]);
         } catch (\Exception $e) {
             \Log::error('Employee creation failed: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to create employee: ' . $e->getMessage()], 500);
@@ -206,19 +209,53 @@ class EmployeeController extends Controller
     }
 
     /**
-     * Generate QR code for employee
+     * Generate QR code for employee - UPDATED
      */
     public function generateQrCode(Employee $employee)
     {
         try {
             $qrCode = $employee->generateQrCode();
+
             return response()->json([
                 'success' => 'QR code generated successfully!',
-                'qr_code' => $qrCode
+                'qr_code' => $qrCode,
+                'message' => 'Minimal QR code created using employee code: ' . $employee->employee_code
             ]);
         } catch (\Exception $e) {
             \Log::error('QR code generation failed: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to generate QR code!'], 500);
+        }
+    }
+
+    /**
+     * Bulk regenerate QR codes - NEW METHOD
+     */
+    public function bulkRegenerateQrCodes(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ids' => 'required|array',
+            'ids.*' => 'exists:employees,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            $count = 0;
+            $employees = Employee::whereIn('id', $request->ids)->get();
+
+            foreach ($employees as $employee) {
+                $employee->generateQrCode();
+                $count++;
+            }
+
+            return response()->json([
+                'success' => "{$count} QR codes regenerated successfully with minimal format!"
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Bulk QR regeneration failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to regenerate QR codes!'], 500);
         }
     }
 
@@ -280,8 +317,6 @@ class EmployeeController extends Controller
      */
     public function create()
     {
-        // This method is typically not used in API-based applications
-        // as we're using modal forms. But we can return the necessary data
         $departments = Department::active()->get();
         $subDepartments = SubDepartment::active()->get();
 
@@ -296,7 +331,6 @@ class EmployeeController extends Controller
      */
     public function edit(Employee $employee)
     {
-        // Load the employee with relationships
         $employee->load(['department', 'subDepartment']);
 
         $departments = Department::active()->get();

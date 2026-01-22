@@ -2,12 +2,23 @@
 
 @section('content')
 <div class="max-w-7xl mx-auto">
-    <!-- Welcome Header with Status -->
+    <!-- Welcome Header with Quick Scan -->
     <div class="mb-8">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div>
-                <h1 class="text-3xl font-bold text-text-black">Vendor Dashboard</h1>
-                <p class="text-gray-600 mt-2">Welcome back, {{ Auth::user()->name }}!</p>
+            <div class="flex items-center space-x-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-text-black">Vendor Dashboard</h1>
+                    <p class="text-gray-600 mt-2">Welcome back, {{ Auth::user()->name }}!</p>
+                </div>
+
+                @if(Auth::user()->profile && Auth::user()->profile->isVerified())
+                <!-- Quick Scan Button - Always Visible when Verified -->
+                <a href="{{ route('vendor.scan') }}"
+                   class="flex items-center space-x-2 px-6 py-3 bg-primary-red text-white rounded-lg hover:bg-red-700 transition duration-150 shadow-md">
+                    <i class="fas fa-camera text-white"></i>
+                    <span class="font-semibold">Scan QR</span>
+                </a>
+                @endif
             </div>
 
             @if(Auth::user()->profile && Auth::user()->profile->isVerified())
@@ -79,14 +90,20 @@
         </div>
     </div>
 
-    <!-- Quick Actions -->
+    <!-- Quick Actions - Reordered with Scan First -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         <!-- Main Action Card -->
         <div class="lg:col-span-2 bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <h2 class="text-xl font-bold text-text-black mb-4">Quick Actions</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 @if(Auth::user()->profile && Auth::user()->profile->isVerified())
-                <a href="{{ route('vendor.scan') }}" class="p-6 border-2 border-secondary-blue rounded-lg hover:bg-secondary-blue hover:bg-opacity-5 transition duration-150 group">
+                <!-- Primary Scan Action - More Prominent -->
+                <a href="{{ route('vendor.scan') }}"
+                   class="p-6 border-2 border-secondary-blue bg-secondary-blue bg-opacity-5 rounded-lg hover:bg-secondary-blue hover:bg-opacity-10 transition duration-150 group relative">
+                    <!-- Highlight Badge -->
+                    <div class="absolute -top-2 -right-2 bg-primary-red text-white text-xs px-2 py-1 rounded-full">
+                        Quick Scan
+                    </div>
                     <div class="flex items-center space-x-4">
                         <div class="w-12 h-12 bg-secondary-blue rounded-lg flex items-center justify-center group-hover:bg-secondary-blue">
                             <i class="fas fa-camera text-white text-lg"></i>
@@ -150,7 +167,13 @@
 
             <!-- Recent Scans Section -->
             <div class="mt-6">
-                <h3 class="text-lg font-semibold text-text-black mb-4">Today's Scans</h3>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-text-black">Today's Scans</h3>
+                    <button onclick="refreshStats()" class="text-sm text-secondary-blue hover:text-primary-red flex items-center space-x-1">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Refresh</span>
+                    </button>
+                </div>
                 <div id="recentScansContainer">
                     <div class="text-center py-8 text-gray-500">
                         <i class="fas fa-history text-3xl mb-2"></i>
@@ -189,13 +212,13 @@
                 </div>
             </div>
 
-            <!-- Help Section -->
+            <!-- Quick Scan Help Section -->
             <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <div class="flex items-start space-x-3">
-                    <i class="fas fa-info-circle text-secondary-blue mt-1"></i>
+                    <i class="fas fa-camera text-secondary-blue mt-1"></i>
                     <div>
-                        <p class="text-sm font-medium text-text-black">Need Help?</p>
-                        <p class="text-xs text-gray-600 mt-1">Contact admin for any assistance with QR scanning.</p>
+                        <p class="text-sm font-medium text-text-black">Quick Scan Tip</p>
+                        <p class="text-xs text-gray-600 mt-1">Use the "Scan QR" button above for immediate scanning access.</p>
                     </div>
                 </div>
             </div>
@@ -257,7 +280,7 @@
 
                 if (data.success && data.transactions.length > 0) {
                     container.innerHTML = data.transactions.map(transaction => `
-                        <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg mb-2">
+                        <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg mb-2 hover:bg-gray-50 transition duration-150">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                                     <i class="fas fa-utensils text-green-600"></i>
@@ -310,7 +333,7 @@
                     content.innerHTML = `
                         <div class="space-y-3">
                             ${data.transactions.map(transaction => `
-                                <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                                <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition duration-150">
                                     <div class="flex items-center space-x-3">
                                         <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                                             <i class="fas fa-utensils text-green-600"></i>

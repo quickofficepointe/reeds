@@ -17,6 +17,7 @@ Route::get('/', function () {
 // Authentication Routes
 Auth::routes();
 Auth::routes(['verify' => true]);
+
 // Profile Routes (accessible without complete profile)
 Route::middleware(['auth'])->prefix('profile')->group(function () {
     Route::get('/', [ProfileController::class, 'show'])->name('profile.show');
@@ -28,10 +29,10 @@ Route::middleware(['auth'])->prefix('profile')->group(function () {
 Route::get('/home', [HomeController::class, 'index'])->name('home');
 
 // Admin Routes (protected by profile complete middleware)
-// Admin Routes (protected by profile complete middleware)
 Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
     Route::get('/verifications', [ProfileController::class, 'pendingVerifications'])->name('verifications');
+    Route::get('employees/{employee}/qr-data', [EmployeeController::class, 'getQrData'])->name('employees.qr-data');
 
     // Department Routes
     Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
@@ -48,19 +49,20 @@ Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])->prefix('ad
     Route::post('employees/{employee}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('employees.toggle-status');
     Route::get('employees/by-department/{department}', [EmployeeController::class, 'byDepartment'])->name('employees.by-department');
     Route::get('employees/by-sub-department/{subDepartment}', [EmployeeController::class, 'bySubDepartment'])->name('employees.by-sub-department');
-  // Employee Import/Export Routes
+
+    // Employee Import/Export Routes
     Route::get('employees/import', [EmployeeController::class, 'import'])->name('employees.import');
     Route::post('employees/import', [EmployeeController::class, 'processImport'])->name('employees.process-import');
     Route::get('employees/export', [EmployeeController::class, 'export'])->name('employees.export');
     Route::get('employees/qr-codes', [EmployeeController::class, 'qrCodes'])->name('employees.qr-codes');
-// Analytics Routes
-Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
-Route::get('/analytics/data', [AdminController::class, 'getAnalyticsData'])->name('analytics.data');
-Route::get('/vendor/{vendor}/details', [AdminController::class, 'getVendorDetails'])->name('vendor.details');
-Route::get('employees/{employee}/qr-data', [EmployeeController::class, 'getQrData'])->name('employees.qr-data');
+
+    // Analytics Routes
+    Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
+    Route::get('/analytics/data', [AdminController::class, 'getAnalyticsData'])->name('analytics.data');
+    Route::get('/vendor/{vendor}/details', [AdminController::class, 'getVendorDetails'])->name('vendor.details');
     Route::post('/verify/{profile}', [ProfileController::class, 'verify'])->name('verify-vendor');
 });
-// Vendor Routes (protected by profile complete and verification middleware)
+
 // Vendor Routes
 Route::middleware(['auth', 'verified', 'vendor', 'profile.complete'])->prefix('vendor')->name('vendor.')->group(function () {
     Route::get('/dashboard', [VendorController::class, 'index'])->name('dashboard');
@@ -69,3 +71,5 @@ Route::middleware(['auth', 'verified', 'vendor', 'profile.complete'])->prefix('v
     Route::get('/scan-history', [VendorController::class, 'getScanHistory'])->name('scan-history');
     Route::get('/dashboard-stats', [VendorController::class, 'getDashboardStats'])->name('dashboard-stats');
 });
+  Route::post('/bulk-regenerate-qr', [EmployeeController::class, 'bulkRegenerateQrCodes']);
+    

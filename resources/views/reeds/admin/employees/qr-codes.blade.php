@@ -15,11 +15,11 @@
                     <i class="fas fa-arrow-left mr-2"></i>
                     Back to Employees
                 </a>
-                <button onclick="downloadAllMealCards()"
-                        class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                    <i class="fas fa-download mr-2"></i>
-                    Download All PDFs
-                </button>
+               <button onclick="downloadAllMealCards()"
+        class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
+    <i class="fas fa-download mr-2"></i>
+    Download All PDFs
+</button>
                 <button onclick="printQRCodes()"
                         class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700 focus:bg-red-700 active:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition ease-in-out duration-150">
                     <i class="fas fa-print mr-2"></i>
@@ -160,12 +160,18 @@
 </div>
 
 <!-- Loading Overlay -->
+<!-- Loading Overlay -->
+<!-- Loading Overlay -->
 <div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
     <div class="flex items-center justify-center min-h-screen">
         <div class="bg-white rounded-lg p-6 shadow-xl">
             <div class="flex items-center">
                 <i class="fas fa-spinner fa-spin text-blue-600 text-2xl mr-3"></i>
-                <span class="text-gray-700 font-medium">Generating PDF...</span>
+                <span class="text-gray-700 font-medium">Preparing download...</span>
+            </div>
+            <div class="mt-2 text-sm text-gray-600 text-center">
+                <div>Generating PDF files...</div>
+                <div id="progressText" class="mt-1">Starting...</div>
             </div>
         </div>
     </div>
@@ -177,7 +183,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- jsPDF CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- JSZip Utils for AJAX -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip-utils/0.1.0/jszip-utils.min.js"></script>
 <script>
     // Employee data from backend
     const employees = {!! json_encode($employees->items()) !!};
@@ -202,59 +210,67 @@
     });
 
     // Function to generate QR code for a specific employee
-    async function generateEmployeeQRCode(employeeId) {
-        const qrContainer = document.getElementById(`qrcode-${employeeId}`);
-        if (!qrContainer) return;
+  // Function to generate QR code for a specific employee - UPDATED FOR MINIMAL QR
+async function generateEmployeeQRCode(employeeId) {
+    const qrContainer = document.getElementById(`qrcode-${employeeId}`);
+    if (!qrContainer) return;
 
-        try {
-            // Show loading state
-            qrContainer.innerHTML = `
-                <div class="text-center">
-                    <i class="fas fa-spinner fa-spin text-gray-400 text-2xl mb-2"></i>
-                    <p class="text-xs text-gray-500">Loading QR...</p>
-                </div>
-            `;
+    try {
+        // Show loading state
+        qrContainer.innerHTML = `
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin text-gray-400 text-2xl mb-2"></i>
+                <p class="text-xs text-gray-500">Loading QR...</p>
+            </div>
+        `;
 
-            // Fetch QR data from backend
-            const response = await fetch(`${baseUrl}/admin/employees/${employeeId}/qr-data`, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': csrfToken
-                }
+        // Fetch QR data from backend
+        const response = await fetch(`${baseUrl}/admin/employees/${employeeId}/qr-data`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.success && data.qr_data) {
+            // Clear container
+            qrContainer.innerHTML = '';
+
+            // Generate QR code with minimal data (just employee code)
+            new QRCode(qrContainer, {
+                text: data.qr_data.qr_data, // This is now just the employee code
+                width: 120,
+                height: 120,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            // Add a small info text about minimal QR
+            const infoText = document.createElement('p');
+            infoText.className = 'text-xs text-gray-500 mt-2 text-center';
+            infoText.textContent = 'Minimal QR - Fast Scan';
+            qrContainer.appendChild(infoText);
 
-            const data = await response.json();
-
-            if (data.success && data.qr_data) {
-                // Clear container
-                qrContainer.innerHTML = '';
-
-                // Generate QR code with dynamic data
-                new QRCode(qrContainer, {
-                    text: data.qr_data.qr_data,
-                    width: 120,
-                    height: 120,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-            } else {
-                throw new Error(data.error || 'Failed to load QR data');
-            }
-        } catch (error) {
-            console.error('Error generating QR code for employee', employeeId, ':', error);
-            qrContainer.innerHTML = `
-                <div class="text-center text-red-500">
-                    <i class="fas fa-exclamation-triangle text-lg mb-1"></i>
-                    <p class="text-xs">Failed to load</p>
-                </div>
-            `;
+        } else {
+            throw new Error(data.error || 'Failed to load QR data');
         }
+    } catch (error) {
+        console.error('Error generating QR code for employee', employeeId, ':', error);
+        qrContainer.innerHTML = `
+            <div class="text-center text-red-500">
+                <i class="fas fa-exclamation-triangle text-lg mb-1"></i>
+                <p class="text-xs">Failed to load</p>
+            </div>
+        `;
     }
+}
 
     // Function to download individual meal card as PDF
     async function downloadMealCard(employeeId) {
@@ -296,19 +312,24 @@
         }
     }
 
-    // Function to download all meal cards as PDFs
-    async function downloadAllMealCards() {
-        if (employees.length === 0) {
-            alert('No employees found to download.');
-            return;
-        }
+// Function to download all meal cards as a ZIP file
+async function downloadAllMealCards() {
+    if (employees.length === 0) {
+        alert('No employees found to download.');
+        return;
+    }
 
-        showLoading();
+    showLoading();
 
-        try {
-            for (let i = 0; i < employees.length; i++) {
-                const employee = employees[i];
+    try {
+        const zip = new JSZip();
+        let downloadCount = 0;
+        let failedCount = 0;
 
+        for (let i = 0; i < employees.length; i++) {
+            const employee = employees[i];
+
+            try {
                 // Fetch fresh QR data from backend
                 const response = await fetch(`${baseUrl}/admin/employees/${employee.id}/qr-data`, {
                     headers: {
@@ -319,34 +340,497 @@
 
                 if (!response.ok) {
                     console.error(`Failed to fetch QR data for employee ${employee.id}`);
+                    failedCount++;
                     continue;
                 }
 
-                const qrData = await response.json();
+                const data = await response.json();
 
-                if (!qrData.success) {
-                    console.error(`Failed to fetch QR data for employee ${employee.id}`);
+                if (!data.success || !data.qr_data) {
+                    console.error(`Failed to fetch QR data for employee ${employee.id}`, data);
+                    failedCount++;
                     continue;
                 }
 
-                await generateAndDownloadPDF(qrData.qr_data, employee);
+                // Generate PDF as blob
+                const pdfBlob = await generatePDFBlob(data.qr_data, employee);
 
-                // Add a small delay between downloads
-                if (i < employees.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                if (pdfBlob) {
+                    // Sanitize filename - use employee data as fallback
+                    let fileName;
+                    if (data.qr_data.formal_name) {
+                        fileName = `MealCard_${data.qr_data.formal_name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+                    } else if (employee.formal_name) {
+                        fileName = `MealCard_${employee.formal_name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+                    } else {
+                        fileName = `MealCard_Employee_${employee.id}.pdf`;
+                    }
+
+                    zip.file(fileName, pdfBlob);
+                    downloadCount++;
+                } else {
+                    failedCount++;
                 }
+
+            } catch (error) {
+                console.error(`Error processing employee ${employee.id}:`, error);
+                failedCount++;
             }
 
-            alert(`Successfully downloaded ${employees.length} PDF meal cards!`);
+            // Update loading message
+            updateLoadingMessage(`Generating PDFs... (${i + 1}/${employees.length})`);
+
+            // Add a small delay between requests to avoid overwhelming the server
+            if (i < employees.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        }
+
+        if (downloadCount === 0) {
+            hideLoading();
+            alert('Failed to generate any PDFs. Please try again.');
+            return;
+        }
+
+        // Generate and download ZIP file
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const zipUrl = URL.createObjectURL(zipBlob);
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = zipUrl;
+        downloadLink.download = `Employee_Meal_Cards_${new Date().toISOString().split('T')[0]}.zip`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+
+        // Clean up URL object
+        setTimeout(() => URL.revokeObjectURL(zipUrl), 100);
+
+        hideLoading();
+
+        let successMessage = `Successfully downloaded ${downloadCount} PDF meal cards as ZIP file!`;
+        if (failedCount > 0) {
+            successMessage += ` (${failedCount} failed)`;
+        }
+        alert(successMessage);
+
+    } catch (error) {
+        console.error('Error downloading meal cards:', error);
+        hideLoading();
+        alert('An error occurred while generating the ZIP file. Please try again.');
+    }
+}
+
+// Helper function to generate PDF as blob instead of downloading
+async function generatePDFBlob(qrData, employee) {
+    return new Promise((resolve, reject) => {
+        try {
+            const { jsPDF } = window.jspdf;
+
+            // Set Custom Card Dimensions (600pt x 1050pt)
+            const CUSTOM_WIDTH = 600;
+            const CUSTOM_HEIGHT = 1050;
+
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'pt',
+                format: [CUSTOM_WIDTH, CUSTOM_HEIGHT]
+            });
+
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            // SCALED CONTENT SIZES & POSITIONS
+            const PADDING = 40;
+
+            // Logo
+            const logoWidth = 120;
+            const logoHeight = 120;
+            const logoX = (pageWidth / 2) - (logoWidth / 2);
+            const logoY = 50;
+
+            // Title
+            const titleY = logoY + logoHeight + 50;
+
+            // QR Code
+            const qrSize = 350;
+            const qrX = (pageWidth / 2) - (qrSize / 2);
+            const qrY = titleY + 60;
+
+            // Employee Info Box
+            const boxWidth = pageWidth;
+            const boxHeight = 280;
+            const boxX = 0;
+            const boxY = qrY + qrSize + 30;
+
+            // Footer
+            const footerY = pageHeight - 50;
+
+            // Add background fill
+            doc.setFillColor(254, 243, 199);
+            doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+            // Add Reeds Logo
+            const addReedsLogo = () => {
+                return new Promise((resolveLogo) => {
+                    doc.addImage(REEDS_LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+                    resolveLogo();
+                });
+            };
+
+            // Add title
+            const addTitle = () => {
+                doc.setTextColor(234, 88, 12);
+                doc.setFontSize(38);
+                doc.setFont('helvetica', 'bold');
+
+                const text = "OFFICIAL MEAL CARD";
+                doc.text(text, pageWidth / 2, titleY, { align: 'center' });
+            };
+
+            // Add QR Code with Brown Border
+            const addQRCode = () => {
+                return new Promise((resolveQR) => {
+                    const tempDiv = document.createElement('div');
+                    const tempQrSize = 350;
+                    tempDiv.style.width = `${tempQrSize}px`;
+                    tempDiv.style.height = `${tempQrSize}px`;
+                    document.body.appendChild(tempDiv);
+
+                    new QRCode(tempDiv, {
+                        text: qrData.qr_data,
+                        width: tempQrSize,
+                        height: tempQrSize,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+
+                    setTimeout(() => {
+                        const canvas = tempDiv.querySelector('canvas');
+                        if (canvas) {
+                            const qrDataURL = canvas.toDataURL('image/png');
+
+                            // Add brown border
+                            const borderThickness = 2;
+                            doc.setDrawColor(92, 49, 10);
+                            doc.setLineWidth(borderThickness);
+                            doc.rect(
+                                qrX - borderThickness,
+                                qrY - borderThickness,
+                                qrSize + borderThickness * 2,
+                                qrSize + borderThickness * 2,
+                                'D'
+                            );
+
+                            doc.addImage(qrDataURL, 'PNG', qrX, qrY, qrSize, qrSize);
+                        }
+
+                        document.body.removeChild(tempDiv);
+                        resolveQR();
+                    }, 100);
+                });
+            };
+
+            // Add employee information box
+            const addEmployeeInfo = () => {
+                doc.setFillColor(220, 38, 38);
+                doc.roundedRect(boxX, boxY, boxWidth, boxHeight, 0, 0, 'F');
+
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(30);
+                doc.setFont('helvetica', 'normal');
+
+                const lineHeight = 50;
+                const textX = boxX + PADDING;
+                let currentY = boxY + 50;
+
+                // Use employee data with fallbacks
+                const employeeCode = qrData.employee_code || employee.employee_code || 'N/A';
+                const formalName = qrData.formal_name || employee.formal_name || 'N/A';
+                const designation = qrData.designation || employee.designation || 'N/A';
+                const department = qrData.department || (employee.department ? employee.department.name : 'N/A');
+
+                doc.text(`Employee No: ${employeeCode}`, textX, currentY);
+                currentY += lineHeight;
+                doc.text(`Name: ${formalName}`, textX, currentY);
+                currentY += lineHeight;
+                doc.text(`Designation: ${designation}`, textX, currentY);
+                currentY += lineHeight;
+                doc.text(`Department: ${department}`, textX, currentY);
+            };
+
+            // Add footer with BizTrak logo
+            const addFooter = () => {
+                return new Promise((resolveFooter) => {
+                    const img = new Image();
+                    img.src = BIZTRAK_LOGO_BASE64;
+
+                    img.onload = function() {
+                        const logoWidth = 80;
+                        const logoHeight = (img.height * logoWidth) / img.width;
+                        const logoX = pageWidth - logoWidth - PADDING;
+                        const logoY = pageHeight - logoHeight - 40;
+
+                        doc.addImage(BIZTRAK_LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+
+                        doc.setTextColor(107, 114, 128);
+                        doc.setFontSize(18);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text('Powered By: www.biztrak.ke', PADDING, logoY + (logoHeight / 2));
+
+                        resolveFooter();
+                    };
+
+                    img.onerror = function() {
+                        doc.setTextColor(107, 114, 128);
+                        doc.setFontSize(18);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text('Powered By: www.biztrak.ke', PADDING, footerY);
+                        resolveFooter();
+                    };
+                });
+            };
+
+            // Execute all steps
+            addReedsLogo()
+                .then(() => {
+                    addTitle();
+                    return addQRCode();
+                })
+                .then(() => {
+                    addEmployeeInfo();
+                    return addFooter();
+                })
+                .then(() => {
+                    // Get PDF as blob instead of saving
+                    const pdfBlob = doc.output('blob');
+                    resolve(pdfBlob);
+                })
+                .catch(error => {
+                    console.error('Error generating PDF:', error);
+                    reject(error);
+                });
 
         } catch (error) {
-            console.error('Error downloading meal cards:', error);
-            alert('An error occurred while downloading the PDFs. Please try again.');
-        } finally {
-            hideLoading();
+            reject(error);
         }
-    }
+    });
+}
 
+// Helper function to update loading message
+// Helper function to update loading message
+function updateLoadingMessage(message) {
+    const loadingText = document.querySelector('#loadingOverlay span');
+    const progressText = document.querySelector('#progressText');
+
+    if (loadingText) {
+        loadingText.textContent = 'Preparing download...';
+    }
+    if (progressText) {
+        progressText.textContent = message;
+    }
+}
+
+
+// Helper function to generate PDF as blob instead of downloading
+async function generatePDFBlob(qrData, employee) {
+    return new Promise((resolve, reject) => {
+        try {
+            const { jsPDF } = window.jspdf;
+
+            // Set Custom Card Dimensions (600pt x 1050pt)
+            const CUSTOM_WIDTH = 600;
+            const CUSTOM_HEIGHT = 1050;
+
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'pt',
+                format: [CUSTOM_WIDTH, CUSTOM_HEIGHT]
+            });
+
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            // SCALED CONTENT SIZES & POSITIONS
+            const PADDING = 40;
+
+            // Logo
+            const logoWidth = 120;
+            const logoHeight = 120;
+            const logoX = (pageWidth / 2) - (logoWidth / 2);
+            const logoY = 50;
+
+            // Title
+            const titleY = logoY + logoHeight + 50;
+
+            // QR Code
+            const qrSize = 350;
+            const qrX = (pageWidth / 2) - (qrSize / 2);
+            const qrY = titleY + 60;
+
+            // Employee Info Box
+            const boxWidth = pageWidth;
+            const boxHeight = 280;
+            const boxX = 0;
+            const boxY = qrY + qrSize + 30;
+
+            // Footer
+            const footerY = pageHeight - 50;
+
+            // Add background fill
+            doc.setFillColor(254, 243, 199);
+            doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+            // Add Reeds Logo
+            const addReedsLogo = () => {
+                return new Promise((resolveLogo) => {
+                    doc.addImage(REEDS_LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+                    resolveLogo();
+                });
+            };
+
+            // Add title
+            const addTitle = () => {
+                doc.setTextColor(234, 88, 12);
+                doc.setFontSize(38);
+                doc.setFont('helvetica', 'bold');
+
+                const text = "OFFICIAL MEAL CARD";
+                doc.text(text, pageWidth / 2, titleY, { align: 'center' });
+            };
+
+            // Add QR Code with Brown Border
+            const addQRCode = () => {
+                return new Promise((resolveQR) => {
+                    const tempDiv = document.createElement('div');
+                    const tempQrSize = 350;
+                    tempDiv.style.width = `${tempQrSize}px`;
+                    tempDiv.style.height = `${tempQrSize}px`;
+                    document.body.appendChild(tempDiv);
+
+                    new QRCode(tempDiv, {
+                        text: qrData.qr_data,
+                        width: tempQrSize,
+                        height: tempQrSize,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+
+                    setTimeout(() => {
+                        const canvas = tempDiv.querySelector('canvas');
+                        if (canvas) {
+                            const qrDataURL = canvas.toDataURL('image/png');
+
+                            // Add brown border
+                            const borderThickness = 2;
+                            doc.setDrawColor(92, 49, 10);
+                            doc.setLineWidth(borderThickness);
+                            doc.rect(
+                                qrX - borderThickness,
+                                qrY - borderThickness,
+                                qrSize + borderThickness * 2,
+                                qrSize + borderThickness * 2,
+                                'D'
+                            );
+
+                            doc.addImage(qrDataURL, 'PNG', qrX, qrY, qrSize, qrSize);
+                        }
+
+                        document.body.removeChild(tempDiv);
+                        resolveQR();
+                    }, 100);
+                });
+            };
+
+            // Add employee information box
+            const addEmployeeInfo = () => {
+                doc.setFillColor(220, 38, 38);
+                doc.roundedRect(boxX, boxY, boxWidth, boxHeight, 0, 0, 'F');
+
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(30);
+                doc.setFont('helvetica', 'normal');
+
+                const lineHeight = 50;
+                const textX = boxX + PADDING;
+                let currentY = boxY + 50;
+
+                doc.text(`Employee No: ${qrData.employee_code}`, textX, currentY);
+                currentY += lineHeight;
+                doc.text(`Name: ${qrData.formal_name}`, textX, currentY);
+                currentY += lineHeight;
+                doc.text(`Designation: ${qrData.designation}`, textX, currentY);
+                currentY += lineHeight;
+                doc.text(`Department: ${qrData.department}`, textX, currentY);
+            };
+
+            // Add footer with BizTrak logo
+            const addFooter = () => {
+                return new Promise((resolveFooter) => {
+                    const img = new Image();
+                    img.src = BIZTRAK_LOGO_BASE64;
+
+                    img.onload = function() {
+                        const logoWidth = 80;
+                        const logoHeight = (img.height * logoWidth) / img.width;
+                        const logoX = pageWidth - logoWidth - PADDING;
+                        const logoY = pageHeight - logoHeight - 40;
+
+                        doc.addImage(BIZTRAK_LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+
+                        doc.setTextColor(107, 114, 128);
+                        doc.setFontSize(18);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text('Powered By: www.biztrak.ke', PADDING, logoY + (logoHeight / 2));
+
+                        resolveFooter();
+                    };
+
+                    img.onerror = function() {
+                        doc.setTextColor(107, 114, 128);
+                        doc.setFontSize(18);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text('Powered By: www.biztrak.ke', PADDING, footerY);
+                        resolveFooter();
+                    };
+                });
+            };
+
+            // Execute all steps
+            addReedsLogo()
+                .then(() => {
+                    addTitle();
+                    return addQRCode();
+                })
+                .then(() => {
+                    addEmployeeInfo();
+                    return addFooter();
+                })
+                .then(() => {
+                    // Get PDF as blob instead of saving
+                    const pdfBlob = doc.output('blob');
+                    resolve(pdfBlob);
+                })
+                .catch(error => {
+                    console.error('Error generating PDF:', error);
+                    reject(error);
+                });
+
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+// Helper function to update loading message
+function updateLoadingMessage(message) {
+    const loadingText = document.querySelector('#loadingOverlay span');
+    if (loadingText) {
+        loadingText.textContent = message;
+    }
+}
     // Helper function to generate and download a single PDF
 
     async function generateAndDownloadPDF(qrData, employee) {
@@ -355,9 +839,9 @@
                 const { jsPDF } = window.jspdf;
 
                 // ---  Set Custom Card Dimensions (600pt x 1050pt) ---
-                const CUSTOM_WIDTH = 600; 
-                const CUSTOM_HEIGHT = 1050; 
-                
+                const CUSTOM_WIDTH = 600;
+                const CUSTOM_HEIGHT = 1050;
+
                 const doc = new jsPDF({
                     orientation: 'portrait',
                     unit: 'pt',
@@ -366,16 +850,16 @@
 
                 const pageWidth = doc.internal.pageSize.getWidth();  // 600 pt
                 const pageHeight = doc.internal.pageSize.getHeight(); // 1050 pt
-                
+
                 // --- SCALED CONTENT SIZES & POSITIONS (Adjusted for 600x1050) ---
                 const PADDING = 40;
-                
+
                 // Logo
                 const logoWidth = 120;
                 const logoHeight = 120;
                 const logoX = (pageWidth / 2) - (logoWidth / 2); // Center logo
                 const logoY = 50; // Moved up slightly
-                
+
                 // Title (MOVED UP)
                 const titleY = logoY + logoHeight + 50; // Closer to the logo
 
@@ -383,30 +867,30 @@
                 const qrSize = 350;
                 const qrX = (pageWidth / 2) - (qrSize / 2); // Center QR
                 const qrY = titleY + 60; // Start below the title (moved up)
-                
+
                 // Employee Info Box (FULL WIDTH)
                 const boxWidth = pageWidth; // Full width
-                const boxHeight = 280; 
+                const boxHeight = 280;
                 const boxX = 0; // Starts at 0
                 const boxY = qrY + qrSize + 30; // Start below the QR code
 
                 // Footer (MOVED DOWN TO CREATE SPACE)
-                const footerY = pageHeight - 50; 
+                const footerY = pageHeight - 50;
                 // -----------------------------------------------------------------
 
                 // Add background fill for the entire card
                 doc.setFillColor(254, 243, 199); // amber-50
-                doc.rect(0, 0, pageWidth, pageHeight, 'F'); 
+                doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
                 // Add Reeds Africa Logo
                 const addReedsLogo = () => {
                     return new Promise((resolveLogo) => {
-                        // The logoWidth, logoHeight, logoX, and logoY variables 
+                        // The logoWidth, logoHeight, logoX, and logoY variables
                         // from the outer scope are used here.
-                        
+
                         // 🛑 Direct addImage call using the Base64 constant
                         doc.addImage(REEDS_LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight);
-                        
+
                         resolveLogo();
                     });
                 };
@@ -414,9 +898,9 @@
                 // Add title
                 const addTitle = () => {
                     doc.setTextColor(234, 88, 12); // orange-600
-                    doc.setFontSize(38); 
+                    doc.setFontSize(38);
                     doc.setFont('helvetica', 'bold');
-                    
+
                     const text = "OFFICIAL MEAL CARD";
                     doc.text(text, pageWidth / 2, titleY, { align: 'center' });
                 };
@@ -426,7 +910,7 @@
                     return new Promise((resolveQR) => {
                         // Create a temporary container for QR code
                         const tempDiv = document.createElement('div');
-                        const tempQrSize = 350; 
+                        const tempQrSize = 350;
                         tempDiv.style.width = `${tempQrSize}px`;
                         tempDiv.style.height = `${tempQrSize}px`;
                         document.body.appendChild(tempDiv);
@@ -446,16 +930,16 @@
                             const canvas = tempDiv.querySelector('canvas');
                             if (canvas) {
                                 const qrDataURL = canvas.toDataURL('image/png');
-                                
+
                                 // 🛑 ADD BROWN BORDER
                                 const borderThickness = 2; // 2 pt border
                                 doc.setDrawColor(92, 49, 10); // Dark Brown (or a suitable brown RGB)
                                 doc.setLineWidth(borderThickness);
                                 doc.rect(
-                                    qrX - borderThickness, 
-                                    qrY - borderThickness, 
-                                    qrSize + borderThickness * 2, 
-                                    qrSize + borderThickness * 2, 
+                                    qrX - borderThickness,
+                                    qrY - borderThickness,
+                                    qrSize + borderThickness * 2,
+                                    qrSize + borderThickness * 2,
                                     'D' // Draw mode
                                 );
 
@@ -478,12 +962,12 @@
 
                     // White text
                     doc.setTextColor(255, 255, 255);
-                    doc.setFontSize(30); 
+                    doc.setFontSize(30);
                     doc.setFont('helvetica', 'normal');
 
-                    const lineHeight = 50; 
+                    const lineHeight = 50;
                     const textX = boxX + PADDING; // Text aligned 40pt from the left edge (padding)
-                    let currentY = boxY + 50; 
+                    let currentY = boxY + 50;
 
                     doc.text(`Employee No: ${qrData.employee_code}`, textX, currentY);
                     currentY += lineHeight;
@@ -497,26 +981,26 @@
                 // Add footer with BizTrak logo
                 const addFooter = () => {
                     return new Promise((resolveFooter) => {
-                        //  We can still use a temporary Image object to calculate dimensions, 
+                        //  We can still use a temporary Image object to calculate dimensions,
                         // but we use the Base64 string for the PDF itself.
                         const img = new Image();
-                        img.src = BIZTRAK_LOGO_BASE64; 
+                        img.src = BIZTRAK_LOGO_BASE64;
 
-                        // Calculation must still happen inside onload, 
+                        // Calculation must still happen inside onload,
                         // as the browser needs to read the Base64 image to get its dimensions.
                         img.onload = function() {
-                            const logoWidth = 80; 
+                            const logoWidth = 80;
                             const logoHeight = (img.height * logoWidth) / img.width;
-                            const logoX = pageWidth - logoWidth - PADDING; 
-                            const logoY = pageHeight - logoHeight - 40; 
+                            const logoX = pageWidth - logoWidth - PADDING;
+                            const logoY = pageHeight - logoHeight - 40;
                             const bottomGap = 2; // The desired gap from the bottom edge
-                            
+
                             //  Direct addImage call using the Base64 constant
                             doc.addImage(BIZTRAK_LOGO_BASE64, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
                             // Powered by text (left aligned)
                             doc.setTextColor(107, 114, 128); // gray-500
-                            doc.setFontSize(18); 
+                            doc.setFontSize(18);
                             doc.setFont('helvetica', 'normal');
                             doc.text('Powered By: www.biztrak.ke', PADDING, logoY + (logoHeight / 2));
 

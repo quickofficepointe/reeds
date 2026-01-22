@@ -335,27 +335,31 @@
         document.getElementById('progressText').textContent = text;
     }
 
-    function showResults(type, message, data = {}) {
-        const resultsDiv = document.getElementById('importResults');
-        resultsDiv.classList.remove('hidden');
+   function showResults(type, message, data = {}) {
+    const resultsDiv = document.getElementById('importResults');
+    resultsDiv.classList.remove('hidden');
 
-        let html = '';
+    let html = '';
 
-        if (type === 'success') {
-            html = `
-                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div class="flex items-center space-x-3">
-                        <i class="fas fa-check-circle text-green-500 text-xl"></i>
-                        <div>
-                            <h4 class="font-semibold text-green-800">Import Successful!</h4>
-                            <p class="text-green-700">${message}</p>
-                            ${data.imported_count ? `<p class="text-sm text-green-600 mt-1">Imported: ${data.imported_count} employees</p>` : ''}
-                            ${data.skipped_count ? `<p class="text-sm text-green-600">Skipped: ${data.skipped_count} records</p>` : ''}
-                        </div>
+    if (type === 'success') {
+        html = `
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-check-circle text-green-500 text-xl"></i>
+                    <div>
+                        <h4 class="font-semibold text-green-800">Import Successful!</h4>
+                        <p class="text-green-700">${message}</p>
+                        ${data.imported_count ? `<p class="text-sm text-green-600 mt-1">Imported: ${data.imported_count} employees</p>` : ''}
+                        ${data.skipped_count ? `<p class="text-sm text-green-600">Skipped: ${data.skipped_count} records</p>` : ''}
+                        <!-- Add this line about minimal QR codes -->
+                        <p class="text-sm text-green-600 mt-2">
+                            <i class="fas fa-info-circle"></i> Minimal QR codes automatically generated for faster scanning
+                        </p>
                     </div>
                 </div>
-            `;
-        } else {
+            </div>
+        `;
+    } else {
             html = `
                 <div class="bg-red-50 border border-red-200 rounded-lg p-4">
                     <div class="flex items-center space-x-3">

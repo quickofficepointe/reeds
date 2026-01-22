@@ -36,13 +36,46 @@ class MealTransaction extends Model
         return $this->belongsTo(Employee::class);
     }
 
+    /**
+     * Generate unique transaction code
+     */
+    public static function generateTransactionCode(): string
+    {
+        do {
+            $code = 'TXN' . date('Ymd') . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        } while (static::where('transaction_code', $code)->exists());
+
+        return $code;
+    }
+
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($transaction) {
-            $transaction->transaction_code = 'ML' . date('Ymd') . strtoupper(uniqid());
-            $transaction->meal_time = now()->format('H:i:s');
+            if (empty($transaction->transaction_code)) {
+                $transaction->transaction_code = static::generateTransactionCode();
+            }
+
+            if (empty($transaction->meal_time)) {
+                $transaction->meal_time = now()->format('H:i:s');
+            }
         });
+    }
+
+    /**
+     * Scope for today's transactions
+     */
+    public function scopeToday($query)
+    {
+        return $query->whereDate('meal_date', today());
+    }
+
+    /**
+     * Scope for vendor's transactions
+     */
+    public function scopeByVendor($query, $vendorId)
+    {
+        return $query->where('vendor_id', $vendorId);
     }
 }

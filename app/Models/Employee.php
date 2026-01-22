@@ -37,6 +37,7 @@ class Employee extends Model
         'designation',
         'category',
         'qr_code',
+        'qr_code_display', // Added
         'is_active',
     ];
 
@@ -48,6 +49,8 @@ class Employee extends Model
         'on_contract' => 'boolean',
         'is_active' => 'boolean',
     ];
+
+    protected $appends = ['full_name', 'formal_name'];
 
     /**
      * Get the department that owns the employee.
@@ -112,42 +115,54 @@ class Employee extends Model
     }
 
     /**
-     * Generate QR code for employee
+     * Generate QR code for employee - MINIMAL VERSION
      */
-  // In Employee.php model - update generateQrCode method
-// In Employee.php - make sure this method exists
-public function generateQrCode(): array
-{
-    $now = now()->format('F j, Y \\a\\t g:i A');
+    public function generateQrCode(): array
+    {
+        // Create minimal encoded version for scanning
+        $encodedData = $this->employee_code; // Just use employee code directly
 
-    // Create the display text (what shows in QR code)
-    $displayText = "REEDS AFRICA CONSULT - OFFICIAL MEAL CARD\n" .
-                  "===============================\n" .
-                  "Employee No: {$this->employee_code}\n" .
-                  "Name: {$this->formal_name}\n" .
-                  "Department: " . ($this->department->name ?? 'N/A') . "\n" .
-                  ($this->subDepartment ? "Sub-Department: {$this->subDepartment->name}\n" : "") .
-                  "Designation: " . ($this->designation ?? 'N/A') . "\n" .
-                  "Employment: " . ($this->employment_type ?? 'N/A') . "\n" .
-                  "Status: " . ($this->is_active ? 'ACTIVE' : 'INACTIVE') . "\n" .
-                  "Generated: {$now}\n" .
-                  "===============================\n" .
-                  "Powered by: BizTrak Solutions";
+        // Simple display text for visual reference only
+        $displayText = "{$this->employee_code} - {$this->formal_name}";
 
-    // Create encoded version for database lookup
-    $encodedQr = base64_encode($this->employee_code . '|' . hash_hmac('sha256', $this->employee_code, env('QR_SECRET', 'default-secret')));
+        // Store both versions
+        $this->update([
+            'qr_code' => $encodedData,
+            'qr_code_display' => $displayText
+        ]);
 
-    // Store both versions
-    $this->update([
-        'qr_code' => $encodedQr,
-        'qr_code_display' => $displayText
-    ]);
+        return [
+            'display_text' => $displayText,
+            'encoded' => $encodedData
+        ];
+    }
 
-    return [
-        'display_text' => $displayText,
-        'encoded' => $encodedQr
-    ];
-}
+    /**
+     * Generate QR code data for employee - MINIMAL VERSION
+     */
+    public function generateQrCodeData(): array
+    {
+        return [
+            'employee_id' => $this->id,
+            'employee_code' => $this->employee_code,
+            'formal_name' => $this->formal_name,
+            'department' => $this->department->name ?? 'N/A',
+            'sub_department' => $this->subDepartment->name ?? 'N/A',
+            'designation' => $this->designation ?? 'N/A',
+            'employment_type' => $this->employment_type ?? 'N/A',
+            'qr_data' => $this->employee_code, // Minimal: just the employee code
+            'display_text' => $this->qr_code_display ?? "{$this->employee_code} - {$this->formal_name}"
+        ];
+    }
+
+    /**
+     * Validate QR code - SIMPLIFIED
+     */
+    public function validateQrCode($scannedQrCode): bool
+    {
+        // For minimal approach - just compare employee codes
+        return $this->employee_code === $scannedQrCode;
+    }
 
     /**
      * Scope active employees
@@ -343,18 +358,15 @@ public function generateQrCode(): array
     }
 
     /**
-     * Validate QR code
+     * Generate unique employee code
      */
-    public function validateQrCode($scannedQrCode): bool
+    public static function generateEmployeeCode(): string
     {
-        if ($this->qr_code !== $scannedQrCode) {
-            return false;
-        }
+        do {
+            $code = 'EMP' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT);
+        } while (static::where('employee_code', $code)->exists());
 
-        // Additional validation: Check if QR code hasn't expired (optional)
-        // You could add expiration logic here if needed
-
-        return true;
+        return $code;
     }
 
     /**
@@ -371,54 +383,32 @@ public function generateQrCode(): array
             }
         });
 
-        // Remove the auto-generation since we'll use existing employee codes from Excel
-        // static::creating(function ($employee) {
-        //     if (empty($employee->employee_code)) {
-        //         $employee->employee_code = static::generateEmployeeCode();
-        //     }
-        // });
+        // Auto-generate employee code if not provided
+        static::creating(function ($employee) {
+            if (empty($employee->employee_code)) {
+                $employee->employee_code = static::generateEmployeeCode();
+            }
+        });
     }
 
     /**
-     * Generate unique employee code
+     * Search scope for employees
      */
-    public static function generateEmployeeCode(): string
+    public function scopeSearch($query, $searchTerm)
     {
-        do {
-            $code = 'EMP' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT);
-        } while (static::where('employee_code', $code)->exists());
-
-        return $code;
+        return $query->where(function($q) use ($searchTerm) {
+            $q->where('employee_code', 'LIKE', "%{$searchTerm}%")
+              ->orWhere('first_name', 'LIKE', "%{$searchTerm}%")
+              ->orWhere('last_name', 'LIKE', "%{$searchTerm}%")
+              ->orWhere('payroll_no', 'LIKE', "%{$searchTerm}%")
+              ->orWhere('icard_number', 'LIKE', "%{$searchTerm}%")
+              ->orWhere('designation', 'LIKE', "%{$searchTerm}%")
+              ->orWhereHas('department', function($departmentQuery) use ($searchTerm) {
+                  $departmentQuery->where('name', 'LIKE', "%{$searchTerm}%");
+              })
+              ->orWhereHas('subDepartment', function($subDeptQuery) use ($searchTerm) {
+                  $subDeptQuery->where('name', 'LIKE', "%{$searchTerm}%");
+              });
+        });
     }
-
-/**
- * Generate QR code data for employee
- */
-public function generateQrCodeData(): array
-{
-    $now = now()->format('F j, Y \\a\\t g:i A');
-
-    return [
-        'employee_id' => $this->id,
-        'employee_code' => $this->employee_code,
-        'formal_name' => $this->formal_name,
-        'department' => $this->department->name ?? 'N/A',
-        'sub_department' => $this->subDepartment->name ?? 'N/A',
-        'designation' => $this->designation ?? 'N/A',
-        'employment_type' => $this->employment_type ?? 'N/A',
-        'qr_data' => "REEDS AFRICA CONSULT - OFFICIAL MEAL CARD\n" .
-                    "===============================\n" .
-                    "Employee No: {$this->employee_code}\n" .
-                    "Name: {$this->formal_name}\n" .
-                    "Department: " . ($this->department->name ?? 'N/A') . "\n" .
-                    ($this->subDepartment ? "Sub-Department: {$this->subDepartment->name}\n" : "") .
-                    "Designation: " . ($this->designation ?? 'N/A') . "\n" .
-                    "Employment: " . ($this->employment_type ?? 'N/A') . "\n" .
-                    "Status: " . ($this->is_active ? 'ACTIVE' : 'INACTIVE') . "\n" .
-                    "Generated: {$now}\n" .
-                    "===============================\n" .
-                    "Powered by: BizTrak Solutions"
-    ];
-}
-
 }

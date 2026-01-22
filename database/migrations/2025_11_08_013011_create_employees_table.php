@@ -35,6 +35,7 @@ return new class extends Migration
             $table->string('designation')->nullable();
             $table->string('category')->nullable();
             $table->string('qr_code')->unique()->nullable();
+              $table->text('qr_code_display')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
