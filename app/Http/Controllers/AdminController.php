@@ -17,57 +17,64 @@ class AdminController extends Controller
     /**
      * Display admin dashboard
      */
-    public function index()
-    {
-        $today = now()->format('Y-m-d');
-        $weekStart = now()->startOfWeek()->format('Y-m-d');
-        $monthStart = now()->startOfMonth()->format('Y-m-d');
+   // In AdminController.php - update the index method
 
-        // Get dashboard statistics
-        $stats = [
-            'total_employees' => Employee::count(),
-            'active_employees' => Employee::where('is_active', true)->count(),
-            'total_vendors' => User::where('role', 2)->count(),
-            'verified_vendors' => Profile::whereHas('user', function($q) {
-                $q->where('role', 2);
-            })->where('is_verified', true)->count(),
-            'pending_verifications' => Profile::whereHas('user', function($q) {
-                $q->where('role', 2);
-            })->where('is_verified', false)->count(),
-            'today_scans' => MealTransaction::whereDate('meal_date', $today)->count(),
-            'week_scans' => MealTransaction::whereDate('meal_date', '>=', $weekStart)->count(),
-            'month_scans' => MealTransaction::whereDate('meal_date', '>=', $monthStart)->count(),
-            'total_revenue_today' => MealTransaction::whereDate('meal_date', $today)->sum('amount'),
-            'total_revenue_week' => MealTransaction::whereDate('meal_date', '>=', $weekStart)->sum('amount'),
-            'total_revenue_month' => MealTransaction::whereDate('meal_date', '>=', $monthStart)->sum('amount'),
-        ];
+public function index()
+{
+    $today = now()->format('Y-m-d');
+    $weekStart = now()->startOfWeek()->format('Y-m-d');
+    $monthStart = now()->startOfMonth()->format('Y-m-d');
 
-        // Get recent meal transactions
-        $recentTransactions = MealTransaction::with(['employee.department', 'vendor'])
-            ->latest()
-            ->take(10)
-            ->get();
+    // Get dashboard statistics
+    $stats = [
+        'total_employees' => Employee::count(),
+        'active_employees' => Employee::where('is_active', true)->count(),
+        'total_vendors' => User::where('role', 2)->count(),
+        'verified_vendors' => Profile::whereHas('user', function($q) {
+            $q->where('role', 2);
+        })->where('is_verified', true)->count(),
+        'pending_verifications' => Profile::whereHas('user', function($q) {
+            $q->where('role', 2);
+        })->where('is_verified', false)->count(),
+        'today_scans' => MealTransaction::whereDate('meal_date', $today)->count(),
+        'week_scans' => MealTransaction::whereDate('meal_date', '>=', $weekStart)->count(),
+        'month_scans' => MealTransaction::whereDate('meal_date', '>=', $monthStart)->count(),
+        'total_revenue_today' => MealTransaction::whereDate('meal_date', $today)->sum('amount'),
+        'total_revenue_week' => MealTransaction::whereDate('meal_date', '>=', $weekStart)->sum('amount'),
+        'total_revenue_month' => MealTransaction::whereDate('meal_date', '>=', $monthStart)->sum('amount'),
+    ];
 
-        // Get top vendors
-        $topVendors = User::where('role', 2)
-            ->withCount(['mealTransactions as total_scans' => function($query) use ($monthStart) {
-                $query->where('meal_date', '>=', $monthStart);
-            }])
-            ->withSum(['mealTransactions as total_revenue' => function($query) use ($monthStart) {
-                $query->where('meal_date', '>=', $monthStart);
-            }], 'amount')
-            ->orderBy('total_scans', 'desc')
-            ->take(5)
-            ->get();
+    // Get recent meal transactions with safe eager loading
+    $recentTransactions = MealTransaction::with([
+            'employee.department',
+            'vendor'
+        ])
+        ->whereHas('employee') // Only include transactions with employees
+        ->whereHas('vendor')   // Only include transactions with vendors
+        ->latest()
+        ->take(10)
+        ->get();
 
-        // Get department-wise employee count
-        $departmentStats = Department::withCount(['employees as total_employees'])
-            ->having('total_employees', '>', 0)
-            ->orderBy('total_employees', 'desc')
-            ->get();
+    // Get top vendors
+    $topVendors = User::where('role', 2)
+        ->withCount(['mealTransactions as total_scans' => function($query) use ($monthStart) {
+            $query->where('meal_date', '>=', $monthStart);
+        }])
+        ->withSum(['mealTransactions as total_revenue' => function($query) use ($monthStart) {
+            $query->where('meal_date', '>=', $monthStart);
+        }], 'amount')
+        ->orderBy('total_scans', 'desc')
+        ->take(5)
+        ->get();
 
-        return view('reeds.admin.index', compact('stats', 'recentTransactions', 'topVendors', 'departmentStats'));
-    }
+    // Get department-wise employee count
+    $departmentStats = Department::withCount(['employees as total_employees'])
+        ->having('total_employees', '>', 0)
+        ->orderBy('total_employees', 'desc')
+        ->get();
+
+    return view('reeds.admin.index', compact('stats', 'recentTransactions', 'topVendors', 'departmentStats'));
+}
 
     /**
      * Get analytics data for charts
@@ -182,10 +189,77 @@ class AdminController extends Controller
     /**
      * Show analytics page
      */
-    public function analytics()
-    {
-        return view('reeds.admin.analytics');
-    }
+  public function analytics()
+{
+    $today = now()->format('Y-m-d');
+    $weekStart = now()->startOfWeek()->format('Y-m-d');
+    $monthStart = now()->startOfMonth()->format('Y-m-d');
+
+    // Get analytics statistics
+    $stats = [
+        'total_employees' => Employee::count(),
+        'active_employees' => Employee::where('is_active', true)->count(),
+        'total_vendors' => User::where('role', 2)->count(),
+        'verified_vendors' => Profile::whereHas('user', function($q) {
+            $q->where('role', 2);
+        })->where('is_verified', true)->count(),
+        'today_scans' => MealTransaction::whereDate('meal_date', $today)->count(),
+        'week_scans' => MealTransaction::whereDate('meal_date', '>=', $weekStart)->count(),
+        'month_scans' => MealTransaction::whereDate('meal_date', '>=', $monthStart)->count(),
+        'total_revenue_today' => MealTransaction::whereDate('meal_date', $today)->sum('amount'),
+        'total_revenue_week' => MealTransaction::whereDate('meal_date', '>=', $weekStart)->sum('amount'),
+        'total_revenue_month' => MealTransaction::whereDate('meal_date', '>=', $monthStart)->sum('amount'),
+        'avg_daily_scans_week' => MealTransaction::whereDate('meal_date', '>=', $weekStart)
+            ->groupBy('meal_date')
+            ->select(DB::raw('COUNT(*) as daily_count'))
+            ->get()
+            ->avg('daily_count') ?? 0,
+        'avg_daily_scans_month' => MealTransaction::whereDate('meal_date', '>=', $monthStart)
+            ->groupBy('meal_date')
+            ->select(DB::raw('COUNT(*) as daily_count'))
+            ->get()
+            ->avg('daily_count') ?? 0,
+    ];
+
+    // Get top vendors for the current month
+    $topVendors = User::where('role', 2)
+        ->withCount(['mealTransactions as total_scans' => function($query) use ($monthStart) {
+            $query->where('meal_date', '>=', $monthStart);
+        }])
+        ->withSum(['mealTransactions as total_revenue' => function($query) use ($monthStart) {
+            $query->where('meal_date', '>=', $monthStart);
+        }], 'amount')
+        ->orderBy('total_scans', 'desc')
+        ->take(5)
+        ->get();
+
+    // Get department statistics
+    $departmentStats = Department::withCount(['employees as total_employees'])
+        ->withCount(['employees as active_employees' => function($query) {
+            $query->where('is_active', true);
+        }])
+        ->having('total_employees', '>', 0)
+        ->orderBy('total_employees', 'desc')
+        ->get();
+
+    // Get recent transactions for the table
+    $recentTransactions = MealTransaction::with([
+            'employee.department',
+            'vendor'
+        ])
+        ->whereHas('employee')
+        ->whereHas('vendor')
+        ->latest()
+        ->take(10)
+        ->get();
+
+    return view('reeds.admin.analytics', compact(
+        'stats',
+        'topVendors',
+        'departmentStats',
+        'recentTransactions'
+    ));
+}
 
     /**
      * Get vendor details

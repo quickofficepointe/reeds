@@ -114,7 +114,7 @@ class EmployeeController extends Controller
         $employees = Employee::with(['department', 'subDepartment'])
             ->whereNotNull('qr_code')
             ->latest()
-            ->paginate(20);
+            ->paginate(500);
 
         return view('reeds.admin.employees.qr-codes', compact('employees'));
     }

@@ -149,8 +149,13 @@
                                 <i class="fas fa-utensils text-green-600"></i>
                             </div>
                             <div>
-                                <p class="font-semibold text-text-black text-sm">{{ $transaction->employee->formal_name }}</p>
-                                <p class="text-xs text-gray-500">{{ $transaction->employee->department->name }} • {{ $transaction->vendor->name }}</p>
+                                <p class="font-semibold text-text-black text-sm">
+                                    {{ $transaction->employee->formal_name ?? 'Unknown Employee' }}
+                                </p>
+                                <p class="text-xs text-gray-500">
+                                    {{ $transaction->employee->department->name ?? 'No Department' }} •
+                                    {{ $transaction->vendor->name ?? 'Unknown Vendor' }}
+                                </p>
                             </div>
                         </div>
                         <div class="text-right">

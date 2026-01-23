@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EmployeeOnboardingController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
@@ -72,4 +73,18 @@ Route::middleware(['auth', 'verified', 'vendor', 'profile.complete'])->prefix('v
     Route::get('/dashboard-stats', [VendorController::class, 'getDashboardStats'])->name('dashboard-stats');
 });
   Route::post('/bulk-regenerate-qr', [EmployeeController::class, 'bulkRegenerateQrCodes']);
-    
+
+// Public onboarding route (no auth required initially)
+Route::prefix('employee-onboarding')->group(function () {
+    // Single page form
+    Route::get('/', [EmployeeOnboardingController::class, 'start'])
+        ->name('employee.onboarding.start');
+
+    // Store all data (single submission)
+    Route::post('/store', [EmployeeOnboardingController::class, 'store'])
+        ->name('employee.onboarding.store');
+
+    // Confirmation page
+    Route::get('/confirmation/{token}', [EmployeeOnboardingController::class, 'showConfirmation'])
+        ->name('employee.onboarding.confirmation');
+});

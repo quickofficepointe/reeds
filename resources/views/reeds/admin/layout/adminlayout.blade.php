@@ -6,12 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>QR Feeding System - Admin</title>
 
-    
-    <link rel="icon" href="https://reedsafricaconsult.com/wp-content/uploads/2024/04/cropped-reeds_logo-32x32.png" sizes="32x32">
-    <link rel="icon" href="https://reedsafricaconsult.com/wp-content/uploads/2024/04/cropped-reeds_logo-192x192.png" sizes="192x192">
-    <link rel="apple-touch-icon" href="https://reedsafricaconsult.com/wp-content/uploads/2024/04/cropped-reeds_logo-180x180.png">
-    <meta name="msapplication-TileImage" content="https://reedsafricaconsult.com/wp-content/uploads/2024/04/cropped-reeds_logo-270x270.png">
-
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -19,7 +13,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Configure custom colors -->
-     <meta name="theme-color" content="#e82b2a">
     <script>
         tailwind.config = {
             theme: {

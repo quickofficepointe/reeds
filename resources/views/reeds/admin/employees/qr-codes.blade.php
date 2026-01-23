@@ -210,67 +210,59 @@
     });
 
     // Function to generate QR code for a specific employee
-  // Function to generate QR code for a specific employee - UPDATED FOR MINIMAL QR
-async function generateEmployeeQRCode(employeeId) {
-    const qrContainer = document.getElementById(`qrcode-${employeeId}`);
-    if (!qrContainer) return;
+    async function generateEmployeeQRCode(employeeId) {
+        const qrContainer = document.getElementById(`qrcode-${employeeId}`);
+        if (!qrContainer) return;
 
-    try {
-        // Show loading state
-        qrContainer.innerHTML = `
-            <div class="text-center">
-                <i class="fas fa-spinner fa-spin text-gray-400 text-2xl mb-2"></i>
-                <p class="text-xs text-gray-500">Loading QR...</p>
-            </div>
-        `;
+        try {
+            // Show loading state
+            qrContainer.innerHTML = `
+                <div class="text-center">
+                    <i class="fas fa-spinner fa-spin text-gray-400 text-2xl mb-2"></i>
+                    <p class="text-xs text-gray-500">Loading QR...</p>
+                </div>
+            `;
 
-        // Fetch QR data from backend
-        const response = await fetch(`${baseUrl}/admin/employees/${employeeId}/qr-data`, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': csrfToken
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success && data.qr_data) {
-            // Clear container
-            qrContainer.innerHTML = '';
-
-            // Generate QR code with minimal data (just employee code)
-            new QRCode(qrContainer, {
-                text: data.qr_data.qr_data, // This is now just the employee code
-                width: 120,
-                height: 120,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H
+            // Fetch QR data from backend
+            const response = await fetch(`${baseUrl}/admin/employees/${employeeId}/qr-data`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken
+                }
             });
 
-            // Add a small info text about minimal QR
-            const infoText = document.createElement('p');
-            infoText.className = 'text-xs text-gray-500 mt-2 text-center';
-            infoText.textContent = 'Minimal QR - Fast Scan';
-            qrContainer.appendChild(infoText);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-        } else {
-            throw new Error(data.error || 'Failed to load QR data');
+            const data = await response.json();
+
+            if (data.success && data.qr_data) {
+                // Clear container
+                qrContainer.innerHTML = '';
+
+                // Generate QR code with dynamic data
+                new QRCode(qrContainer, {
+                    text: data.qr_data.qr_data,
+                    width: 120,
+                    height: 120,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            } else {
+                throw new Error(data.error || 'Failed to load QR data');
+            }
+        } catch (error) {
+            console.error('Error generating QR code for employee', employeeId, ':', error);
+            qrContainer.innerHTML = `
+                <div class="text-center text-red-500">
+                    <i class="fas fa-exclamation-triangle text-lg mb-1"></i>
+                    <p class="text-xs">Failed to load</p>
+                </div>
+            `;
         }
-    } catch (error) {
-        console.error('Error generating QR code for employee', employeeId, ':', error);
-        qrContainer.innerHTML = `
-            <div class="text-center text-red-500">
-                <i class="fas fa-exclamation-triangle text-lg mb-1"></i>
-                <p class="text-xs">Failed to load</p>
-            </div>
-        `;
     }
-}
 
     // Function to download individual meal card as PDF
     async function downloadMealCard(employeeId) {
