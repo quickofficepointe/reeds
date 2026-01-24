@@ -106,6 +106,14 @@
                     </a>
                 </li>
 
+                <li>
+                      <a href="{{ route('admin.units.index') }}"
+                       class="flex items-center space-x-3 px-3 py-2 rounded-md {{ request()->routeIs('admin.units.*') ? 'bg-primary-red text-white' : 'text-gray-700 hover:bg-gray-100' }}">
+                        <i class="fas fa-building w-5"></i>
+                        <span>Units</span>
+                    </a>
+
+                </li>
                 <!-- Employee Management -->
                 <li class="mt-4">
                     <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">
@@ -120,13 +128,21 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('admin.sub-departments.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('admin.sub-departments.*') ? 'active' : '' }}">
-                        <i class="fas fa-sitemap mr-3"></i> Sub-Departments
-                        <span class="ml-auto bg-primary-red text-white text-xs rounded-full px-2 py-1">
-                            {{ \App\Models\SubDepartment::count() }}
+                      <a href="{{ route('admin.onboarding.index') }}"
+                       class="flex items-center space-x-3 px-3 py-2 rounded-md {{ request()->routeIs('admin.onboarding.*') ? 'bg-primary-red text-white' : 'text-gray-700 hover:bg-gray-100' }}">
+                        <i class="fas fa-user-plus w-5"></i>
+                        <span>Onboarding</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('admin.departments.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('admin.departments.*') ? 'active' : '' }}">
+                        <i class="fas fa-building mr-3"></i> Departments
+                        <span class="ml-auto bg-secondary-blue text-white text-xs rounded-full px-2 py-1">
+                            {{ \App\Models\Department::count() }}
                         </span>
                     </a>
                 </li>
+                <li>
                 <li>
                     <a href="{{ route('admin.employees.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">
                         <i class="fas fa-users mr-3"></i> Employees

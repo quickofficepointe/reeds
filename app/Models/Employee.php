@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Employee extends Model
 {
@@ -16,11 +17,14 @@ class Employee extends Model
         'payroll_no',
         'department_id',
         'sub_department_id',
+        'unit_id', // Added unit_id
         'employment_type',
         'title',
         'first_name',
         'middle_name',
         'last_name',
+        'email', // Added email
+        'phone', // Added phone
         'date_of_joining',
         'on_probation',
         'on_contract',
@@ -37,7 +41,7 @@ class Employee extends Model
         'designation',
         'category',
         'qr_code',
-        'qr_code_display', // Added
+        'qr_code_display',
         'is_active',
     ];
 
@@ -53,6 +57,14 @@ class Employee extends Model
     protected $appends = ['full_name', 'formal_name'];
 
     /**
+     * Get the unit that owns the employee.
+     */
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    /**
      * Get the department that owns the employee.
      */
     public function department(): BelongsTo
@@ -66,6 +78,14 @@ class Employee extends Model
     public function subDepartment(): BelongsTo
     {
         return $this->belongsTo(SubDepartment::class);
+    }
+
+    /**
+     * Get the documents for the employee.
+     */
+    public function documents(): HasOne
+    {
+        return $this->hasOne(EmployeeDocument::class);
     }
 
     /**
@@ -115,6 +135,26 @@ class Employee extends Model
     }
 
     /**
+     * Check if employee has complete documents
+     */
+    public function getHasCompleteDocumentsAttribute(): bool
+    {
+        if (!$this->documents) {
+            return false;
+        }
+
+        return $this->documents->hasAllRequiredDocuments();
+    }
+
+    /**
+     * Check if employee documents are verified
+     */
+    public function getDocumentsVerifiedAttribute(): bool
+    {
+        return $this->documents && $this->documents->is_verified;
+    }
+
+    /**
      * Generate QR code for employee - MINIMAL VERSION
      */
     public function generateQrCode(): array
@@ -148,6 +188,7 @@ class Employee extends Model
             'formal_name' => $this->formal_name,
             'department' => $this->department->name ?? 'N/A',
             'sub_department' => $this->subDepartment->name ?? 'N/A',
+            'unit' => $this->unit->name ?? 'N/A', // Added unit
             'designation' => $this->designation ?? 'N/A',
             'employment_type' => $this->employment_type ?? 'N/A',
             'qr_data' => $this->employee_code, // Minimal: just the employee code
@@ -173,6 +214,14 @@ class Employee extends Model
     }
 
     /**
+     * Scope by unit
+     */
+    public function scopeByUnit($query, $unitId)
+    {
+        return $query->where('unit_id', $unitId);
+    }
+
+    /**
      * Scope by department
      */
     public function scopeByDepartment($query, $departmentId)
@@ -186,6 +235,30 @@ class Employee extends Model
     public function scopeBySubDepartment($query, $subDepartmentId)
     {
         return $query->where('sub_department_id', $subDepartmentId);
+    }
+
+    /**
+     * Scope employees with complete documents
+     */
+    public function scopeWithCompleteDocuments($query)
+    {
+        return $query->whereHas('documents', function ($q) {
+            $q->whereNotNull('national_id_photo')
+              ->whereNotNull('passport_size_photo')
+              ->whereNotNull('nssf_card_photo')
+              ->whereNotNull('sha_card_photo')
+              ->whereNotNull('kra_certificate_photo');
+        });
+    }
+
+    /**
+     * Scope employees with verified documents
+     */
+    public function scopeWithVerifiedDocuments($query)
+    {
+        return $query->whereHas('documents', function ($q) {
+            $q->where('is_verified', true);
+        });
     }
 
     /**
@@ -275,6 +348,14 @@ class Employee extends Model
             ];
         }
 
+        // Optional: Check if documents are verified
+        if ($this->documents && !$this->documents->is_verified) {
+            return [
+                'can_be_fed' => false,
+                'reason' => 'Employee documents are not verified'
+            ];
+        }
+
         // Check if it's within feeding hours (optional business rule)
         $currentHour = now()->hour;
         if ($currentHour < 6 || $currentHour > 22) {
@@ -306,6 +387,7 @@ class Employee extends Model
                 'employee_name' => $this->formal_name,
                 'employee_code' => $this->employee_code,
                 'department' => $this->department->name ?? 'N/A',
+                'unit' => $this->unit->name ?? 'N/A', // Added unit
                 'designation' => $this->designation,
             ]
         ]);
@@ -328,6 +410,9 @@ class Employee extends Model
             'this_week' => $thisWeekMeals,
             'total_amount' => $this->mealTransactions()->sum('amount'),
             'last_meal' => $this->mealTransactions()->latest()->first()?->meal_date,
+            'has_documents' => $this->documents ? true : false,
+            'documents_verified' => $this->documents_verified,
+            'documents_complete' => $this->has_complete_documents,
         ];
     }
 
@@ -389,6 +474,41 @@ class Employee extends Model
                 $employee->employee_code = static::generateEmployeeCode();
             }
         });
+
+        // Update unit employee count when unit is assigned or changed
+        static::saved(function ($employee) {
+            static::updateUnitEmployeeCount($employee);
+        });
+
+        static::deleted(function ($employee) {
+            // Decrement unit count when employee is deleted
+            if ($employee->unit_id) {
+                Unit::where('id', $employee->unit_id)->decrement('current_employee_count');
+            }
+        });
+    }
+
+    /**
+     * Update unit employee count
+     */
+    private static function updateUnitEmployeeCount($employee)
+    {
+        static::withoutEvents(function () use ($employee) {
+            $originalUnitId = $employee->getOriginal('unit_id');
+            $newUnitId = $employee->unit_id;
+
+            if ($originalUnitId !== $newUnitId) {
+                // Decrement old unit count
+                if ($originalUnitId) {
+                    Unit::where('id', $originalUnitId)->decrement('current_employee_count');
+                }
+
+                // Increment new unit count
+                if ($newUnitId) {
+                    Unit::where('id', $newUnitId)->increment('current_employee_count');
+                }
+            }
+        });
     }
 
     /**
@@ -403,12 +523,54 @@ class Employee extends Model
               ->orWhere('payroll_no', 'LIKE', "%{$searchTerm}%")
               ->orWhere('icard_number', 'LIKE', "%{$searchTerm}%")
               ->orWhere('designation', 'LIKE', "%{$searchTerm}%")
+              ->orWhere('email', 'LIKE', "%{$searchTerm}%") // Added email search
+              ->orWhere('phone', 'LIKE', "%{$searchTerm}%") // Added phone search
               ->orWhereHas('department', function($departmentQuery) use ($searchTerm) {
                   $departmentQuery->where('name', 'LIKE', "%{$searchTerm}%");
               })
               ->orWhereHas('subDepartment', function($subDeptQuery) use ($searchTerm) {
                   $subDeptQuery->where('name', 'LIKE', "%{$searchTerm}%");
+              })
+              ->orWhereHas('unit', function($unitQuery) use ($searchTerm) { // Added unit search
+                  $unitQuery->where('name', 'LIKE', "%{$searchTerm}%");
               });
         });
+    }
+
+    /**
+     * Get employee details with all relationships
+     */
+    public function getEmployeeDetails(): array
+    {
+        return [
+            'id' => $this->id,
+            'employee_code' => $this->employee_code,
+            'full_name' => $this->full_name,
+            'formal_name' => $this->formal_name,
+            'email' => $this->email,
+            'phone' => $this->phone,
+            'designation' => $this->designation,
+            'date_of_joining' => $this->date_of_joining,
+            'department' => $this->department ? $this->department->name : null,
+            'sub_department' => $this->subDepartment ? $this->subDepartment->name : null,
+            'unit' => $this->unit ? $this->unit->name : null,
+            'is_active' => $this->is_active,
+            'qr_code_display' => $this->qr_code_display,
+            'documents' => $this->documents ? [
+                'has_documents' => true,
+                'is_verified' => $this->documents->is_verified,
+                'next_of_kin' => [
+                    'name' => $this->documents->next_of_kin_name,
+                    'relationship' => $this->documents->next_of_kin_relationship,
+                    'phone' => $this->documents->next_of_kin_phone,
+                ],
+                'uploaded_documents' => $this->documents->uploaded_count,
+                'required_documents' => count($this->documents->getDocumentFields()),
+            ] : [
+                'has_documents' => false,
+                'is_verified' => false,
+            ],
+            'meal_stats' => $this->getFeedingStats(),
+        ];
     }
 }

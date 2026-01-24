@@ -9,7 +9,7 @@ use App\Http\Controllers\VendorController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SubDepartmentController;
-use App\Http\Controllers\UnitController;
+use App\Http\Controllers\UnitController; // Add this
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
@@ -34,12 +34,13 @@ Route::get('/home', [HomeController::class, 'index'])->name('home');
 Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
     Route::get('/verifications', [ProfileController::class, 'pendingVerifications'])->name('verifications');
-    Route::get('employees/{employee}/qr-data', [EmployeeController::class, 'getQrData'])->name('employees.qr-data');
-// Employee Onboarding Admin Routes
+
+    // Employee Onboarding Admin Routes
     Route::get('/onboarding', [EmployeeOnboardingController::class, 'adminIndex'])->name('onboarding.index');
     Route::get('/onboarding/{id}', [EmployeeOnboardingController::class, 'adminShow'])->name('onboarding.show');
     Route::post('/onboarding/{id}/status', [EmployeeOnboardingController::class, 'adminUpdateStatus'])->name('onboarding.update-status');
     Route::get('/onboarding/{id}/download/{document}', [EmployeeOnboardingController::class, 'adminDownloadDocument'])->name('onboarding.download');
+
     // Department Routes
     Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::post('departments/{department}/toggle-status', [DepartmentController::class, 'toggleStatus'])->name('departments.toggle-status');
@@ -67,17 +68,15 @@ Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])->prefix('ad
     Route::get('/analytics/data', [AdminController::class, 'getAnalyticsData'])->name('analytics.data');
     Route::get('/vendor/{vendor}/details', [AdminController::class, 'getVendorDetails'])->name('vendor.details');
     Route::post('/verify/{profile}', [ProfileController::class, 'verify'])->name('verify-vendor');
-Route::get('/units', [UnitController::class, 'index'])->name('units.index');
+
+    // Unit Routes - Added inside admin middleware
+    Route::get('/units', [UnitController::class, 'index'])->name('units.index');
     Route::post('/units', [UnitController::class, 'store'])->name('units.store');
     Route::put('/units/{unit}', [UnitController::class, 'update'])->name('units.update');
     Route::delete('/units/{unit}', [UnitController::class, 'destroy'])->name('units.destroy');
     Route::post('/units/{unit}/toggle-status', [UnitController::class, 'toggleStatus'])->name('units.toggle-status');
     Route::get('/units/{unit}/edit-modal', [UnitController::class, 'editModal'])->name('units.edit-modal');
-
-
- Route::get('/onboarding/department/{department_id}', [EmployeeOnboardingController::class, 'getDepartmentApplications'])->name('onboarding.department.applications');
-    Route::get('/onboarding/department/{department_id}/export', [EmployeeOnboardingController::class, 'exportDepartmentApplications'])->name('onboarding.department.export');
-    });
+});
 
 // Vendor Routes
 Route::middleware(['auth', 'verified', 'vendor', 'profile.complete'])->prefix('vendor')->name('vendor.')->group(function () {
@@ -87,7 +86,8 @@ Route::middleware(['auth', 'verified', 'vendor', 'profile.complete'])->prefix('v
     Route::get('/scan-history', [VendorController::class, 'getScanHistory'])->name('scan-history');
     Route::get('/dashboard-stats', [VendorController::class, 'getDashboardStats'])->name('dashboard-stats');
 });
-  Route::post('/bulk-regenerate-qr', [EmployeeController::class, 'bulkRegenerateQrCodes']);
+
+Route::post('/bulk-regenerate-qr', [EmployeeController::class, 'bulkRegenerateQrCodes']);
 
 // Public onboarding route (no auth required initially)
 Route::prefix('employee-onboarding')->group(function () {

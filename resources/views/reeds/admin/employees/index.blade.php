@@ -8,10 +8,20 @@
             <h1 class="text-3xl font-bold text-text-black">Employees</h1>
             <p class="text-gray-600 mt-2">Manage employee information and QR codes</p>
         </div>
-        <button onclick="openCreateModal()" class="mt-4 md:mt-0 bg-primary-red text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#c22120] transition duration-300 shadow-md flex items-center space-x-2">
-            <i class="fas fa-plus"></i>
-            <span>Add Employee</span>
-        </button>
+        <div class="flex space-x-3 mt-4 md:mt-0">
+            <a href="{{ route('admin.employees.import') }}" class="bg-secondary-blue text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#1e7a9e] transition duration-300 shadow-md flex items-center space-x-2">
+                <i class="fas fa-upload"></i>
+                <span>Import</span>
+            </a>
+            <a href="{{ route('admin.employees.export') }}" class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition duration-300 shadow-md flex items-center space-x-2">
+                <i class="fas fa-download"></i>
+                <span>Export</span>
+            </a>
+            <button onclick="openCreateModal()" class="bg-primary-red text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#c22120] transition duration-300 shadow-md flex items-center space-x-2">
+                <i class="fas fa-plus"></i>
+                <span>Add Employee</span>
+            </button>
+        </div>
     </div>
 
     <!-- Stats Cards -->
@@ -55,12 +65,39 @@
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-600">Regular Staff</p>
-                    <p class="text-2xl font-bold text-text-black mt-2">{{ $employees->where('employment_type', 'Regular')->count() }}</p>
+                    <p class="text-sm font-medium text-gray-600">With Phone</p>
+                    <p class="text-2xl font-bold text-text-black mt-2">{{ $employees->where('phone', '!=', null)->count() }}</p>
                 </div>
                 <div class="w-12 h-12 bg-purple-500 bg-opacity-10 rounded-full flex items-center justify-center">
-                    <i class="fas fa-user-tie text-purple-500 text-xl"></i>
+                    <i class="fas fa-phone text-purple-500 text-xl"></i>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-6">
+        <div class="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
+            <div class="flex-1">
+                <input type="text" id="searchInput" placeholder="Search by name, code, phone, email..."
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150">
+            </div>
+            <div class="flex space-x-3">
+                <select id="departmentFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue">
+                    <option value="">All Departments</option>
+                    @foreach($departments as $department)
+                    <option value="{{ $department->id }}">{{ $department->name }}</option>
+                    @endforeach
+                </select>
+                <select id="unitFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue">
+                    <option value="">All Units</option>
+                    @foreach($units as $unit)
+                    <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+                    @endforeach
+                </select>
+                <button onclick="resetFilters()" class="px-4 py-2 text-gray-600 hover:text-gray-900 transition duration-150">
+                    <i class="fas fa-redo"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -72,9 +109,9 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Employee</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Department</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Department/Unit</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Designation</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Employment</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">QR Code</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
@@ -93,9 +130,28 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
+                            @if($employee->email)
+                            <div class="text-sm text-gray-900 flex items-center space-x-1">
+                                <i class="fas fa-envelope text-gray-400 text-xs"></i>
+                                <span>{{ $employee->email }}</span>
+                            </div>
+                            @endif
+                            @if($employee->phone)
+                            <div class="text-sm text-gray-500 flex items-center space-x-1">
+                                <i class="fas fa-phone text-gray-400 text-xs"></i>
+                                <span>{{ $employee->phone }}</span>
+                            </div>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-900">{{ $employee->department->name }}</div>
                             @if($employee->subDepartment)
                             <div class="text-xs text-gray-500">{{ $employee->subDepartment->name }}</div>
+                            @endif
+                            @if($employee->unit)
+                            <div class="text-xs text-blue-600 font-medium mt-1">
+                                <i class="fas fa-building mr-1"></i>{{ $employee->unit->name }}
+                            </div>
                             @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
@@ -103,11 +159,6 @@
                             @if($employee->category)
                             <div class="text-xs text-gray-500">{{ $employee->category }}</div>
                             @endif
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {{ $employee->employment_type }}
-                            </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @if($employee->qr_code)
@@ -127,18 +178,21 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div class="flex items-center space-x-2">
-                                <button onclick="openEditModal({{ $employee }})" class="text-secondary-blue hover:text-[#1e7a9e] transition duration-150">
+                                <button onclick="openEditModal({{ $employee->id }})" class="text-secondary-blue hover:text-[#1e7a9e] transition duration-150" title="Edit">
                                     <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="viewEmployee({{ $employee->id }})" class="text-gray-600 hover:text-gray-900 transition duration-150" title="View Details">
+                                    <i class="fas fa-eye"></i>
                                 </button>
                                 @if(!$employee->qr_code)
                                 <button onclick="generateQrCode({{ $employee->id }})" class="text-green-600 hover:text-green-800 transition duration-150" title="Generate QR Code">
                                     <i class="fas fa-qrcode"></i>
                                 </button>
                                 @endif
-                                <button onclick="toggleStatus({{ $employee->id }})" class="text-{{ $employee->is_active ? 'yellow' : 'green' }}-600 hover:text-{{ $employee->is_active ? 'yellow' : 'green' }}-800 transition duration-150">
+                                <button onclick="toggleStatus({{ $employee->id }})" class="text-{{ $employee->is_active ? 'yellow' : 'green' }}-600 hover:text-{{ $employee->is_active ? 'yellow' : 'green' }}-800 transition duration-150" title="{{ $employee->is_active ? 'Deactivate' : 'Activate' }}">
                                     <i class="fas fa-{{ $employee->is_active ? 'pause' : 'play' }}"></i>
                                 </button>
-                                <button onclick="confirmDelete({{ $employee->id }}, '{{ $employee->formal_name }}')" class="text-primary-red hover:text-[#c22120] transition duration-150">
+                                <button onclick="confirmDelete({{ $employee->id }}, '{{ $employee->formal_name }}')" class="text-primary-red hover:text-[#c22120] transition duration-150" title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -224,6 +278,30 @@
                     </div>
                 </div>
 
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="unit_id" class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                        <select id="unit_id" name="unit_id"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black">
+                            <option value="">Select Unit</option>
+                            @foreach($units as $unit)
+                            <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="employment_type" class="block text-sm font-medium text-gray-700 mb-1">Employment Type *</label>
+                        <select id="employment_type" name="employment_type" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black">
+                            <option value="Regular">Regular</option>
+                            <option value="Contract">Contract</option>
+                            <option value="Temporary">Temporary</option>
+                            <option value="Intern">Intern</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
@@ -264,16 +342,23 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label for="employment_type" class="block text-sm font-medium text-gray-700 mb-1">Employment Type *</label>
-                        <select id="employment_type" name="employment_type" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black">
-                            <option value="Regular">Regular</option>
-                            <option value="Contract">Contract</option>
-                            <option value="Temporary">Temporary</option>
-                            <option value="Intern">Intern</option>
-                        </select>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" id="email" name="email"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black"
+                               placeholder="employee@company.com">
+                        <div id="email_error" class="text-red-500 text-xs mt-1 hidden"></div>
                     </div>
 
+                    <div>
+                        <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                        <input type="text" id="phone" name="phone"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black"
+                               placeholder="254712345678">
+                        <div id="phone_error" class="text-red-500 text-xs mt-1 hidden"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label for="gender" class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
                         <select id="gender" name="gender"
@@ -283,6 +368,14 @@
                             <option value="Female">Female</option>
                             <option value="Other">Other</option>
                         </select>
+                    </div>
+
+                    <div>
+                        <label for="icard_number" class="block text-sm font-medium text-gray-700 mb-1">ICard Number</label>
+                        <input type="text" id="icard_number" name="icard_number"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black"
+                               placeholder="Enter ICard number">
+                        <div id="icard_number_error" class="text-red-500 text-xs mt-1 hidden"></div>
                     </div>
                 </div>
 
@@ -300,14 +393,6 @@
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black"
                                placeholder="e.g., New ham, Omuford">
                     </div>
-                </div>
-
-                <div>
-                    <label for="icard_number" class="block text-sm font-medium text-gray-700 mb-1">ICard Number</label>
-                    <input type="text" id="icard_number" name="icard_number"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black"
-                           placeholder="Enter ICard number">
-                    <div id="icard_number_error" class="text-red-500 text-xs mt-1 hidden"></div>
                 </div>
 
                 <div id="statusField" class="hidden">
@@ -343,27 +428,46 @@
         filterSubDepartments();
     }
 
-    function openEditModal(employee) {
-        document.getElementById('modalTitle').textContent = 'Edit Employee';
-        document.getElementById('employee_id').value = employee.id;
-        document.getElementById('employee_code').value = employee.employee_code;
-        document.getElementById('payroll_no').value = employee.payroll_no || '';
-        document.getElementById('department_id').value = employee.department_id;
-        document.getElementById('sub_department_id').value = employee.sub_department_id || '';
-        document.getElementById('title').value = employee.title || '';
-        document.getElementById('first_name').value = employee.first_name;
-        document.getElementById('middle_name').value = employee.middle_name || '';
-        document.getElementById('last_name').value = employee.last_name;
-        document.getElementById('employment_type').value = employee.employment_type;
-        document.getElementById('gender').value = employee.gender || '';
-        document.getElementById('designation').value = employee.designation || '';
-        document.getElementById('category').value = employee.category || '';
-        document.getElementById('icard_number').value = employee.icard_number || '';
-        document.getElementById('is_active').checked = employee.is_active;
-        document.getElementById('statusField').classList.remove('hidden');
-        document.getElementById('employeeModal').classList.remove('hidden');
-        clearErrors();
-        filterSubDepartments();
+    async function openEditModal(employeeId) {
+        try {
+            const response = await fetch(`/admin/employees/${employeeId}/edit`);
+            const data = await response.json();
+
+            if (data.employee) {
+                const employee = data.employee;
+
+                document.getElementById('modalTitle').textContent = 'Edit Employee';
+                document.getElementById('employee_id').value = employee.id;
+                document.getElementById('employee_code').value = employee.employee_code;
+                document.getElementById('payroll_no').value = employee.payroll_no || '';
+                document.getElementById('department_id').value = employee.department_id;
+                document.getElementById('sub_department_id').value = employee.sub_department_id || '';
+                document.getElementById('unit_id').value = employee.unit_id || '';
+                document.getElementById('title').value = employee.title || '';
+                document.getElementById('first_name').value = employee.first_name;
+                document.getElementById('middle_name').value = employee.middle_name || '';
+                document.getElementById('last_name').value = employee.last_name;
+                document.getElementById('email').value = employee.email || '';
+                document.getElementById('phone').value = employee.phone || '';
+                document.getElementById('employment_type').value = employee.employment_type;
+                document.getElementById('gender').value = employee.gender || '';
+                document.getElementById('designation').value = employee.designation || '';
+                document.getElementById('category').value = employee.category || '';
+                document.getElementById('icard_number').value = employee.icard_number || '';
+                document.getElementById('is_active').checked = employee.is_active;
+                document.getElementById('statusField').classList.remove('hidden');
+                document.getElementById('employeeModal').classList.remove('hidden');
+                clearErrors();
+                filterSubDepartments();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('error', 'Failed to load employee data');
+        }
+    }
+
+    function viewEmployee(employeeId) {
+        window.open(`/admin/employees/${employeeId}`, '_blank');
     }
 
     function closeModal() {
@@ -384,7 +488,7 @@
         const subDepartmentSelect = document.getElementById('sub_department_id');
         const options = subDepartmentSelect.getElementsByTagName('option');
 
-        for (let i = 1; i < options.length; i++) { // Start from 1 to skip "Select Sub-Department"
+        for (let i = 1; i < options.length; i++) {
             const option = options[i];
             const optionDepartment = option.getAttribute('data-department');
 
@@ -399,88 +503,133 @@
         }
     }
 
-    // Add event listener for department change
+    // Add event listeners
     document.getElementById('department_id').addEventListener('change', filterSubDepartments);
 
-    // Handle form submission
-    // Handle form submission - FIXED VERSION
-document.getElementById('employeeForm').addEventListener('submit', function(e) {
-    e.preventDefault();
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('tbody tr');
 
-    const formData = new FormData(this);
-    const employeeId = document.getElementById('employee_id').value;
-    const url = employeeId ? `/admin/employees/${employeeId}` : '/admin/employees';
-    const method = employeeId ? 'PUT' : 'POST';
-
-    // Convert FormData to JSON for better handling
-    const data = {};
-    formData.forEach((value, key) => {
-        // Handle boolean values properly
-        if (key === 'is_active') {
-            data[key] = value === 'on';
-        } else if (value !== '') {
-            data[key] = value;
-        }
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            if (text.includes(searchTerm)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
     });
 
-    // Ensure sub_department_id is null if empty
-    if (!data.sub_department_id) {
-        data.sub_department_id = null;
+    // Filter by department
+    document.getElementById('departmentFilter').addEventListener('change', function(e) {
+        const deptId = e.target.value;
+        filterTable();
+    });
+
+    // Filter by unit
+    document.getElementById('unitFilter').addEventListener('change', function(e) {
+        const unitId = e.target.value;
+        filterTable();
+    });
+
+    function filterTable() {
+        const deptId = document.getElementById('departmentFilter').value;
+        const unitId = document.getElementById('unitFilter').value;
+        const rows = document.querySelectorAll('tbody tr');
+
+        rows.forEach(row => {
+            const rowDeptId = row.getAttribute('data-dept-id');
+            const rowUnitId = row.getAttribute('data-unit-id');
+            let show = true;
+
+            if (deptId && rowDeptId !== deptId) {
+                show = false;
+            }
+            if (unitId && rowUnitId !== unitId) {
+                show = false;
+            }
+
+            row.style.display = show ? '' : 'none';
+        });
     }
 
-    fetch(url, {
-        method: method,
-        headers: {
-            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(err => {
-                throw err;
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            closeModal();
-            showNotification('success', data.success);
-            setTimeout(() => window.location.reload(), 1000);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        if (error.errors) {
-            // Display validation errors
-            displayValidationErrors(error.errors);
-        } else {
-            showNotification('error', error.error || 'An error occurred. Please try again.');
-        }
-    });
-});
+    function resetFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('departmentFilter').value = '';
+        document.getElementById('unitFilter').value = '';
 
-// Function to display validation errors
-function displayValidationErrors(errors) {
-    clearErrors();
+        const rows = document.querySelectorAll('tbody tr');
+        rows.forEach(row => row.style.display = '');
+    }
 
-    Object.keys(errors).forEach(field => {
-        const errorElement = document.getElementById(`${field}_error`);
-        if (errorElement) {
-            errorElement.textContent = errors[field][0];
-            errorElement.classList.remove('hidden');
+    // Handle form submission
+    document.getElementById('employeeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
 
-            // Highlight the problematic field
-            const inputElement = document.getElementById(field);
-            if (inputElement) {
-                inputElement.classList.add('border-red-500');
+        const formData = new FormData(this);
+        const employeeId = document.getElementById('employee_id').value;
+        const url = employeeId ? `/admin/employees/${employeeId}` : '/admin/employees';
+        const method = employeeId ? 'PUT' : 'POST';
+
+        const data = {};
+        formData.forEach((value, key) => {
+            if (key === 'is_active') {
+                data[key] = value === 'on';
+            } else if (value !== '') {
+                data[key] = value;
             }
-        }
+        });
+
+        // Handle empty values
+        if (!data.sub_department_id) data.sub_department_id = null;
+        if (!data.unit_id) data.unit_id = null;
+
+        fetch(url, {
+            method: method,
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeModal();
+                showNotification('success', data.success);
+                setTimeout(() => window.location.reload(), 1000);
+            } else if (data.error) {
+                showNotification('error', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            if (error.errors) {
+                displayValidationErrors(error.errors);
+            } else {
+                showNotification('error', error.error || 'An error occurred. Please try again.');
+            }
+        });
     });
-}
+
+    function displayValidationErrors(errors) {
+        clearErrors();
+
+        Object.keys(errors).forEach(field => {
+            const errorElement = document.getElementById(`${field}_error`);
+            if (errorElement) {
+                errorElement.textContent = errors[field][0];
+                errorElement.classList.remove('hidden');
+
+                const inputElement = document.getElementById(field);
+                if (inputElement) {
+                    inputElement.classList.add('border-red-500');
+                }
+            }
+        });
+    }
 
     function generateQrCode(employeeId) {
         if (confirm('Are you sure you want to generate QR code for this employee?')) {
@@ -558,7 +707,6 @@ function displayValidationErrors(errors) {
     }
 
     function showNotification(type, message) {
-        // Create notification element
         const notification = document.createElement('div');
         notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
             type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
@@ -572,7 +720,6 @@ function displayValidationErrors(errors) {
 
         document.body.appendChild(notification);
 
-        // Remove notification after 3 seconds
         setTimeout(() => {
             notification.remove();
         }, 3000);

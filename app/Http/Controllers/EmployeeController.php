@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\Department;
 use App\Models\SubDepartment;
+use App\Models\Unit;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\EmployeesImport;
 use App\Exports\EmployeesExport;
@@ -19,14 +20,15 @@ class EmployeeController extends Controller
      */
     public function index()
     {
-        $employees = Employee::with(['department', 'subDepartment'])
+        $employees = Employee::with(['department', 'subDepartment', 'unit'])
             ->latest()
             ->paginate(20);
 
         $departments = Department::active()->get();
         $subDepartments = SubDepartment::active()->get();
+        $units = Unit::active()->get(); // Add units
 
-        return view('reeds.admin.employees.index', compact('employees', 'departments', 'subDepartments'));
+        return view('reeds.admin.employees.index', compact('employees', 'departments', 'subDepartments', 'units'));
     }
 
     /**
@@ -111,7 +113,7 @@ class EmployeeController extends Controller
      */
     public function qrCodes()
     {
-        $employees = Employee::with(['department', 'subDepartment'])
+        $employees = Employee::with(['department', 'subDepartment', 'unit'])
             ->whereNotNull('qr_code')
             ->latest()
             ->paginate(500);
@@ -128,12 +130,15 @@ class EmployeeController extends Controller
             'employee_code' => 'required|string|max:50|unique:employees',
             'department_id' => 'required|exists:departments,id',
             'sub_department_id' => 'nullable|exists:sub_departments,id',
+            'unit_id' => 'nullable|exists:units,id', // Added unit validation
             'payroll_no' => 'nullable|string|max:50|unique:employees',
             'employment_type' => 'required|string|max:50',
             'title' => 'nullable|string|max:20',
             'first_name' => 'required|string|max:100',
             'middle_name' => 'nullable|string|max:100',
             'last_name' => 'required|string|max:100',
+            'email' => 'nullable|email|max:100|unique:employees', // Added email validation
+            'phone' => 'nullable|string|max:20', // Added phone validation
             'icard_number' => 'nullable|string|max:50|unique:employees',
             'gender' => 'nullable|in:Male,Female,Other',
             'designation' => 'nullable|string|max:100',
@@ -168,12 +173,15 @@ class EmployeeController extends Controller
             'employee_code' => 'required|string|max:50|unique:employees,employee_code,' . $employee->id,
             'department_id' => 'required|exists:departments,id',
             'sub_department_id' => 'nullable|exists:sub_departments,id',
+            'unit_id' => 'nullable|exists:units,id', // Added unit validation
             'payroll_no' => 'nullable|string|max:50|unique:employees,payroll_no,' . $employee->id,
             'employment_type' => 'required|string|max:50',
             'title' => 'nullable|string|max:20',
             'first_name' => 'required|string|max:100',
             'middle_name' => 'nullable|string|max:100',
             'last_name' => 'required|string|max:100',
+            'email' => 'nullable|email|max:100|unique:employees,email,' . $employee->id, // Added email validation
+            'phone' => 'nullable|string|max:20', // Added phone validation
             'icard_number' => 'nullable|string|max:50|unique:employees,icard_number,' . $employee->id,
             'gender' => 'nullable|in:Male,Female,Other',
             'designation' => 'nullable|string|max:100',
@@ -313,16 +321,36 @@ class EmployeeController extends Controller
     }
 
     /**
+     * Get employees by unit (NEW METHOD)
+     */
+    public function byUnit(Unit $unit)
+    {
+        try {
+            $employees = $unit->employees()
+                ->with(['department', 'subDepartment'])
+                ->where('is_active', true)
+                ->get();
+
+            return response()->json($employees);
+        } catch (\Exception $e) {
+            \Log::error('Fetch employees by unit failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch employees!'], 500);
+        }
+    }
+
+    /**
      * Show the form for creating a new employee.
      */
     public function create()
     {
         $departments = Department::active()->get();
         $subDepartments = SubDepartment::active()->get();
+        $units = Unit::active()->get(); // Add units
 
         return response()->json([
             'departments' => $departments,
-            'sub_departments' => $subDepartments
+            'sub_departments' => $subDepartments,
+            'units' => $units // Add units to response
         ]);
     }
 
@@ -331,15 +359,17 @@ class EmployeeController extends Controller
      */
     public function edit(Employee $employee)
     {
-        $employee->load(['department', 'subDepartment']);
+        $employee->load(['department', 'subDepartment', 'unit']); // Load unit
 
         $departments = Department::active()->get();
         $subDepartments = SubDepartment::active()->get();
+        $units = Unit::active()->get(); // Add units
 
         return response()->json([
             'employee' => $employee,
             'departments' => $departments,
-            'sub_departments' => $subDepartments
+            'sub_departments' => $subDepartments,
+            'units' => $units // Add units to response
         ]);
     }
 
@@ -349,7 +379,7 @@ class EmployeeController extends Controller
     public function show(Employee $employee)
     {
         try {
-            $employee->load(['department', 'subDepartment']);
+            $employee->load(['department', 'subDepartment', 'unit']); // Load unit
 
             return response()->json([
                 'success' => true,
@@ -362,14 +392,14 @@ class EmployeeController extends Controller
     }
 
     /**
-     * Search employees
+     * Search employees - UPDATED with email, phone, and unit search
      */
     public function search(Request $request)
     {
         try {
             $searchTerm = $request->get('search');
 
-            $employees = Employee::with(['department', 'subDepartment'])
+            $employees = Employee::with(['department', 'subDepartment', 'unit'])
                 ->where(function($query) use ($searchTerm) {
                     $query->where('employee_code', 'LIKE', "%{$searchTerm}%")
                           ->orWhere('first_name', 'LIKE', "%{$searchTerm}%")
@@ -377,10 +407,15 @@ class EmployeeController extends Controller
                           ->orWhere('payroll_no', 'LIKE', "%{$searchTerm}%")
                           ->orWhere('icard_number', 'LIKE', "%{$searchTerm}%")
                           ->orWhere('designation', 'LIKE', "%{$searchTerm}%")
+                          ->orWhere('email', 'LIKE', "%{$searchTerm}%") // Added email search
+                          ->orWhere('phone', 'LIKE', "%{$searchTerm}%") // Added phone search
                           ->orWhereHas('department', function($q) use ($searchTerm) {
                               $q->where('name', 'LIKE', "%{$searchTerm}%");
                           })
                           ->orWhereHas('subDepartment', function($q) use ($searchTerm) {
+                              $q->where('name', 'LIKE', "%{$searchTerm}%");
+                          })
+                          ->orWhereHas('unit', function($q) use ($searchTerm) { // Added unit search
                               $q->where('name', 'LIKE', "%{$searchTerm}%");
                           });
                 })
@@ -454,7 +489,7 @@ class EmployeeController extends Controller
     }
 
     /**
-     * Get employee statistics
+     * Get employee statistics - UPDATED with unit stats
      */
     public function getStats()
     {
@@ -469,6 +504,11 @@ class EmployeeController extends Controller
                     $query->where('is_active', true);
                 }])->get();
 
+            $unitStats = Unit::withCount(['employees as total_employees',
+                'employees as active_employees' => function($query) {
+                    $query->where('is_active', true);
+                }])->get();
+
             return response()->json([
                 'success' => true,
                 'stats' => [
@@ -476,12 +516,50 @@ class EmployeeController extends Controller
                     'active_employees' => $activeEmployees,
                     'inactive_employees' => $inactiveEmployees,
                     'employees_with_qr' => $employeesWithQr,
-                    'department_stats' => $departmentStats
+                    'department_stats' => $departmentStats,
+                    'unit_stats' => $unitStats // Added unit stats
                 ]
             ]);
         } catch (\Exception $e) {
             \Log::error('Employee stats fetch failed: ' . $e->getMessage());
             return response()->json(['error' => 'Failed to fetch employee statistics!'], 500);
+        }
+    }
+
+    /**
+     * Bulk update employee phone numbers (NEW METHOD for phone import)
+     */
+    public function bulkUpdatePhones(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'data' => 'required|array',
+            'data.*.employee_code' => 'required|exists:employees,employee_code',
+            'data.*.phone' => 'nullable|string|max:20'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            $updatedCount = 0;
+
+            foreach ($request->data as $item) {
+                $employee = Employee::where('employee_code', $item['employee_code'])->first();
+
+                if ($employee && !empty($item['phone'])) {
+                    $employee->phone = $item['phone'];
+                    $employee->save();
+                    $updatedCount++;
+                }
+            }
+
+            return response()->json([
+                'success' => "{$updatedCount} phone numbers updated successfully!"
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Bulk phone update failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to update phone numbers!'], 500);
         }
     }
 }

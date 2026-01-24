@@ -96,7 +96,7 @@
                     </div>
                     <div>
                         <p class="font-medium text-text-black">Required Fields</p>
-                        <p class="text-sm text-gray-600">Employee Code, First Name, Last Name, Department</p>
+                        <p class="text-sm text-gray-600">Employee Code, First Name, Last Name, Department, Unit</p>
                     </div>
                 </div>
                 <div class="flex items-start space-x-3">
@@ -122,44 +122,78 @@
                         <span class="text-white text-xs font-bold">4</span>
                     </div>
                     <div>
-                        <p class="font-medium text-text-black">Department Names</p>
-                        <p class="text-sm text-gray-600">Use exact department names from the list</p>
+                        <p class="font-medium text-text-black">New Fields</p>
+                        <p class="text-sm text-gray-600">Email and Phone are optional fields</p>
+                    </div>
+                </div>
+                <div class="flex items-start space-x-3">
+                    <div class="w-6 h-6 bg-primary-red rounded-full flex items-center justify-center mt-1 flex-shrink-0">
+                        <span class="text-white text-xs font-bold">5</span>
+                    </div>
+                    <div>
+                        <p class="font-medium text-text-black">Unit Required</p>
+                        <p class="text-sm text-gray-600">Make sure units exist in the system before importing</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Department Mapping -->
+        <!-- Department & Unit Mapping -->
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-            <h3 class="text-lg font-semibold text-text-black mb-4">Available Departments</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                @php
-                    $departments = [
-                        'Internal Finishing' => 1,
-                        'Shell' => 2,
-                        'Remedial' => 3,
-                        'External Finishing' => 4,
-                        'Shell External' => 5,
-                        'Foundation' => 6,
-                        'HSE' => 7,
-                        'Stores' => 8,
-                        'Maintenance' => 9,
-                        'Infrastructure & External Development' => 10,
-                        'QA/QC' => 11,
-                        'Pre-Finishing' => 12,
-                        'Security' => 13,
-                        'Operations' => 14,
-                        'High Value' => 15,
-                        'Human Resource' => 16,
-                        'Supply Chain' => 17
-                    ];
-                @endphp
-                @foreach($departments as $name => $id)
-                    <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
-                        <span class="text-sm text-gray-700">{{ $name }}</span>
-                        <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">ID: {{ $id }}</span>
+            <h3 class="text-lg font-semibold text-text-black mb-4">Available Departments & Units</h3>
+            <div class="space-y-4">
+                <!-- Departments -->
+                <div>
+                    <h4 class="font-medium text-text-black mb-2">Departments:</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                        @php
+                            $departments = \App\Models\Department::active()->get();
+                        @endphp
+                        @if($departments->count() > 0)
+                            @foreach($departments as $department)
+                                <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                                    <span class="text-sm text-gray-700">{{ $department->name }}</span>
+                                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">ID: {{ $department->id }}</span>
+                                </div>
+                            @endforeach
+                        @else
+                            <div class="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                <p class="text-sm text-yellow-800">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                    No departments found
+                                </p>
+                            </div>
+                        @endif
                     </div>
-                @endforeach
+                </div>
+
+                <!-- Units -->
+                <div>
+                    <h4 class="font-medium text-text-black mb-2">Units:</h4>
+                    <div class="grid grid-cols-1 gap-2">
+                        @php
+                            $units = \App\Models\Unit::active()->get();
+                        @endphp
+                        @if($units->count() > 0)
+                            @foreach($units as $unit)
+                                <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                                    <span class="text-sm text-gray-700">{{ $unit->name }}</span>
+                                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">ID: {{ $unit->id }}</span>
+                                </div>
+                            @endforeach
+                        @else
+                            <div class="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                <p class="text-sm text-yellow-800">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                    No units found. Please create units before importing.
+                                </p>
+                                <a href="{{ route('admin.units.index') }}" class="text-xs text-blue-600 hover:underline mt-1 block">
+                                    Create Units →
+                                </a>
+                            </div>
+                        @endif
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -176,23 +210,46 @@
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">first_name</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">middle_name</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">last_name</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">email</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">phone</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">icard_number</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">department</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">unit</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">designation</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">gender</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">employment_type</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     <tr>
-                        <td class="px-4 py-2 text-sm text-gray-900">EMP000464</td>
-                        <td class="px-4 py-2 text-sm text-gray-900">111</td>
-                        <td class="px-4 py-2 text-sm text-gray-900">Tabitha</td>
-                        <td class="px-4 py-2 text-sm text-gray-900">Wanjiku</td>
-                        <td class="px-4 py-2 text-sm text-gray-900">Gichure</td>
-                        <td class="px-4 py-2 text-sm text-gray-900">2345679</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">EMP001</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">001</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">John</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">A.</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Doe</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">john.doe@company.com</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">254712345678</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">1234567</td>
                         <td class="px-4 py-2 text-sm text-gray-900">Internal Finishing</td>
-                        <td class="px-4 py-2 text-sm text-gray-900">CLEANER</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Blue</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Manager</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Male</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Regular</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-2 text-sm text-gray-900">EMP002</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">002</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Jane</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">M.</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Smith</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">jane.smith@company.com</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">254723456789</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">7654321</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Shell</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Blue</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Engineer</td>
                         <td class="px-4 py-2 text-sm text-gray-900">Female</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">Contract</td>
                     </tr>
                 </tbody>
             </table>
@@ -383,12 +440,14 @@
     function downloadTemplate() {
         const headers = [
             'employee_code', 'payroll_no', 'first_name', 'middle_name', 'last_name',
-            'icard_number', 'department', 'designation', 'gender', 'employment_type'
+            'email', 'phone', 'icard_number', 'department', 'unit',
+            'designation', 'gender', 'employment_type'
         ];
 
         const exampleData = [
-            'EMP000464', '111', 'Tabitha', 'Wanjiku', 'Gichure', '2345679',
-            'Internal Finishing', 'CLEANER', 'Female', 'Regular'
+            'EMP001', '001', 'John', 'A.', 'Doe',
+            'john.doe@company.com', '254712345678', '1234567',
+            'Internal Finishing', 'Blue', 'Manager', 'Male', 'Regular'
         ];
 
         let csvContent = headers.join(',') + '\n' + exampleData.join(',');

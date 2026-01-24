@@ -19,16 +19,26 @@ return new class extends Migration
             $table->index(['unit_id', 'role']);
         });
 
-        // 2. Add unit_id to employees table
+        // 2. Add unit_id, email, and phone to employees table
         Schema::table('employees', function (Blueprint $table) {
+            // Add unit_id
             $table->foreignId('unit_id')
                   ->nullable()
                   ->after('sub_department_id')
                   ->constrained('units')
                   ->onDelete('set null');
 
+            // Add email (nullable, unique if possible)
+            $table->string('email')->nullable()->after('last_name');
+
+            // Add phone (nullable)
+            $table->string('phone', 20)->nullable()->after('email');
+
+            // Add indexes for better performance
             $table->index(['unit_id', 'is_active']);
             $table->index(['unit_id', 'department_id']);
+            $table->index('email'); // Optional: if you'll search by email
+            $table->index('phone'); // Optional: if you'll search by phone
         });
 
         // 3. Add unit_id to meal_transactions table
@@ -58,10 +68,17 @@ return new class extends Migration
 
         // 2. Remove from employees
         Schema::table('employees', function (Blueprint $table) {
-            $table->dropForeign(['unit_id']);
-            $table->dropColumn('unit_id');
+            // Drop indexes first
             $table->dropIndex(['unit_id', 'is_active']);
             $table->dropIndex(['unit_id', 'department_id']);
+            $table->dropIndex('email');
+            $table->dropIndex('phone');
+
+            // Drop columns
+            $table->dropForeign(['unit_id']);
+            $table->dropColumn('unit_id');
+            $table->dropColumn('email');
+            $table->dropColumn('phone');
         });
 
         // 1. Remove from users

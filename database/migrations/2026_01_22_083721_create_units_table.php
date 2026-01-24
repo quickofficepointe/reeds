@@ -17,6 +17,7 @@ return new class extends Migration
             $table->integer('capacity')->nullable();
             $table->integer('current_employee_count')->default(0);
             $table->boolean('is_active')->default(true);
+            $table->softDeletes();
             $table->timestamps();
         });
     }
