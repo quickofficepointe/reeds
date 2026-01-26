@@ -21,7 +21,12 @@ return [
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],
-
+         'advanta' => [
+        'base_url' => env('ADVANTA_BASE_URL', 'https://quicksms.advantasms.com'),
+        'partner_id' => env('ADVANTA_PARTNER_ID'),
+        'api_key' => env('ADVANTA_API_KEY'),
+        'shortcode' => env('ADVANTA_SHORTCODE', 'QuickOffice'),
+    ],
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

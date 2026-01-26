@@ -90,7 +90,15 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(Profile::class);
     }
 
-       public function mealTransactions()
+    /**
+     * Get the unit that the user belongs to
+     */
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class);
+    }
+
+    public function mealTransactions()
     {
         return $this->hasMany(MealTransaction::class, 'vendor_id');
     }

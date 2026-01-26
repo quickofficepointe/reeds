@@ -9,14 +9,48 @@
             <p class="text-gray-600 mt-2">Upload Excel/CSV file to import employee data</p>
         </div>
         <div class="flex space-x-3 mt-4 md:mt-0">
-            <a href="{{ route('admin.employees.export') }}" class="bg-secondary-blue text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#1e7a9e] transition duration-300 shadow-md flex items-center space-x-2">
+            <button onclick="generateTemplate()" class="bg-secondary-blue text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#1e7a9e] transition duration-300 shadow-md flex items-center space-x-2">
                 <i class="fas fa-download"></i>
-                <span>Export Template</span>
-            </a>
+                <span>Generate Template</span>
+            </button>
             <a href="{{ route('admin.employees.index') }}" class="bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition duration-300 shadow-md flex items-center space-x-2">
                 <i class="fas fa-arrow-left"></i>
                 <span>Back to Employees</span>
             </a>
+        </div>
+    </div>
+
+    <!-- Unit Selection Card -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-6">
+        <h2 class="text-xl font-bold text-text-black mb-4">Unit Selection</h2>
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Select Unit for Import</label>
+            <div class="flex space-x-4">
+                <select id="unitSelect" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150">
+                    <option value="">-- Select a unit --</option>
+                    @foreach($units as $unit)
+                        <option value="{{ $unit->id }}" data-name="{{ $unit->name }}" data-code="{{ $unit->code ?? '' }}">
+                            {{ $unit->name }} @if($unit->code) ({{ $unit->code }}) @endif
+                        </option>
+                    @endforeach
+                </select>
+                <button onclick="generateTemplate()" class="bg-primary-red text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#c22120] transition duration-300 shadow-md flex items-center space-x-2">
+                    <i class="fas fa-file-download"></i>
+                    <span>Generate Template</span>
+                </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Select a unit to generate import template with unit pre-filled</p>
+        </div>
+
+        <div id="unitInfo" class="hidden p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-building text-blue-500 text-xl"></i>
+                <div>
+                    <h4 class="font-semibold text-blue-800" id="selectedUnitName"></h4>
+                    <p class="text-sm text-blue-600">Unit ID: <span id="selectedUnitId" class="font-medium"></span></p>
+                    <p class="text-xs text-blue-500 mt-1">Template will be generated with this unit pre-filled</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -73,10 +107,6 @@
 
         <!-- Import Button -->
         <div class="flex justify-end space-x-3">
-            <button onclick="downloadTemplate()" class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition duration-300 shadow-md flex items-center space-x-2">
-                <i class="fas fa-download"></i>
-                <span>Download Template</span>
-            </button>
             <button id="importBtn" onclick="processImport()" class="bg-primary-red text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#c22120] transition duration-300 shadow-md flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                 <i class="fas fa-upload"></i>
                 <span>Import Employees</span>
@@ -95,8 +125,8 @@
                         <span class="text-white text-xs font-bold">1</span>
                     </div>
                     <div>
-                        <p class="font-medium text-text-black">Required Fields</p>
-                        <p class="text-sm text-gray-600">Employee Code, First Name, Last Name, Department, Unit</p>
+                        <p class="font-medium text-text-black">Select Unit</p>
+                        <p class="text-sm text-gray-600">Choose a unit and generate template</p>
                     </div>
                 </div>
                 <div class="flex items-start space-x-3">
@@ -104,8 +134,8 @@
                         <span class="text-white text-xs font-bold">2</span>
                     </div>
                     <div>
-                        <p class="font-medium text-text-black">File Format</p>
-                        <p class="text-sm text-gray-600">Use Excel (.xlsx, .xls) or CSV format with headers</p>
+                        <p class="font-medium text-text-black">Fill Template</p>
+                        <p class="text-sm text-gray-600">Unit will be pre-filled, add employee details</p>
                     </div>
                 </div>
                 <div class="flex items-start space-x-3">
@@ -113,8 +143,8 @@
                         <span class="text-white text-xs font-bold">3</span>
                     </div>
                     <div>
-                        <p class="font-medium text-text-black">Column Headers</p>
-                        <p class="text-sm text-gray-600">Use exact column names from template</p>
+                        <p class="font-medium text-text-black">Required Fields</p>
+                        <p class="text-sm text-gray-600">Employee Code, First Name, Last Name, Department</p>
                     </div>
                 </div>
                 <div class="flex items-start space-x-3">
@@ -122,8 +152,8 @@
                         <span class="text-white text-xs font-bold">4</span>
                     </div>
                     <div>
-                        <p class="font-medium text-text-black">New Fields</p>
-                        <p class="text-sm text-gray-600">Email and Phone are optional fields</p>
+                        <p class="font-medium text-text-black">Optional Fields</p>
+                        <p class="text-sm text-gray-600">Email, Phone, Middle Name, Payroll No, ICard No</p>
                     </div>
                 </div>
                 <div class="flex items-start space-x-3">
@@ -131,8 +161,8 @@
                         <span class="text-white text-xs font-bold">5</span>
                     </div>
                     <div>
-                        <p class="font-medium text-text-black">Unit Required</p>
-                        <p class="text-sm text-gray-600">Make sure units exist in the system before importing</p>
+                        <p class="font-medium text-text-black">Upload & Import</p>
+                        <p class="text-sm text-gray-600">Upload completed file to import employees</p>
                     </div>
                 </div>
             </div>
@@ -176,7 +206,7 @@
                         @endphp
                         @if($units->count() > 0)
                             @foreach($units as $unit)
-                                <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                                <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded" onclick="selectUnitFromList('{{ $unit->id }}', '{{ $unit->name }}')" style="cursor: pointer;">
                                     <span class="text-sm text-gray-700">{{ $unit->name }}</span>
                                     <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">ID: {{ $unit->id }}</span>
                                 </div>
@@ -231,7 +261,7 @@
                         <td class="px-4 py-2 text-sm text-gray-900">254712345678</td>
                         <td class="px-4 py-2 text-sm text-gray-900">1234567</td>
                         <td class="px-4 py-2 text-sm text-gray-900">Internal Finishing</td>
-                        <td class="px-4 py-2 text-sm text-gray-900">Blue</td>
+                        <td class="px-4 py-2 text-sm text-gray-900 bg-green-50 font-medium">Blue</td>
                         <td class="px-4 py-2 text-sm text-gray-900">Manager</td>
                         <td class="px-4 py-2 text-sm text-gray-900">Male</td>
                         <td class="px-4 py-2 text-sm text-gray-900">Regular</td>
@@ -246,13 +276,14 @@
                         <td class="px-4 py-2 text-sm text-gray-900">254723456789</td>
                         <td class="px-4 py-2 text-sm text-gray-900">7654321</td>
                         <td class="px-4 py-2 text-sm text-gray-900">Shell</td>
-                        <td class="px-4 py-2 text-sm text-gray-900">Blue</td>
+                        <td class="px-4 py-2 text-sm text-gray-900 bg-green-50 font-medium">Blue</td>
                         <td class="px-4 py-2 text-sm text-gray-900">Engineer</td>
                         <td class="px-4 py-2 text-sm text-gray-900">Female</td>
                         <td class="px-4 py-2 text-sm text-gray-900">Contract</td>
                     </tr>
                 </tbody>
             </table>
+            <p class="text-xs text-gray-500 mt-2"><i class="fas fa-info-circle text-blue-500 mr-1"></i> Unit column will be pre-filled based on your selection</p>
         </div>
     </div>
 </div>
@@ -261,6 +292,81 @@
 @section('scripts')
 <script>
     let selectedFile = null;
+    let selectedUnitId = null;
+    let selectedUnitName = null;
+
+    // Unit selection handler
+    document.getElementById('unitSelect').addEventListener('change', function(e) {
+        const selectedOption = this.options[this.selectedIndex];
+        selectedUnitId = this.value;
+        selectedUnitName = selectedOption.dataset.name;
+
+        if (selectedUnitId) {
+            document.getElementById('unitInfo').classList.remove('hidden');
+            document.getElementById('selectedUnitName').textContent = selectedUnitName;
+            document.getElementById('selectedUnitId').textContent = selectedUnitId;
+        } else {
+            document.getElementById('unitInfo').classList.add('hidden');
+        }
+    });
+
+    // Select unit from list (click on unit in the list)
+    function selectUnitFromList(unitId, unitName) {
+        const unitSelect = document.getElementById('unitSelect');
+        unitSelect.value = unitId;
+
+        // Trigger change event
+        const event = new Event('change');
+        unitSelect.dispatchEvent(event);
+
+        // Scroll to unit selection section
+        document.querySelector('#unitSelection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Generate template function
+    function generateTemplate() {
+        if (!selectedUnitId || !selectedUnitName) {
+            alert('Please select a unit first');
+            return;
+        }
+
+        const headers = [
+            'employee_code', 'payroll_no', 'first_name', 'middle_name', 'last_name',
+            'email', 'phone', 'icard_number', 'department', 'unit',
+            'designation', 'gender', 'employment_type'
+        ];
+
+        // Example data with selected unit pre-filled
+        const exampleData = [
+            'EMP001', '001', 'John', 'A.', 'Doe',
+            'john.doe@company.com', '254712345678', '1234567',
+            'Internal Finishing', selectedUnitName, 'Manager', 'Male', 'Regular'
+        ];
+
+        // Add second example row
+        const exampleData2 = [
+            'EMP002', '002', 'Jane', 'M.', 'Smith',
+            'jane.smith@company.com', '254723456789', '7654321',
+            'Shell', selectedUnitName, 'Engineer', 'Female', 'Contract'
+        ];
+
+        let csvContent = headers.join(',') + '\n' +
+                        exampleData.join(',') + '\n' +
+                        exampleData2.join(',');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.setAttribute('hidden', '');
+        a.setAttribute('href', url);
+        a.setAttribute('download', `employees_${selectedUnitName.replace(/\s+/g, '_')}_import_template.csv`);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        // Show success message
+        showNotification('success', `Template generated for ${selectedUnitName} unit!`);
+    }
 
     // File input change handler
     document.getElementById('fileInput').addEventListener('change', function(e) {
@@ -371,6 +477,11 @@
             if (data.success) {
                 updateProgress(100, 'Import completed!');
                 showResults('success', data.success, data);
+
+                // Auto-refresh after 2 seconds
+                setTimeout(() => {
+                    window.location.href = '{{ route("admin.employees.index") }}';
+                }, 2000);
             } else if (data.error) {
                 showResults('error', data.error, data);
             }
@@ -408,6 +519,7 @@
                             <p class="text-green-700">${message}</p>
                             ${data.imported_count ? `<p class="text-sm text-green-600 mt-1">Imported: ${data.imported_count} employees</p>` : ''}
                             ${data.skipped_count ? `<p class="text-sm text-green-600">Skipped: ${data.skipped_count} records</p>` : ''}
+                            <p class="text-xs text-green-500 mt-2">Redirecting to employees page...</p>
                         </div>
                     </div>
                 </div>
@@ -437,30 +549,23 @@
         resultsDiv.innerHTML = html;
     }
 
-    function downloadTemplate() {
-        const headers = [
-            'employee_code', 'payroll_no', 'first_name', 'middle_name', 'last_name',
-            'email', 'phone', 'icard_number', 'department', 'unit',
-            'designation', 'gender', 'employment_type'
-        ];
+    function showNotification(type, message) {
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+            type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`;
+        notification.innerHTML = `
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'}"></i>
+                <span>${message}</span>
+            </div>
+        `;
 
-        const exampleData = [
-            'EMP001', '001', 'John', 'A.', 'Doe',
-            'john.doe@company.com', '254712345678', '1234567',
-            'Internal Finishing', 'Blue', 'Manager', 'Male', 'Regular'
-        ];
+        document.body.appendChild(notification);
 
-        let csvContent = headers.join(',') + '\n' + exampleData.join(',');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.setAttribute('hidden', '');
-        a.setAttribute('href', url);
-        a.setAttribute('download', 'employee_import_template.csv');
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
     }
 </script>
 @endsection

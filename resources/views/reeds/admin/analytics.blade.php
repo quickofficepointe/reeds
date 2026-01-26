@@ -9,7 +9,13 @@
                 <h1 class="text-3xl font-bold text-text-black">Analytics & Reports</h1>
                 <p class="text-gray-600 mt-2">Comprehensive insights into feeding patterns and vendor performance</p>
             </div>
-            <div class="mt-4 md:mt-0">
+            <div class="mt-4 md:mt-0 flex space-x-3">
+                <select id="unitFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
+                    <option value="all">All Units</option>
+                    @foreach($units as $unit)
+                        <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+                    @endforeach
+                </select>
                 <select id="periodSelect" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
                     <option value="week">Last 7 Days</option>
                     <option value="month" selected>Last 30 Days</option>
@@ -17,6 +23,103 @@
                 </select>
             </div>
         </div>
+    </div>
+
+    <!-- Unit Analytics Section -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-8">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-bold text-text-black">Unit Performance Overview</h2>
+            <div class="text-sm text-gray-500">
+                {{ $unitStats->count() }} Active Units
+            </div>
+        </div>
+
+        @if($unitStats->count() > 0)
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                @foreach($unitStats as $unit)
+                <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 hover:shadow-md transition duration-150">
+                    <!-- Unit Header -->
+                    <div class="flex items-start justify-between mb-4">
+                        <div>
+                            <h3 class="font-bold text-text-black text-lg">{{ $unit['name'] }}</h3>
+                            @if($unit['code'])
+                                <p class="text-sm text-gray-500">{{ $unit['code'] }}</p>
+                            @endif
+                            @if($unit['location'])
+                                <p class="text-xs text-gray-400 mt-1">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>{{ $unit['location'] }}
+                                </p>
+                            @endif
+                        </div>
+                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-building text-blue-500"></i>
+                        </div>
+                    </div>
+
+                    <!-- Unit Stats -->
+                    <div class="space-y-3">
+                        <!-- Employee Count -->
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Employees</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-semibold text-text-black">{{ $unit['active_employees'] }}/{{ $unit['total_employees'] }}</span>
+                                @if($unit['capacity_utilization'])
+                                    <span class="text-xs px-2 py-1 rounded-full {{ $unit['capacity_utilization'] > 90 ? 'bg-red-100 text-red-800' : ($unit['capacity_utilization'] > 70 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800') }}">
+                                        {{ $unit['capacity_utilization'] }}%
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+
+                        <!-- Scans Today -->
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Scans Today</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-semibold text-text-black">{{ $unit['today_scans'] }}</span>
+                                <span class="text-xs text-gray-500">
+                                    {{ $unit['active_employees'] > 0 ? round(($unit['today_scans'] / $unit['active_employees']) * 100, 0) : 0 }}%
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Monthly Scans -->
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Monthly Scans</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-semibold text-text-black">{{ $unit['month_scans'] }}</span>
+                                <span class="text-xs text-green-600">
+                                    KSh {{ number_format($unit['month_revenue'], 0) }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Active Vendors -->
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Vendors</span>
+                            <span class="font-semibold text-text-black">{{ $unit['active_vendors'] }}</span>
+                        </div>
+
+                        <!-- View Unit Details Button -->
+                        <button onclick="viewUnitAnalytics({{ $unit['id'] }})"
+                                class="w-full mt-4 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium transition duration-150 flex items-center justify-center">
+                            <i class="fas fa-chart-bar mr-2"></i> View Details
+                        </button>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+        @else
+            <div class="text-center py-12">
+                <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-building text-gray-400 text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-text-black mb-2">No Units Found</h3>
+                <p class="text-gray-600 mb-6">Create units to start tracking analytics per location.</p>
+                <a href="{{ route('admin.units.index') }}" class="inline-flex items-center px-4 py-2 bg-secondary-blue text-white rounded-lg hover:bg-blue-600 transition duration-150">
+                    <i class="fas fa-plus mr-2"></i> Create Units
+                </a>
+            </div>
+        @endif
     </div>
 
     <!-- Static Stats Overview -->
@@ -183,10 +286,10 @@
                 <div id="scansChart" class="h-80"></div>
             </div>
 
-            <!-- Vendor Performance Chart -->
+            <!-- Unit Performance Chart -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-                <h3 class="text-lg font-bold text-text-black mb-4">Top Vendors</h3>
-                <div id="vendorChart" class="h-80"></div>
+                <h3 class="text-lg font-bold text-text-black mb-4">Unit Performance</h3>
+                <div id="unitChart" class="h-80"></div>
             </div>
 
             <!-- Department Feeding Rates -->
@@ -204,6 +307,26 @@
 
         <!-- Detailed Tables -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Unit Performance Table -->
+            <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+                <h3 class="text-lg font-bold text-text-black mb-4">Unit Performance</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-gray-200">
+                                <th class="text-left py-3 text-sm font-medium text-gray-700">Unit</th>
+                                <th class="text-right py-3 text-sm font-medium text-gray-700">Employees</th>
+                                <th class="text-right py-3 text-sm font-medium text-gray-700">Scans</th>
+                                <th class="text-right py-3 text-sm font-medium text-gray-700">Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody id="unitTable">
+                            <!-- Unit data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Vendor Performance Table -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                 <h3 class="text-lg font-bold text-text-black mb-4">Vendor Performance</h3>
@@ -218,25 +341,6 @@
                         </thead>
                         <tbody id="vendorTable">
                             <!-- Vendor data will be loaded here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Employee Preferences -->
-            <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-                <h3 class="text-lg font-bold text-text-black mb-4">Employee Vendor Preferences</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="border-b border-gray-200">
-                                <th class="text-left py-3 text-sm font-medium text-gray-700">Employee</th>
-                                <th class="text-left py-3 text-sm font-medium text-gray-700">Preferred Vendor</th>
-                                <th class="text-right py-3 text-sm font-medium text-gray-700">Visits</th>
-                            </tr>
-                        </thead>
-                        <tbody id="preferencesTable">
-                            <!-- Preferences data will be loaded here -->
                         </tbody>
                     </table>
                 </div>
@@ -261,15 +365,23 @@
                         <p class="font-semibold text-text-black text-sm">
                             {{ $transaction->employee->formal_name ?? 'Unknown Employee' }}
                         </p>
-                        <p class="text-xs text-gray-500">
-                            {{ $transaction->employee->department->name ?? 'No Department' }} •
-                            {{ $transaction->vendor->name ?? 'Unknown Vendor' }}
-                        </p>
+                        <div class="flex items-center space-x-2 text-xs text-gray-500">
+                            <span>{{ $transaction->employee->department->name ?? 'No Department' }}</span>
+                            <span>•</span>
+                            <span class="flex items-center">
+                                <i class="fas fa-building mr-1"></i>
+                                {{ $transaction->unit->name ?? 'No Unit' }}
+                            </span>
+                        </div>
                     </div>
                 </div>
                 <div class="text-right">
                     <p class="font-semibold text-green-600">KSh {{ number_format($transaction->amount, 2) }}</p>
-                    <p class="text-xs text-gray-500">{{ $transaction->meal_time }}</p>
+                    <div class="flex items-center justify-end space-x-2 text-xs text-gray-500">
+                        <span>{{ $transaction->meal_time }}</span>
+                        <span>•</span>
+                        <span>{{ $transaction->vendor->name ?? 'Unknown' }}</span>
+                    </div>
                 </div>
             </div>
             @empty
@@ -281,14 +393,27 @@
         </div>
     </div>
 </div>
-@endsection
 
-@section('scripts')
+<!-- Unit Details Modal -->
+<div id="unitDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h3 id="unitModalTitle" class="text-xl font-bold text-text-black">Unit Analytics</h3>
+            <button onclick="closeUnitModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="unitDetailsContent">
+            <!-- Unit details will be loaded here -->
+        </div>
+    </div>
+</div>
+
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-    let scansChart, vendorChart, departmentChart, employeeChart;
+    let scansChart, unitChart, departmentChart, employeeChart;
 
     // UI State Management
     function showLoading() {
@@ -310,11 +435,11 @@
         document.getElementById('chartsSection').classList.remove('hidden');
     }
 
-    // Load analytics data
-    function loadAnalyticsData(period = 'month') {
+    // Load analytics data with unit filter
+    function loadAnalyticsData(period = 'month', unitId = 'all') {
         showLoading();
 
-        fetch(`/admin/analytics/data?period=${period}`)
+        fetch(`/admin/analytics/data?period=${period}&unit_id=${unitId}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
@@ -366,28 +491,38 @@
             }
         });
 
-        // Vendor performance chart
-        const vendorCtx = document.getElementById('vendorChart').getContext('2d');
-        if (vendorChart) vendorChart.destroy();
+        // Unit performance chart
+        const unitCtx = document.getElementById('unitChart').getContext('2d');
+        if (unitChart) unitChart.destroy();
 
-        vendorChart = new Chart(vendorCtx, {
+        unitChart = new Chart(unitCtx, {
             type: 'bar',
             data: {
-                labels: data.vendor_performance.map(item => item.name),
-                datasets: [{
-                    label: 'Scans',
-                    data: data.vendor_performance.map(item => item.scans || 0),
-                    backgroundColor: '#e92c2a',
-                    borderColor: '#e92c2a',
-                    borderWidth: 1
-                }]
+                labels: data.unit_performance.map(item => item.name),
+                datasets: [
+                    {
+                        label: 'Scans',
+                        data: data.unit_performance.map(item => item.scans || 0),
+                        backgroundColor: '#e92c2a',
+                        borderColor: '#e92c2a',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Employees',
+                        data: data.unit_performance.map(item => item.employees || 0),
+                        backgroundColor: '#2596be',
+                        borderColor: '#2596be',
+                        borderWidth: 1
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: false
+                        display: true,
+                        position: 'top'
                     }
                 }
             }
@@ -444,6 +579,28 @@
 
     // Update tables with safe data
     function updateTables(data) {
+        // Unit table
+        const unitTable = document.getElementById('unitTable');
+        if (data.unit_performance.length > 0) {
+            unitTable.innerHTML = data.unit_performance.map(unit => `
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-3 text-sm text-text-black">${unit.name}</td>
+                    <td class="py-3 text-sm text-gray-700 text-right">${unit.employees || 0}</td>
+                    <td class="py-3 text-sm text-gray-700 text-right">${unit.scans || 0}</td>
+                    <td class="py-3 text-sm text-green-600 text-right">KSh ${(unit.revenue || 0).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        } else {
+            unitTable.innerHTML = `
+                <tr>
+                    <td colspan="4" class="py-8 text-center text-gray-500">
+                        <i class="fas fa-building text-2xl mb-2"></i>
+                        <p>No unit data available</p>
+                    </td>
+                </tr>
+            `;
+        }
+
         // Vendor table
         const vendorTable = document.getElementById('vendorTable');
         if (data.vendor_performance.length > 0) {
@@ -464,27 +621,153 @@
                 </tr>
             `;
         }
+    }
 
-        // Preferences table
-        const prefsTable = document.getElementById('preferencesTable');
-        if (data.employee_behavior.preferred_vendors.length > 0) {
-            prefsTable.innerHTML = data.employee_behavior.preferred_vendors.map(pref => `
-                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="py-3 text-sm text-text-black">${pref.employee_name}</td>
-                    <td class="py-3 text-sm text-gray-700">${pref.vendor_name}</td>
-                    <td class="py-3 text-sm text-gray-700 text-right">${pref.visit_count || 0}</td>
-                </tr>
-            `).join('');
-        } else {
-            prefsTable.innerHTML = `
-                <tr>
-                    <td colspan="3" class="py-8 text-center text-gray-500">
-                        <i class="fas fa-users text-2xl mb-2"></i>
-                        <p>No employee preferences data yet</p>
-                    </td>
-                </tr>
-            `;
-        }
+    // View unit analytics
+    function viewUnitAnalytics(unitId) {
+        // Show loading state
+        document.getElementById('unitDetailsContent').innerHTML = `
+            <div class="text-center py-8">
+                <i class="fas fa-spinner fa-spin text-2xl text-secondary-blue mb-2"></i>
+                <p>Loading unit analytics...</p>
+            </div>
+        `;
+
+        document.getElementById('unitDetailsModal').classList.remove('hidden');
+
+        // Fetch unit details via AJAX
+        fetch(`/admin/analytics/unit/${unitId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.unit) {
+                    const unit = data.unit;
+
+                    document.getElementById('unitModalTitle').textContent = `${unit.name} Analytics`;
+                    document.getElementById('unitDetailsContent').innerHTML = `
+                        <div class="space-y-6">
+                            <!-- Unit Overview -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <h4 class="text-sm font-medium text-blue-800 mb-1">Total Employees</h4>
+                                    <p class="text-2xl font-bold text-text-black">${unit.total_employees}</p>
+                                    <p class="text-xs text-blue-600">${unit.active_employees} active</p>
+                                </div>
+                                <div class="bg-green-50 p-4 rounded-lg">
+                                    <h4 class="text-sm font-medium text-green-800 mb-1">Monthly Scans</h4>
+                                    <p class="text-2xl font-bold text-text-black">${unit.month_scans}</p>
+                                    <p class="text-xs text-green-600">${unit.today_scans} today</p>
+                                </div>
+                                <div class="bg-purple-50 p-4 rounded-lg">
+                                    <h4 class="text-sm font-medium text-purple-800 mb-1">Monthly Revenue</h4>
+                                    <p class="text-2xl font-bold text-text-black">KSh ${unit.month_revenue.toLocaleString()}</p>
+                                    <p class="text-xs text-purple-600">${unit.active_vendors} active vendors</p>
+                                </div>
+                            </div>
+
+                            <!-- Charts Section -->
+                            <div>
+                                <h4 class="text-lg font-semibold text-text-black mb-4">Monthly Trends</h4>
+                                <div class="bg-gray-50 p-6 rounded-lg">
+                                    <canvas id="unitMonthlyChart" height="300"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Top Employees -->
+                            <div>
+                                <h4 class="text-lg font-semibold text-text-black mb-4">Top Employees</h4>
+                                <div class="space-y-3">
+                                    ${unit.top_employees.length > 0 ? unit.top_employees.map(emp => `
+                                        <div class="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                                            <div>
+                                                <p class="font-medium text-text-black">${emp.formal_name}</p>
+                                                <p class="text-sm text-gray-500">${emp.department}</p>
+                                            </div>
+                                            <div class="text-right">
+                                                <p class="font-semibold text-green-600">${emp.meal_count} meals</p>
+                                                <p class="text-xs text-gray-500">KSh ${emp.total_amount.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                    `).join('') : `
+                                        <div class="text-center py-4 text-gray-500">
+                                            <p>No employee data available</p>
+                                        </div>
+                                    `}
+                                </div>
+                            </div>
+
+                            <!-- Unit Vendors -->
+                            <div>
+                                <h4 class="text-lg font-semibold text-text-black mb-4">Active Vendors</h4>
+                                <div class="space-y-3">
+                                    ${unit.vendors.length > 0 ? unit.vendors.map(vendor => `
+                                        <div class="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                                            <div>
+                                                <p class="font-medium text-text-black">${vendor.name}</p>
+                                                <p class="text-sm text-gray-500">${vendor.email}</p>
+                                            </div>
+                                            <div class="text-right">
+                                                <p class="font-semibold text-green-600">${vendor.scans} scans</p>
+                                                <p class="text-xs text-gray-500">${vendor.last_scan}</p>
+                                            </div>
+                                        </div>
+                                    `).join('') : `
+                                        <div class="text-center py-4 text-gray-500">
+                                            <p>No vendors assigned to this unit</p>
+                                        </div>
+                                    `}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Initialize unit chart
+                    const ctx = document.getElementById('unitMonthlyChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: unit.monthly_trends.labels,
+                            datasets: [{
+                                label: 'Daily Scans',
+                                data: unit.monthly_trends.scans,
+                                borderColor: '#2596be',
+                                backgroundColor: 'rgba(37, 150, 190, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    document.getElementById('unitDetailsContent').innerHTML = `
+                        <div class="text-center py-8">
+                            <i class="fas fa-exclamation-triangle text-2xl text-red-500 mb-2"></i>
+                            <p>Failed to load unit analytics.</p>
+                            <p class="text-sm text-gray-600 mt-1">${data.error || 'Please try again.'}</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('unitDetailsContent').innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fas fa-exclamation-triangle text-2xl text-red-500 mb-2"></i>
+                        <p>Error loading unit analytics.</p>
+                        <p class="text-sm text-gray-600 mt-1">Please try again later.</p>
+                    </div>
+                `;
+            });
+    }
+
+    // Close unit modal
+    function closeUnitModal() {
+        document.getElementById('unitDetailsModal').classList.add('hidden');
     }
 
     // Initialize
@@ -493,7 +776,14 @@
 
         // Period selector
         document.getElementById('periodSelect').addEventListener('change', function() {
-            loadAnalyticsData(this.value);
+            const unitId = document.getElementById('unitFilter').value;
+            loadAnalyticsData(this.value, unitId);
+        });
+
+        // Unit filter
+        document.getElementById('unitFilter').addEventListener('change', function() {
+            const period = document.getElementById('periodSelect').value;
+            loadAnalyticsData(period, this.value);
         });
     });
 </script>

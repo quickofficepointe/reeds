@@ -536,6 +536,12 @@ class Employee extends Model
               });
         });
     }
+// In app/Models/Employee.php
+public function documentInvitation()
+{
+    return $this->hasOne(DocumentInvitation::class);
+}
+
 
     /**
      * Get employee details with all relationships

@@ -29,45 +29,90 @@ Route::middleware(['auth'])->prefix('profile')->group(function () {
 
 // Public routes
 Route::get('/home', [HomeController::class, 'index'])->name('home');
+// ===============================
+// Admin Routes
+// ===============================
+Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
 
-// Admin Routes (protected by profile complete middleware)
-Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])->prefix('admin')->name('admin.')->group(function () {
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard & General Admin
+    |--------------------------------------------------------------------------
+    */
     Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
     Route::get('/verifications', [ProfileController::class, 'pendingVerifications'])->name('verifications');
-    Route::get('employees/{employee}/qr-data', [EmployeeController::class, 'getQrData'])->name('employees.qr-data');
-// Employee Onboarding Admin Routes
-    Route::get('/onboarding', [EmployeeOnboardingController::class, 'adminIndex'])->name('onboarding.index');
-    Route::get('/onboarding/{id}', [EmployeeOnboardingController::class, 'adminShow'])->name('onboarding.show');
-    Route::post('/onboarding/{id}/status', [EmployeeOnboardingController::class, 'adminUpdateStatus'])->name('onboarding.update-status');
-    Route::get('/onboarding/{id}/download/{document}', [EmployeeOnboardingController::class, 'adminDownloadDocument'])->name('onboarding.download');
-    // Department Routes
-    Route::resource('departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
-    Route::post('departments/{department}/toggle-status', [DepartmentController::class, 'toggleStatus'])->name('departments.toggle-status');
+    Route::post('/verify/{profile}', [ProfileController::class, 'verify'])->name('verify-vendor');
 
-    // Sub-department Routes
-    Route::resource('sub-departments', SubDepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
-    Route::post('sub-departments/{sub_department}/toggle-status', [SubDepartmentController::class, 'toggleStatus'])->name('sub-departments.toggle-status');
-    Route::get('sub-departments/by-department/{department}', [SubDepartmentController::class, 'byDepartment'])->name('sub-departments.by-department');
 
-    // Employee Routes
-    Route::resource('employees', EmployeeController::class)->only(['index', 'store', 'update', 'destroy']);
-    Route::post('employees/{employee}/generate-qr', [EmployeeController::class, 'generateQrCode'])->name('employees.generate-qr');
-    Route::post('employees/{employee}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('employees.toggle-status');
-    Route::get('employees/by-department/{department}', [EmployeeController::class, 'byDepartment'])->name('employees.by-department');
-    Route::get('employees/by-sub-department/{subDepartment}', [EmployeeController::class, 'bySubDepartment'])->name('employees.by-sub-department');
-
-    // Employee Import/Export Routes
-    Route::get('employees/import', [EmployeeController::class, 'import'])->name('employees.import');
-    Route::post('employees/import', [EmployeeController::class, 'processImport'])->name('employees.process-import');
-    Route::get('employees/export', [EmployeeController::class, 'export'])->name('employees.export');
-    Route::get('employees/qr-codes', [EmployeeController::class, 'qrCodes'])->name('employees.qr-codes');
-
-    // Analytics Routes
+    /*
+    |--------------------------------------------------------------------------
+    | Analytics
+    |--------------------------------------------------------------------------
+    */
     Route::get('/analytics', [AdminController::class, 'analytics'])->name('analytics');
     Route::get('/analytics/data', [AdminController::class, 'getAnalyticsData'])->name('analytics.data');
+    Route::get('/analytics/unit/{unit}', [AdminController::class, 'getUnitAnalytics'])->name('analytics.unit');
     Route::get('/vendor/{vendor}/details', [AdminController::class, 'getVendorDetails'])->name('vendor.details');
-    Route::post('/verify/{profile}', [ProfileController::class, 'verify'])->name('verify-vendor');
-Route::get('/units', [UnitController::class, 'index'])->name('units.index');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Employee Onboarding (Admin)
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('onboarding')->name('onboarding.')->group(function () {
+        Route::get('/', [EmployeeOnboardingController::class, 'adminIndex'])->name('index');
+        Route::get('/{id}', [EmployeeOnboardingController::class, 'adminShow'])->name('show');
+        Route::post('/{id}/status', [EmployeeOnboardingController::class, 'adminUpdateStatus'])->name('update-status');
+        Route::get('/{id}/download/{document}', [EmployeeOnboardingController::class, 'adminDownloadDocument'])->name('download');
+
+        Route::get('/department/{department_id}', [EmployeeOnboardingController::class, 'getDepartmentApplications'])
+            ->name('department.applications');
+
+        Route::get('/department/{department_id}/export', [EmployeeOnboardingController::class, 'exportDepartmentApplications'])
+            ->name('department.export');
+    });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Departments
+    |--------------------------------------------------------------------------
+    */
+    Route::resource('departments', DepartmentController::class)
+        ->only(['index', 'store', 'update', 'destroy']);
+
+    Route::post('departments/{department}/toggle-status',
+        [DepartmentController::class, 'toggleStatus']
+    )->name('departments.toggle-status');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sub-Departments
+    |--------------------------------------------------------------------------
+    */
+    Route::resource('sub-departments', SubDepartmentController::class)
+        ->only(['index', 'store', 'update', 'destroy']);
+
+    Route::post('sub-departments/{sub_department}/toggle-status',
+        [SubDepartmentController::class, 'toggleStatus']
+    )->name('sub-departments.toggle-status');
+
+    Route::get('sub-departments/by-department/{department}',
+        [SubDepartmentController::class, 'byDepartment']
+    )->name('sub-departments.by-department');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Units
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/units', [UnitController::class, 'index'])->name('units.index');
     Route::post('/units', [UnitController::class, 'store'])->name('units.store');
     Route::put('/units/{unit}', [UnitController::class, 'update'])->name('units.update');
     Route::delete('/units/{unit}', [UnitController::class, 'destroy'])->name('units.destroy');
@@ -75,9 +120,85 @@ Route::get('/units', [UnitController::class, 'index'])->name('units.index');
     Route::get('/units/{unit}/edit-modal', [UnitController::class, 'editModal'])->name('units.edit-modal');
 
 
- Route::get('/onboarding/department/{department_id}', [EmployeeOnboardingController::class, 'getDepartmentApplications'])->name('onboarding.department.applications');
-    Route::get('/onboarding/department/{department_id}/export', [EmployeeOnboardingController::class, 'exportDepartmentApplications'])->name('onboarding.department.export');
-    });
+    /*
+    |--------------------------------------------------------------------------
+    | Employees — STATIC routes FIRST
+    |--------------------------------------------------------------------------
+    */
+    Route::get('employees/import', [EmployeeController::class, 'import'])->name('employees.import');
+    Route::post('employees/import', [EmployeeController::class, 'processImport'])->name('employees.process-import');
+    Route::get('employees/export', [EmployeeController::class, 'export'])->name('employees.export');
+    Route::get('employees/qr-codes', [EmployeeController::class, 'qrCodes'])->name('employees.qr-codes');
+
+    Route::get('employees/search', [EmployeeController::class, 'search'])->name('employees.search');
+    Route::get('employees/stats', [EmployeeController::class, 'getStats'])->name('employees.stats');
+
+    Route::post('employees/bulk-regenerate-qr', [EmployeeController::class, 'bulkRegenerateQrCodes'])
+        ->name('employees.bulk-regenerate-qr');
+
+    Route::post('employees/bulk-delete', [EmployeeController::class, 'bulkDelete'])
+        ->name('employees.bulk-delete');
+
+    Route::post('employees/bulk-status-update', [EmployeeController::class, 'bulkStatusUpdate'])
+        ->name('employees.bulk-status-update');
+
+    Route::post('employees/bulk-update-phones', [EmployeeController::class, 'bulkUpdatePhones'])
+        ->name('employees.bulk-update-phones');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Employees — Filtering
+    |--------------------------------------------------------------------------
+    */
+    Route::get('employees/by-department/{department}', [EmployeeController::class, 'byDepartment'])
+        ->name('employees.by-department');
+
+    Route::get('employees/by-sub-department/{subDepartment}', [EmployeeController::class, 'bySubDepartment'])
+        ->name('employees.by-sub-department');
+
+    Route::get('employees/by-unit/{unit}', [EmployeeController::class, 'byUnit'])
+        ->name('employees.by-unit');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Employees — Resource & Dynamic routes LAST
+    |--------------------------------------------------------------------------
+    */
+    Route::resource('employees', EmployeeController::class)
+        ->only(['index', 'store', 'update', 'destroy']);
+
+    Route::get('employees/create', [EmployeeController::class, 'create'])->name('employees.create');
+    Route::get('employees/{employee}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
+    Route::get('employees/{employee}', [EmployeeController::class, 'show'])->name('employees.show');
+
+    Route::post('employees/{employee}/generate-qr', [EmployeeController::class, 'generateQrCode'])
+        ->name('employees.generate-qr');
+
+    Route::post('employees/{employee}/toggle-status', [EmployeeController::class, 'toggleStatus'])
+        ->name('employees.toggle-status');
+
+    Route::get('employees/{employee}/qr-data', [EmployeeController::class, 'getQrData'])
+        ->name('employees.qr-data');
+
+
+Route::prefix('employees/{employee}/documents')->name('employees.documents.')->group(function () {
+    Route::post('/send-invitation', [EmployeeController::class, 'sendDocumentInvitation'])
+        ->name('send-invitation');
+// In web.php
+Route::get('/invitation/status/{token}', [EmployeeController::class, 'getInvitationStatus']);
+Route::post('/invitation/resend/{token}', [EmployeeController::class, 'resendInvitation']);
+    Route::post('/send-reminder', [EmployeeController::class, 'sendDocumentReminder'])
+        ->name('send-reminder');
+});
+
+Route::post('employees/bulk-send-document-invitations', [EmployeeController::class, 'bulkSendDocumentInvitations'])
+    ->name('employees.bulk-send-document-invitations');
+
+
+
+});
 
 // Vendor Routes
 Route::middleware(['auth', 'verified', 'vendor', 'profile.complete'])->prefix('vendor')->name('vendor.')->group(function () {
@@ -87,7 +208,6 @@ Route::middleware(['auth', 'verified', 'vendor', 'profile.complete'])->prefix('v
     Route::get('/scan-history', [VendorController::class, 'getScanHistory'])->name('scan-history');
     Route::get('/dashboard-stats', [VendorController::class, 'getDashboardStats'])->name('dashboard-stats');
 });
-  Route::post('/bulk-regenerate-qr', [EmployeeController::class, 'bulkRegenerateQrCodes']);
 
 // Public onboarding route (no auth required initially)
 Route::prefix('employee-onboarding')->group(function () {
@@ -102,4 +222,17 @@ Route::prefix('employee-onboarding')->group(function () {
     // Confirmation page
     Route::get('/confirmation/{token}', [EmployeeOnboardingController::class, 'showConfirmation'])
         ->name('employee.onboarding.confirmation');
+});
+Route::prefix('documents')->group(function () {
+    Route::get('/upload/{token}', [EmployeeController::class, 'showDocumentUploadForm'])
+        ->name('documents.upload');
+
+    Route::post('/upload/{token}', [EmployeeController::class, 'processDocumentUpload'])
+        ->name('documents.process-upload');
+
+    Route::get('/success/{token}', [EmployeeController::class, 'showUploadSuccess'])
+        ->name('documents.success');
+
+    Route::get('/d/{token}', [EmployeeController::class, 'redirectShortLink'])
+        ->name('documents.short-link');
 });
