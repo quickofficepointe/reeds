@@ -18,7 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
                'profile.complete' => \App\Http\Middleware\ProfileCompleteMiddleware::class, // Add this
-        ]);
+ 'session.check' => \App\Http\Middleware\CheckSessionExpiration::class, // ← ADD THIS
+               ]);
 
         // Web middleware group (default Laravel 11 setup)
         $middleware->web(append: [

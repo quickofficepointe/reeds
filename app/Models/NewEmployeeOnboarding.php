@@ -35,7 +35,11 @@ class NewEmployeeOnboarding extends Model
         // Next of Kin
         'next_of_kin_name', 'next_of_kin_relationship', 'next_of_kin_phone',
         'next_of_kin_email', 'next_of_kin_address',
-
+ 'education_level',
+    'field_of_study',
+    'institution',
+    'year_completed',
+    'cv_upload',
         // Processing Fields
         'status', 'assigned_employee_code', 'processed_by', 'processed_at',
         'location', 'unit_id', 'hr_notes', 'rejection_reason'

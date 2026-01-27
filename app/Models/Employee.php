@@ -374,7 +374,7 @@ class Employee extends Model
     /**
      * Record a meal transaction
      */
-    public function recordMeal($vendorId, $qrCodeScanned, $amount = 70.00): MealTransaction
+   public function recordMeal($vendorId, $qrCodeScanned, $amount = 65.00): MealTransaction
     {
         return MealTransaction::create([
             'vendor_id' => $vendorId,

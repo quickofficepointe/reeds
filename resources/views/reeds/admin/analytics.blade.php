@@ -283,25 +283,25 @@
             <!-- Scans Over Time Chart -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                 <h3 class="text-lg font-bold text-text-black mb-4">Scans Over Time</h3>
-                <div id="scansChart" class="h-80"></div>
+                       <canvas id="scansChart"></canvas> <!-- Change to canvas -->
             </div>
 
             <!-- Unit Performance Chart -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                 <h3 class="text-lg font-bold text-text-black mb-4">Unit Performance</h3>
-                <div id="unitChart" class="h-80"></div>
+       <canvas id="unitChart"></canvas> <!-- Change to canvas -->
             </div>
 
             <!-- Department Feeding Rates -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                 <h3 class="text-lg font-bold text-text-black mb-4">Department Feeding Rates</h3>
-                <div id="departmentChart" class="h-80"></div>
+                 <canvas id="departmentChart"></canvas> <!-- Change to canvas -->
             </div>
 
             <!-- Employee Behavior -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                 <h3 class="text-lg font-bold text-text-black mb-4">Frequent Eaters</h3>
-                <div id="employeeChart" class="h-80"></div>
+               <canvas id="employeeChart"></canvas> <!-- Change to canvas -->
             </div>
         </div>
 

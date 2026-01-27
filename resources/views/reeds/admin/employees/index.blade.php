@@ -387,9 +387,10 @@
                 </button>
             </div>
 
-            <form id="employeeForm" class="space-y-4">
+            <form id="employeeForm" method="POST" class="space-y-4">
                 @csrf
                 <input type="hidden" id="employee_id" name="id">
+                <input type="hidden" name="_method" id="formMethod" value="POST">
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -553,7 +554,7 @@
 
                 <div id="statusField" class="hidden">
                     <label class="flex items-center space-x-2">
-                        <input type="checkbox" id="is_active" name="is_active" class="rounded border-gray-300 text-secondary-blue focus:ring-secondary-blue">
+                       <input type="checkbox" id="is_active" name="is_active" value="1" class="rounded border-gray-300 text-secondary-blue focus:ring-secondary-blue">
                         <span class="text-sm font-medium text-gray-700">Active Employee</span>
                     </label>
                 </div>
@@ -608,9 +609,7 @@
         </div>
     </div>
 </div>
-@endsection
 
-@section('scripts')
 <script>
     // Document Invitation Functions
     function openDocumentInvitationModal() {
@@ -679,7 +678,14 @@
                 },
                 body: JSON.stringify({ ids: selectedEmployees })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 403) {
+                    showNotification('error', 'Session expired. Please refresh the page.');
+                    setTimeout(() => window.location.reload(), 2000);
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     showNotification('success', data.success);
@@ -703,7 +709,6 @@
 
             if (data.success && data.stats) {
                 const totalEmployees = data.stats.total_employees;
-                const activeEmployees = data.stats.active_employees;
 
                 if (confirm(`This will send document invitations to all ${totalEmployees} employees without complete documents. Are you sure?`)) {
                     // Get all employee IDs without documents
@@ -724,7 +729,14 @@
                         },
                         body: JSON.stringify({ ids: allEmployees })
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        if (response.status === 403) {
+                            showNotification('error', 'Session expired. Please refresh the page.');
+                            setTimeout(() => window.location.reload(), 2000);
+                            return;
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         if (data.success) {
                             showNotification('success', data.success);
@@ -755,7 +767,14 @@
                     'Accept': 'application/json',
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 403) {
+                    showNotification('error', 'Session expired. Please refresh the page.');
+                    setTimeout(() => window.location.reload(), 2000);
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     showNotification('success', data.success);
@@ -780,7 +799,14 @@
                     'Accept': 'application/json',
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 403) {
+                    showNotification('error', 'Session expired. Please refresh the page.');
+                    setTimeout(() => window.location.reload(), 2000);
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     showNotification('success', data.success);
@@ -801,6 +827,13 @@
 
         try {
             const response = await fetch('/admin/employees/stats');
+            if (response.status === 403) {
+                showNotification('error', 'Session expired. Please refresh the page.');
+                closeInvitationStatusModal();
+                setTimeout(() => window.location.reload(), 2000);
+                return;
+            }
+
             const data = await response.json();
 
             if (data.success) {
@@ -937,11 +970,12 @@
         });
     }
 
-    // Rest of your existing functions (keep them as they are)
+    // Rest of your existing functions
     function openCreateModal() {
         document.getElementById('modalTitle').textContent = 'Add Employee';
         document.getElementById('employeeForm').reset();
         document.getElementById('employee_id').value = '';
+        document.getElementById('formMethod').value = 'POST';
         document.getElementById('statusField').classList.add('hidden');
         document.getElementById('employeeModal').classList.remove('hidden');
         clearErrors();
@@ -951,6 +985,12 @@
     async function openEditModal(employeeId) {
         try {
             const response = await fetch(`/admin/employees/${employeeId}/edit`);
+            if (response.status === 403) {
+                showNotification('error', 'Session expired. Please refresh the page.');
+                setTimeout(() => window.location.reload(), 2000);
+                return;
+            }
+
             const data = await response.json();
 
             if (data.employee) {
@@ -958,6 +998,7 @@
 
                 document.getElementById('modalTitle').textContent = 'Edit Employee';
                 document.getElementById('employee_id').value = employee.id;
+                document.getElementById('formMethod').value = 'PUT';
                 document.getElementById('employee_code').value = employee.employee_code;
                 document.getElementById('payroll_no').value = employee.payroll_no || '';
                 document.getElementById('department_id').value = employee.department_id;
@@ -989,6 +1030,12 @@
     async function viewEmployee(employeeId) {
         try {
             const response = await fetch(`/admin/employees/${employeeId}`);
+            if (response.status === 403) {
+                showNotification('error', 'Session expired. Please refresh the page.');
+                setTimeout(() => window.location.reload(), 2000);
+                return;
+            }
+
             const data = await response.json();
 
             if (data.success && data.employee) {
@@ -1211,60 +1258,72 @@
         document.querySelectorAll('tbody tr').forEach(row => row.style.display = '');
     }
 
-    // Handle form submission
-    document.getElementById('employeeForm').addEventListener('submit', function(e) {
+    // FIXED: Handle form submission properly
+    document.getElementById('employeeForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        const formData = new FormData(this);
+
+        const submitBtn = document.getElementById('submitBtn');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Saving...';
+
+        const form = this;
+        const formData = new FormData(form);
         const employeeId = document.getElementById('employee_id').value;
-        const url = employeeId ? `/admin/employees/${employeeId}` : '/admin/employees';
-        const method = employeeId ? 'PUT' : 'POST';
 
-        const data = {};
-        formData.forEach((value, key) => {
-            if (key === 'is_active') {
-                data[key] = value === 'on';
-            } else if (value !== '') {
-                data[key] = value;
+        // Use standard form submission with proper method spoofing
+        const action = employeeId ? `/admin/employees/${employeeId}` : '/admin/employees';
+
+        try {
+            const response = await fetch(action, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData,
+                credentials: 'same-origin'
+            });
+
+            // Handle session expiration
+            if (response.status === 403) {
+                showNotification('error', 'Session expired. Please refresh the page and log in again.');
+                setTimeout(() => window.location.reload(), 3000);
+                return;
             }
-        });
 
-        if (!data.sub_department_id) data.sub_department_id = null;
-        if (!data.unit_id) data.unit_id = null;
-        if (!data.email) data.email = null;
+            const data = await response.json();
 
-        fetch(url, {
-            method: method,
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => response.json().then(data => ({ status: response.status, body: data })))
-        .then(({ status, body }) => {
-            if (status === 200 || status === 201) {
-                if (body.success) {
-                    closeModal();
-                    showNotification('success', body.success);
-                    setTimeout(() => window.location.reload(), 1000);
-                } else if (body.error) {
-                    showNotification('error', body.error);
+            // Handle validation errors
+            if (response.status === 422) {
+                if (data.errors) {
+                    displayValidationErrors(data.errors);
+                } else if (data.error) {
+                    showNotification('error', data.error);
                 }
-            } else if (status === 422) {
-                if (body.errors) {
-                    displayValidationErrors(body.errors);
-                } else if (body.error) {
-                    showNotification('error', body.error);
+                return;
+            }
+
+            // Handle success
+            if (response.ok) {
+                if (data.success) {
+                    closeModal();
+                    showNotification('success', data.success);
+                    setTimeout(() => window.location.reload(), 1000);
+                } else if (data.error) {
+                    showNotification('error', data.error);
                 }
             } else {
-                showNotification('error', body.error || 'An error occurred. Please try again.');
+                // Handle other errors
+                showNotification('error', data.error || 'An error occurred. Please try again.');
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('error', 'An error occurred. Please try again.');
-        });
+        } catch (error) {
+            console.error('Form submission error:', error);
+            showNotification('error', 'Network error. Please check your connection and try again.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
     });
 
     function displayValidationErrors(errors) {
@@ -1284,9 +1343,20 @@
         if (confirm('Are you sure you want to generate QR code for this employee?')) {
             fetch(`/admin/employees/${employeeId}/generate-qr`, {
                 method: 'POST',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             })
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 403) {
+                    showNotification('error', 'Session expired. Please refresh the page.');
+                    setTimeout(() => window.location.reload(), 2000);
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     showNotification('success', data.success);
@@ -1306,9 +1376,20 @@
         if (confirm('Are you sure you want to change the status of this employee?')) {
             fetch(`/admin/employees/${employeeId}/toggle-status`, {
                 method: 'POST',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             })
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 403) {
+                    showNotification('error', 'Session expired. Please refresh the page.');
+                    setTimeout(() => window.location.reload(), 2000);
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     showNotification('success', data.success);
@@ -1328,9 +1409,20 @@
         if (confirm(`Are you sure you want to delete "${employeeName}"? This action cannot be undone.`)) {
             fetch(`/admin/employees/${employeeId}`, {
                 method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             })
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 403) {
+                    showNotification('error', 'Session expired. Please refresh the page.');
+                    setTimeout(() => window.location.reload(), 2000);
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     showNotification('success', data.success);
@@ -1347,8 +1439,11 @@
     }
 
     function showNotification(type, message) {
+        // Remove existing notifications
+        document.querySelectorAll('.notification').forEach(n => n.remove());
+
         const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+        notification.className = `notification fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
             type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`;
         notification.innerHTML = `
@@ -1358,7 +1453,7 @@
             </div>
         `;
         document.body.appendChild(notification);
-        setTimeout(() => notification.remove(), 3000);
+        setTimeout(() => notification.remove(), 5000);
     }
 
     // Close modal when clicking outside

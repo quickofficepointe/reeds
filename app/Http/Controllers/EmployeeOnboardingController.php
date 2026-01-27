@@ -208,6 +208,7 @@ public function exportDepartmentApplications($department_id)
         $application = NewEmployeeOnboarding::findOrFail($id);
 
         $validDocuments = [
+             'cv_upload',  // Add this line
             'national_id_photo',
             'passport_photo',
             'passport_size_photo',
@@ -272,8 +273,13 @@ public function exportDepartmentApplications($department_id)
             'nssf_card_photo'           => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'sha_card_photo'            => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'kra_certificate_photo'     => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
+'education_level' => 'nullable|in:High School,Certificate,Diploma,Degree (Undergraduate),Masters,PhD',
+'field_of_study' => 'nullable|string|max:255',
+'institution' => 'nullable|string|max:255',
+'year_completed' => 'nullable|digits:4|integer|min:1900|max:' . date('Y'),
+      'cv_upload' => 'nullable|file|mimes:pdf,doc,docx|max:10240',
 
-            // Terms
+// Terms
             'terms'                     => 'required|accepted',
         ]);
 
@@ -289,6 +295,7 @@ public function exportDepartmentApplications($department_id)
                 'nssf_card_photo',
                 'sha_card_photo',
                 'kra_certificate_photo',
+                 'cv_upload',
                 'terms'
             ])->toArray(),
             'token'    => $token,
@@ -303,7 +310,8 @@ public function exportDepartmentApplications($department_id)
         $this->uploadDocument($request, $onboarding, 'nssf_card_photo');
         $this->uploadDocument($request, $onboarding, 'sha_card_photo');
         $this->uploadDocument($request, $onboarding, 'kra_certificate_photo');
-
+// After uploading other documents, add:
+$this->uploadDocument($request, $onboarding, 'cv_upload');
         // Send emails
         $this->sendAdminEmail($onboarding, $systemName);
         $this->sendApplicantEmail($onboarding, $systemName);

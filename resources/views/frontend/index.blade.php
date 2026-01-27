@@ -107,7 +107,75 @@
                         </div>
                     </div>
                 </div>
+<!-- Education Information -->
+<div>
+    <h3 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
+        Education Information
+    </h3>
 
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Education Level -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Highest Education Level
+            </label>
+            <select name="education_level"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                <option value="">Select Education Level</option>
+                <option value="High School" {{ old('education_level') == 'High School' ? 'selected' : '' }}>High School</option>
+                <option value="Certificate" {{ old('education_level') == 'Certificate' ? 'selected' : '' }}>Certificate</option>
+                <option value="Diploma" {{ old('education_level') == 'Diploma' ? 'selected' : '' }}>Diploma</option>
+                <option value="Degree (Undergraduate)" {{ old('education_level') == 'Degree (Undergraduate)' ? 'selected' : '' }}>Degree (Undergraduate)</option>
+                <option value="Masters" {{ old('education_level') == 'Masters' ? 'selected' : '' }}>Masters</option>
+                <option value="PhD" {{ old('education_level') == 'PhD' ? 'selected' : '' }}>PhD</option>
+            </select>
+            @error('education_level')
+                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <!-- Field of Study -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Field of Study
+            </label>
+            <input type="text" name="field_of_study" value="{{ old('field_of_study') }}"
+                   placeholder="e.g., Computer Science, Business Administration"
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+            @error('field_of_study')
+                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <!-- Institution -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Institution
+            </label>
+            <input type="text" name="institution" value="{{ old('institution') }}"
+                   placeholder="e.g., University of Nairobi, Kenyatta University"
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+            @error('institution')
+                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <!-- Year Completed -->
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Year Completed
+            </label>
+            <input type="text" name="year_completed" value="{{ old('year_completed') }}"
+                   placeholder="e.g., 2020"
+                   maxlength="4"
+                   pattern="\d{4}"
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+            @error('year_completed')
+                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+            @enderror
+        </div>
+    </div>
+</div>
                 <!-- Employment Details -->
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
@@ -320,42 +388,50 @@
                 </div>
 
                 <!-- Documents -->
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
-                        Required Documents <span class="text-sm text-red-500">(All Required - Max: 5MB each)</span>
-                    </h3>
+               <div>
+    <h3 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
+        Required Documents <span class="text-sm text-red-500">(All Required - Max: 5MB each)</span>
+    </h3>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        @foreach([
-                            ['field' => 'national_id_photo', 'label' => 'National ID Photo', 'hint' => 'Clear photo of your National ID (PDF or Image)'],
-                            ['field' => 'passport_photo', 'label' => 'Passport Photo', 'hint' => 'Passport photo page (PDF or Image)'],
-                            ['field' => 'passport_size_photo', 'label' => 'Passport Size Photo', 'hint' => 'Recent passport size photo (Image only)'],
-                            ['field' => 'nssf_card_photo', 'label' => 'NSSF Card Photo', 'hint' => 'Clear photo of your NSSF card'],
-                            ['field' => 'sha_card_photo', 'label' => 'SHA Card Photo', 'hint' => 'Clear photo of your SHA card'],
-                            ['field' => 'kra_certificate_photo', 'label' => 'KRA Certificate Photo', 'hint' => 'Clear photo of your KRA pin certificate']
-                        ] as $doc)
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                {{ $doc['label'] }} <span class="text-red-500">*</span>
-                            </label>
-                            <input type="file" name="{{ $doc['field'] }}"
-                                   @if($doc['field'] == 'passport_size_photo')
-                                       accept="image/*"
-                                   @else
-                                       accept="image/*,.pdf"
-                                   @endif
-                                   required
-                                   class="w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                            @error($doc['field'])
-                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                            @enderror
-                            @if($doc['hint'])
-                            <p class="text-xs text-gray-500 mt-1">{{ $doc['hint'] }}</p>
-                            @endif
-                        </div>
-                        @endforeach
-                    </div>
-                </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        @foreach([
+            ['field' => 'national_id_photo', 'label' => 'National ID Photo', 'hint' => 'Clear photo of your National ID (PDF or Image)', 'required' => true],
+            ['field' => 'passport_photo', 'label' => 'Passport Photo', 'hint' => 'Passport photo page (PDF or Image)', 'required' => true],
+            ['field' => 'passport_size_photo', 'label' => 'Passport Size Photo', 'hint' => 'Recent passport size photo (Image only)', 'required' => true],
+            ['field' => 'nssf_card_photo', 'label' => 'NSSF Card Photo', 'hint' => 'Clear photo of your NSSF card', 'required' => true],
+            ['field' => 'sha_card_photo', 'label' => 'SHA Card Photo', 'hint' => 'Clear photo of your SHA card', 'required' => true],
+            ['field' => 'kra_certificate_photo', 'label' => 'KRA Certificate Photo', 'hint' => 'Clear photo of your KRA pin certificate', 'required' => true],
+            ['field' => 'cv_upload', 'label' => 'CV/Resume', 'hint' => 'Upload your CV/Resume (PDF, DOC, DOCX - Max: 10MB)', 'required' => false]
+        ] as $doc)
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                {{ $doc['label'] }}
+                @if($doc['required'])
+                    <span class="text-red-500">*</span>
+                @else
+                    <span class="text-gray-500 text-xs">(Optional)</span>
+                @endif
+            </label>
+            <input type="file" name="{{ $doc['field'] }}"
+                   @if($doc['field'] == 'passport_size_photo')
+                       accept="image/*"
+                   @elseif($doc['field'] == 'cv_upload')
+                       accept=".pdf,.doc,.docx"
+                   @else
+                       accept="image/*,.pdf"
+                   @endif
+                   @if($doc['required']) required @endif
+                   class="w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            @error($doc['field'])
+                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+            @enderror
+            @if($doc['hint'])
+            <p class="text-xs text-gray-500 mt-1">{{ $doc['hint'] }}</p>
+            @endif
+        </div>
+        @endforeach
+    </div>
+</div>
 
                 <!-- Terms -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -412,20 +488,49 @@
                 }
             });
         });
+// Add this to your script
+const yearInput = document.querySelector('input[name="year_completed"]');
+if (yearInput) {
+    yearInput.addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value.length > 4) {
+            value = value.substring(0, 4);
+        }
+        e.target.value = value;
 
+        // Optional: Validate year range
+        if (value.length === 4) {
+            const year = parseInt(value);
+            const currentYear = new Date().getFullYear();
+            if (year < 1900 || year > currentYear) {
+                e.target.setCustomValidity(`Year must be between 1900 and ${currentYear}`);
+            } else {
+                e.target.setCustomValidity('');
+            }
+        }
+    });
+}
         // File size validation
-        const fileInputs = document.querySelectorAll('input[type="file"]');
-        fileInputs.forEach(input => {
-            input.addEventListener('change', function(e) {
-                const file = this.files[0];
-                const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+       // File size validation
+const fileInputs = document.querySelectorAll('input[type="file"]');
+fileInputs.forEach(input => {
+    input.addEventListener('change', function(e) {
+        const file = this.files[0];
 
-                if (file && file.size > maxSize) {
-                    alert('File size must be less than 5MB');
-                    this.value = '';
-                }
-            });
-        });
+        // Different max sizes for different file types
+        let maxSize;
+        if (this.name === 'cv_upload') {
+            maxSize = 10 * 1024 * 1024; // 10MB for CV
+        } else {
+            maxSize = 5 * 1024 * 1024; // 5MB for other documents
+        }
+
+        if (file && file.size > maxSize) {
+            alert(`File size must be less than ${this.name === 'cv_upload' ? '10MB' : '5MB'}`);
+            this.value = '';
+        }
+    });
+});
     });
 </script>
 @endsection

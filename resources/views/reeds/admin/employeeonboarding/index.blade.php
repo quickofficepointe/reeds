@@ -223,6 +223,8 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applicant</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Education Level</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CV</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Submitted</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -256,6 +258,25 @@
                             <div class="text-sm font-medium text-gray-900">{{ optional($application->department)->name ?: 'N/A' }}</div>
                             <div class="text-xs text-gray-500">{{ optional($application->unit)->name ?: 'No Unit' }}</div>
                         </td>
+
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ $application->education_level ?? 'N/A' }}</div>
+                            @if($application->field_of_study)
+                                <div class="text-xs text-gray-500">{{ $application->field_of_study }}</div>
+                            @endif
+                        </td>
+
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @if($application->cv_upload)
+                               <a href="{{ route('admin.onboarding.download', ['id' => $application->id, 'document' => 'cv_upload']) }}"
+                                   class="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium hover:bg-green-200 transition-colors">
+                                    <i class="fas fa-file-pdf mr-1"></i> View CV
+                                </a>
+                            @else
+                                <span class="text-xs text-gray-500">Not Uploaded</span>
+                            @endif
+                        </td>
+
                         <td class="px-6 py-4 whitespace-nowrap">
                             @php
                                 $statusColors = [
@@ -291,7 +312,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center">
+                        <td colspan="8" class="px-6 py-12 text-center">
                             <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
                                 <i class="fas fa-inbox text-2xl text-gray-400"></i>
                             </div>
@@ -400,7 +421,7 @@
     </div>
 </div>
 
-<!-- View Application Modal (Existing) -->
+<!-- View Application Modal -->
 <div id="viewApplicationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
     <div class="relative top-20 mx-auto p-5 border w-full max-w-6xl shadow-lg rounded-md bg-white max-h-[80vh] overflow-y-auto">
         <div class="flex justify-between items-center pb-3 border-b">
@@ -425,7 +446,7 @@
     </div>
 </div>
 
-<!-- Update Status Modal (Existing) -->
+<!-- Update Status Modal -->
 <div id="updateStatusModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
     <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
         <div class="flex justify-between items-center pb-3 border-b">
@@ -571,7 +592,7 @@ function loadDepartmentApplications(departmentId) {
             <!-- Skeleton Table -->
             <div class="space-y-3">
                 ${Array(5).fill().map((_, i) => `
-                    <div class="grid grid-cols-6 gap-4 p-4 border rounded-lg">
+                    <div class="grid grid-cols-7 gap-4 p-4 border rounded-lg">
                         <div class="col-span-2">
                             <div class="flex items-center space-x-3">
                                 <div class="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
@@ -588,6 +609,10 @@ function loadDepartmentApplications(departmentId) {
                         <div class="space-y-2">
                             <div class="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
                             <div class="h-3 bg-gray-200 rounded w-20 animate-pulse"></div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                            <div class="h-3 bg-gray-200 rounded w-16 animate-pulse"></div>
                         </div>
                         <div><div class="h-6 bg-gray-200 rounded w-20 animate-pulse"></div></div>
                         <div class="space-y-2">
@@ -673,6 +698,7 @@ function loadDepartmentApplications(departmentId) {
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applicant</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Education Level</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Submitted</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -723,6 +749,10 @@ function loadDepartmentApplications(departmentId) {
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-sm text-gray-900">${app.unit ? app.unit.name : 'N/A'}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-gray-900">${app.education_level || 'N/A'}</div>
+                            ${app.field_of_study ? `<div class="text-xs text-gray-500">${app.field_of_study}</div>` : ''}
                         </td>
                         <td class="px-6 py-4">
                             <span class="px-3 py-1.5 inline-flex text-xs leading-4 font-semibold rounded-full ${statusColors[app.status]}">
@@ -830,96 +860,7 @@ function closeDepartmentModal() {
     currentDepartmentId = null;
 }
 
-// Existing Application Functions
-function viewApplication(id) {
-    currentApplicationId = id;
-
-    // Show loading
-    document.getElementById('applicationDetails').innerHTML = `
-        <div class="flex justify-center items-center h-40">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-red"></div>
-        </div>
-    `;
-
-    // Show modal
-    document.getElementById('viewApplicationModal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-
-    // Load application details
-    fetch(`/admin/onboarding/${id}`)
-        .then(response => response.json())
-        .then(data => {
-            // ... existing view application code ...
-        })
-        .catch(error => {
-            document.getElementById('applicationDetails').innerHTML = `
-                <div class="text-center text-red-600 p-4">
-                    <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
-                    <p>Error loading application details</p>
-                </div>
-            `;
-        });
-}
-
-function closeModal() {
-    document.getElementById('viewApplicationModal').classList.add('hidden');
-    document.body.style.overflow = 'auto';
-}
-
-function updateStatusModal() {
-    closeModal();
-    document.getElementById('updateStatusModal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    document.getElementById('applicationId').value = currentApplicationId;
-}
-
-function closeStatusModal() {
-    document.getElementById('updateStatusModal').classList.add('hidden');
-    document.body.style.overflow = 'auto';
-}
-
-// Event Listeners
-document.addEventListener('DOMContentLoaded', function() {
-    // Add hover effects to department cards
-    const departmentCards = document.querySelectorAll('.department-card');
-    departmentCards.forEach(card => {
-        card.addEventListener('click', function(e) {
-            if (!e.target.closest('button') && !e.target.closest('a')) {
-                const deptId = this.getAttribute('data-department-id');
-                viewDepartmentApplications(deptId);
-            }
-        });
-    });
-
-    // Close modals when clicking outside
-    document.getElementById('departmentApplicationsModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeDepartmentModal();
-        }
-    });
-
-    document.getElementById('viewApplicationModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeModal();
-        }
-    });
-
-    document.getElementById('updateStatusModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeStatusModal();
-        }
-    });
-
-    // Escape key to close modals
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeDepartmentModal();
-            closeModal();
-            closeStatusModal();
-        }
-    });
-});
-// Existing Application Functions
+// Application Functions
 function viewApplication(id) {
     currentApplicationId = id;
 
@@ -947,13 +888,15 @@ function viewApplication(id) {
             const dept = app.department ? app.department.name : 'N/A';
             const unit = app.unit ? app.unit.name : 'N/A';
 
+            // Updated documents array to include CV
             const documents = [
                 { key: 'national_id_photo', label: 'National ID Photo' },
                 { key: 'passport_photo', label: 'Passport Photo' },
                 { key: 'passport_size_photo', label: 'Passport Size Photo' },
                 { key: 'nssf_card_photo', label: 'NSSF Card Photo' },
                 { key: 'sha_card_photo', label: 'SHA Card Photo' },
-                { key: 'kra_certificate_photo', label: 'KRA Certificate Photo' }
+                { key: 'kra_certificate_photo', label: 'KRA Certificate Photo' },
+                { key: 'cv_upload', label: 'CV/Resume' }
             ];
 
             let docsHtml = '';
@@ -990,6 +933,17 @@ function viewApplication(id) {
                             <div><span class="text-sm text-gray-600">Phone:</span> ${app.personal_phone}</div>
                             <div><span class="text-sm text-gray-600">Date of Birth:</span> ${app.date_of_birth || 'N/A'}</div>
                             <div><span class="text-sm text-gray-600">Gender:</span> ${app.gender || 'N/A'}</div>
+                        </div>
+                    </div>
+
+                    <!-- Education Information -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-900 mb-3">Education Information</h4>
+                        <div class="space-y-2">
+                            <div><span class="text-sm text-gray-600">Education Level:</span> ${app.education_level || 'N/A'}</div>
+                            <div><span class="text-sm text-gray-600">Field of Study:</span> ${app.field_of_study || 'N/A'}</div>
+                            <div><span class="text-sm text-gray-600">Institution:</span> ${app.institution || 'N/A'}</div>
+                            <div><span class="text-sm text-gray-600">Year Completed:</span> ${app.year_completed || 'N/A'}</div>
                         </div>
                     </div>
 
@@ -1083,6 +1037,24 @@ function viewApplication(id) {
             `;
         });
 }
+
+function closeModal() {
+    document.getElementById('viewApplicationModal').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+function updateStatusModal() {
+    closeModal();
+    document.getElementById('updateStatusModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('applicationId').value = currentApplicationId;
+}
+
+function closeStatusModal() {
+    document.getElementById('updateStatusModal').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
 // Handle status form submission
 document.getElementById('statusForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -1114,6 +1086,48 @@ document.getElementById('statusForm').addEventListener('submit', function(e) {
     })
     .catch(error => {
         alert('Error updating status');
+    });
+});
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Add hover effects to department cards
+    const departmentCards = document.querySelectorAll('.department-card');
+    departmentCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (!e.target.closest('button') && !e.target.closest('a')) {
+                const deptId = this.getAttribute('data-department-id');
+                viewDepartmentApplications(deptId);
+            }
+        });
+    });
+
+    // Close modals when clicking outside
+    document.getElementById('departmentApplicationsModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeDepartmentModal();
+        }
+    });
+
+    document.getElementById('viewApplicationModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+
+    document.getElementById('updateStatusModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeStatusModal();
+        }
+    });
+
+    // Escape key to close modals
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeDepartmentModal();
+            closeModal();
+            closeStatusModal();
+        }
     });
 });
 </script>

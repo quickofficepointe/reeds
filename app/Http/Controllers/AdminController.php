@@ -90,241 +90,249 @@ class AdminController extends Controller
      * Get unit statistics
      */
     private function getUnitStats()
-{
-    $units = Unit::active()
-        ->withCount([
-            'employees as total_employees',
-            'employees as active_employees' => function($query) {
-                $query->where('is_active', true);
+    {
+        $units = Unit::active()
+            ->withCount([
+                'employees as total_employees',
+                'employees as active_employees' => function($query) {
+                    $query->where('is_active', true);
+                }
+            ])
+            ->get();
+
+        return $units->map(function($unit) {
+            // Calculate scans using the computed attributes
+            $totalScans = $unit->mealTransactions()->count();
+            $monthScans = $unit->mealTransactions()
+                ->where('meal_date', '>=', now()->startOfMonth())
+                ->count();
+            $todayScans = $unit->mealTransactions()
+                ->whereDate('meal_date', today())
+                ->count();
+            $monthRevenue = $unit->mealTransactions()
+                ->where('meal_date', '>=', now()->startOfMonth())
+                ->sum('amount');
+
+            // Count active vendors (FIXED: use vendor users associated with unit)
+            $activeVendorsCount = User::where('role', 2)
+                ->where('unit_id', $unit->id)
+                ->whereHas('profile', function($q) {
+                    $q->where('is_verified', true);
+                })
+                ->count();
+
+            // Calculate capacity utilization
+            $capacityUtilization = null;
+            if ($unit->capacity && $unit->capacity > 0) {
+                $capacityUtilization = round(($unit->current_employee_count / $unit->capacity) * 100, 0);
             }
-        ])
-        ->get();
 
-    return $units->map(function($unit) {
-        // Calculate scans using the computed attributes
-        $totalScans = $unit->mealTransactions()->count();
-        $monthScans = $unit->mealTransactions()
-            ->where('meal_date', '>=', now()->startOfMonth())
-            ->count();
-        $todayScans = $unit->mealTransactions()
-            ->whereDate('meal_date', today())
-            ->count();
-        $monthRevenue = $unit->mealTransactions()
-            ->where('meal_date', '>=', now()->startOfMonth())
-            ->sum('amount');
-
-        // Count active vendors directly
-        $activeVendorsCount = User::where('role', User::ROLE_VENDOR)
-            ->where('unit_id', $unit->id)
-            ->whereHas('profile', function($q) {
-                $q->where('is_verified', true);
-            })
-            ->count();
-
-        // Calculate capacity utilization
-        $capacityUtilization = null;
-        if ($unit->capacity && $unit->capacity > 0) {
-            $capacityUtilization = round(($unit->current_employee_count / $unit->capacity) * 100, 0);
-        }
-
-        return [
-            'id' => $unit->id,
-            'name' => $unit->name,
-            'code' => $unit->code, // Added
-            'location' => $unit->location, // Added
-            'capacity' => $unit->capacity, // Added
-            'current_employee_count' => $unit->current_employee_count, // Added
-            'capacity_utilization' => $capacityUtilization, // Added
-            'total_employees' => $unit->total_employees,
-            'active_employees' => $unit->active_employees,
-            'total_scans' => $totalScans,
-            'month_scans' => $monthScans,
-            'today_scans' => $todayScans,
-            'month_revenue' => $monthRevenue,
-            'active_vendors' => $activeVendorsCount,
-        ];
-    });
-}
+            return [
+                'id' => $unit->id,
+                'name' => $unit->name,
+                'code' => $unit->code,
+                'location' => $unit->location,
+                'capacity' => $unit->capacity,
+                'current_employee_count' => $unit->current_employee_count,
+                'capacity_utilization' => $capacityUtilization,
+                'total_employees' => $unit->total_employees,
+                'active_employees' => $unit->active_employees,
+                'total_scans' => $totalScans,
+                'month_scans' => $monthScans,
+                'today_scans' => $todayScans,
+                'month_revenue' => $monthRevenue,
+                'active_vendors' => $activeVendorsCount,
+            ];
+        });
+    }
 
     /**
      * Get analytics data for charts WITH UNIT FILTER
      */
     public function getAnalyticsData(Request $request)
     {
-        $period = $request->get('period', 'week');
-        $unitId = $request->get('unit_id', 'all');
+        try {
+            $period = $request->get('period', 'month');
+            $unitId = $request->get('unit_id', 'all');
 
-        switch ($period) {
-            case 'week':
-                $startDate = now()->subDays(7);
-                $format = 'Y-m-d';
-                break;
-            case 'month':
-                $startDate = now()->subDays(30);
-                $format = 'Y-m-d';
-                break;
-            case 'year':
-                $startDate = now()->subMonths(12);
-                $format = 'Y-m';
-                break;
-            default:
-                $startDate = now()->subDays(7);
-                $format = 'Y-m-d';
-        }
+            // Calculate period dates
+            switch ($period) {
+                case 'week':
+                    $startDate = now()->subDays(7);
+                    $dateFormat = "DATE_FORMAT(meal_date, '%Y-%m-%d')";
+                    break;
+                case 'year':
+                    $startDate = now()->subMonths(12);
+                    $dateFormat = "DATE_FORMAT(meal_date, '%Y-%m')";
+                    break;
+                default: // month
+                    $startDate = now()->subDays(30);
+                    $dateFormat = "DATE_FORMAT(meal_date, '%Y-%m-%d')";
+            }
 
-        // Base query with unit filter
-        $baseQuery = MealTransaction::query();
-        if ($unitId !== 'all') {
-            $baseQuery->whereHas('employee', function($query) use ($unitId) {
-                $query->where('unit_id', $unitId);
-            });
-        }
+            // Scans over time data - FIXED: specify table for created_at
+            $scansQuery = MealTransaction::query();
 
-        // Daily/Monthly scans data
-        $scansData = $baseQuery->where('created_at', '>=', $startDate)
-            ->select(
-                DB::raw("DATE_FORMAT(meal_date, '{$format}') as period"),
-                DB::raw('COUNT(*) as scans'),
-                DB::raw('SUM(amount) as revenue')
-            )
-            ->groupBy('period')
-            ->orderBy('period')
-            ->get();
-
-        // Vendor performance data (with unit filter)
-        $vendorQuery = User::where('role', 2);
-        if ($unitId !== 'all') {
-            $vendorQuery->where('unit_id', $unitId);
-        }
-
-        $vendorPerformance = $vendorQuery
-            ->withCount(['mealTransactions as total_scans' => function($query) use ($startDate, $unitId) {
-                $query->where('created_at', '>=', $startDate);
-                if ($unitId !== 'all') {
-                    $query->whereHas('employee', function($q) use ($unitId) {
-                        $q->where('unit_id', $unitId);
-                    });
-                }
-            }])
-            ->withSum(['mealTransactions as total_revenue' => function($query) use ($startDate, $unitId) {
-                $query->where('created_at', '>=', $startDate);
-                if ($unitId !== 'all') {
-                    $query->whereHas('employee', function($q) use ($unitId) {
-                        $q->where('unit_id', $unitId);
-                    });
-                }
-            }], 'amount')
-            ->having('total_scans', '>', 0)
-            ->orderBy('total_scans', 'desc')
-            ->take(10)
-            ->get()
-            ->map(function($vendor) {
-                return [
-                    'name' => $vendor->name,
-                    'scans' => $vendor->total_scans,
-                    'revenue' => $vendor->total_revenue
-                ];
-            });
-
-        // Unit performance data
-        $unitPerformance = Unit::active()
-            ->withCount(['mealTransactions as scans' => function($query) use ($startDate) {
-                $query->where('created_at', '>=', $startDate);
-            }])
-            ->withSum(['mealTransactions as revenue' => function($query) use ($startDate) {
-                $query->where('created_at', '>=', $startDate);
-            }], 'amount')
-            ->withCount(['employees as employees'])
-            ->having('scans', '>', 0)
-            ->orderBy('scans', 'desc')
-            ->get()
-            ->map(function($unit) {
-                return [
-                    'name' => $unit->name,
-                    'employees' => $unit->employees,
-                    'scans' => $unit->scans,
-                    'revenue' => $unit->revenue
-                ];
-            });
-
-        // Department-wise feeding data (with unit filter)
-        $departmentQuery = Department::query();
-        if ($unitId !== 'all') {
-            $departmentQuery->whereHas('employees', function($q) use ($unitId) {
-                $q->where('unit_id', $unitId);
-            });
-        }
-
-        $departmentFeeding = $departmentQuery
-            ->withCount(['employees as employee_count' => function($query) use ($unitId) {
-                if ($unitId !== 'all') {
-                    $query->where('unit_id', $unitId);
-                }
-            }])
-            ->withCount(['employees as fed_today_count' => function($query) use ($unitId) {
-                $query->whereHas('mealTransactions', function($q) {
-                    $q->whereDate('meal_date', today());
+            if ($unitId !== 'all') {
+                $scansQuery->whereHas('employee', function($q) use ($unitId) {
+                    $q->where('unit_id', $unitId);
                 });
-                if ($unitId !== 'all') {
-                    $query->where('unit_id', $unitId);
-                }
-            }])
-            ->having('employee_count', '>', 0)
-            ->get()
-            ->map(function($dept) {
-                return [
-                    'name' => $dept->name,
-                    'total_employees' => $dept->employee_count,
-                    'fed_today' => $dept->fed_today_count,
-                    'feeding_rate' => $dept->employee_count > 0 ?
-                        round(($dept->fed_today_count / $dept->employee_count) * 100, 2) : 0
-                ];
-            });
+            }
 
-        // Employee feeding behavior (with unit filter)
-        $employeeQuery = Employee::query();
-        if ($unitId !== 'all') {
-            $employeeQuery->where('unit_id', $unitId);
-        }
+            $scansData = $scansQuery->where('meal_transactions.created_at', '>=', $startDate)
+                ->select(
+                    DB::raw("$dateFormat as period"),
+                    DB::raw('COUNT(*) as scans')
+                )
+                ->groupBy('period')
+                ->orderBy('period')
+                ->get();
 
-        $employeeBehavior = [
-            'frequent_eaters' => $employeeQuery
+            // Unit performance data - FIXED: specify table for ambiguous columns
+            $unitPerformanceQuery = Unit::where('is_active', true)
+                ->withCount(['employees as employees_count']);
+
+            // Add scans count with date filter
+            $unitPerformance = $unitPerformanceQuery->get()
+                ->map(function($unit) use ($startDate, $unitId) {
+                    // If specific unit filter, only include that unit
+                    if ($unitId !== 'all' && $unit->id != $unitId) {
+                        return null;
+                    }
+
+                    // Count scans for this unit with date filter
+                    $scansCount = MealTransaction::whereHas('employee', function($q) use ($unit) {
+                            $q->where('unit_id', $unit->id);
+                        })
+                        ->where('meal_transactions.created_at', '>=', $startDate)
+                        ->count();
+
+                    // Sum revenue for this unit with date filter
+                    $revenueSum = MealTransaction::whereHas('employee', function($q) use ($unit) {
+                            $q->where('unit_id', $unit->id);
+                        })
+                        ->where('meal_transactions.created_at', '>=', $startDate)
+                        ->sum('amount');
+
+                    return [
+                        'name' => $unit->name,
+                        'scans' => $scansCount,
+                        'employees' => $unit->employees_count,
+                        'revenue' => $revenueSum ?? 0
+                    ];
+                })
+                ->filter() // Remove null values
+                ->values();
+
+            // Department feeding rates - FIXED: specify table for ambiguous columns
+            $departmentFeeding = Department::withCount(['employees as employee_count'])
+                ->get()
+                ->map(function($dept) use ($startDate, $unitId) {
+                    // Get employees in this department
+                    $employeeQuery = $dept->employees();
+
+                    if ($unitId !== 'all') {
+                        $employeeQuery->where('unit_id', $unitId);
+                    }
+
+                    $employeeCount = $employeeQuery->count();
+
+                    if ($employeeCount === 0) {
+                        return null;
+                    }
+
+                    // Count employees who were fed during the period
+                    $fedQuery = $dept->employees()
+                        ->whereHas('mealTransactions', function($q) use ($startDate) {
+                            $q->where('meal_transactions.created_at', '>=', $startDate);
+                        });
+
+                    if ($unitId !== 'all') {
+                        $fedQuery->where('unit_id', $unitId);
+                    }
+
+                    $fedCount = $fedQuery->count();
+
+                    return [
+                        'name' => $dept->name,
+                        'total_employees' => $employeeCount,
+                        'fed_today' => $fedCount,
+                        'feeding_rate' => $employeeCount > 0 ?
+                            round(($fedCount / $employeeCount) * 100, 2) : 0
+                    ];
+                })
+                ->filter()
+                ->values();
+
+            // Vendor performance - FIXED: specify table for ambiguous columns
+            $vendorPerformanceQuery = User::where('role', 2);
+
+            if ($unitId !== 'all') {
+                $vendorPerformanceQuery->where('unit_id', $unitId);
+            }
+
+            $vendorPerformance = $vendorPerformanceQuery
+                ->withCount(['mealTransactions as total_scans' => function($query) use ($startDate) {
+                    $query->where('meal_transactions.created_at', '>=', $startDate);
+                }])
+                ->withSum(['mealTransactions as total_revenue' => function($query) use ($startDate) {
+                    $query->where('meal_transactions.created_at', '>=', $startDate);
+                }], 'amount')
+                ->having('total_scans', '>', 0)
+                ->orderBy('total_scans', 'desc')
+                ->take(10)
+                ->get()
+                ->map(function($vendor) {
+                    return [
+                        'name' => $vendor->name,
+                        'scans' => $vendor->total_scans,
+                        'revenue' => $vendor->total_revenue
+                    ];
+                });
+
+            // Employee behavior - FIXED: specify table for ambiguous columns
+            $employeeQuery = Employee::query();
+
+            if ($unitId !== 'all') {
+                $employeeQuery->where('unit_id', $unitId);
+            }
+
+            $frequentEaters = $employeeQuery
                 ->withCount(['mealTransactions as meal_count' => function($query) use ($startDate) {
-                    $query->where('created_at', '>=', $startDate);
+                    $query->where('meal_transactions.created_at', '>=', $startDate);
                 }])
                 ->having('meal_count', '>', 0)
                 ->orderBy('meal_count', 'desc')
                 ->take(10)
-                ->get(),
-
-            'preferred_vendors' => DB::table('meal_transactions')
-                ->join('employees', 'meal_transactions.employee_id', '=', 'employees.id')
-                ->join('users', 'meal_transactions.vendor_id', '=', 'users.id')
-                ->select(
-                    'employees.formal_name as employee_name',
-                    'users.name as vendor_name',
-                    DB::raw('COUNT(*) as visit_count')
-                )
-                ->where('meal_transactions.created_at', '>=', $startDate)
-                ->when($unitId !== 'all', function($query) use ($unitId) {
-                    $query->where('employees.unit_id', $unitId); // Fixed: use employees.unit_id
-                })
-                ->groupBy('meal_transactions.employee_id', 'meal_transactions.vendor_id')
-                ->orderBy('visit_count', 'desc')
-                ->take(10)
                 ->get()
-        ];
+                ->map(function($employee) {
+                    return [
+                        'formal_name' => $employee->formal_name,
+                        'meal_count' => $employee->meal_count
+                    ];
+                });
 
-        return response()->json([
-            'success' => true,
-            'scans_data' => $scansData,
-            'vendor_performance' => $vendorPerformance,
-            'unit_performance' => $unitPerformance,
-            'department_feeding' => $departmentFeeding,
-            'employee_behavior' => $employeeBehavior,
-            'period' => $period,
-            'unit_id' => $unitId
-        ]);
+            return response()->json([
+                'success' => true,
+                'scans_data' => $scansData,
+                'unit_performance' => $unitPerformance,
+                'department_feeding' => $departmentFeeding,
+                'vendor_performance' => $vendorPerformance,
+                'employee_behavior' => [
+                    'frequent_eaters' => $frequentEaters
+                ],
+                'period' => $period,
+                'unit_id' => $unitId
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Analytics data error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to load analytics data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -389,10 +397,10 @@ class AdminController extends Controller
         // Get all units for filtering
         $units = Unit::active()->get();
 
-        // Get recent transactions for the table - FIXED: access unit through employee
+        // Get recent transactions for the table
         $recentTransactions = MealTransaction::with([
                 'employee.department',
-                'employee.unit', // Fixed: access unit through employee
+                'employee.unit',
                 'vendor'
             ])
             ->whereHas('employee')
@@ -412,7 +420,7 @@ class AdminController extends Controller
     }
 
     /**
-     * Get unit-specific analytics
+     * Get unit-specific analytics - FIXED: removed undefined users() method
      */
     public function getUnitAnalytics(Unit $unit)
     {
@@ -420,27 +428,21 @@ class AdminController extends Controller
             // Get monthly trends (last 30 days)
             $monthlyTrends = [
                 'labels' => [],
-                'scans' => [],
-                'revenue' => []
+                'scans' => []
             ];
 
             for ($i = 29; $i >= 0; $i--) {
                 $date = now()->subDays($i);
                 $formattedDate = $date->format('M d');
 
-                $dailyStats = MealTransaction::whereHas('employee', function($query) use ($unit) {
+                $dailyScans = MealTransaction::whereHas('employee', function($query) use ($unit) {
                         $query->where('unit_id', $unit->id);
                     })
                     ->whereDate('meal_date', $date)
-                    ->select(
-                        DB::raw('COUNT(*) as scans'),
-                        DB::raw('SUM(amount) as revenue')
-                    )
-                    ->first();
+                    ->count();
 
                 $monthlyTrends['labels'][] = $formattedDate;
-                $monthlyTrends['scans'][] = $dailyStats->scans ?? 0;
-                $monthlyTrends['revenue'][] = $dailyStats->revenue ?? 0;
+                $monthlyTrends['scans'][] = $dailyScans;
             }
 
             // Get top employees in this unit
@@ -467,19 +469,12 @@ class AdminController extends Controller
                     ];
                 });
 
-            // Get active vendors in this unit
+            // Get active vendors in this unit - FIXED: Use User model with unit_id
             $vendors = User::where('role', 2)
                 ->where('unit_id', $unit->id)
                 ->whereHas('profile', function($q) {
                     $q->where('is_verified', true);
                 })
-                ->with(['mealTransactions' => function($query) use ($unit) {
-                    $query->whereHas('employee', function($q) use ($unit) {
-                        $q->where('unit_id', $unit->id);
-                    })
-                    ->latest()
-                    ->limit(1);
-                }])
                 ->withCount(['mealTransactions as scans' => function($query) use ($unit) {
                     $query->whereHas('employee', function($q) use ($unit) {
                         $q->where('unit_id', $unit->id);
@@ -488,13 +483,17 @@ class AdminController extends Controller
                 }])
                 ->get()
                 ->map(function($vendor) {
+                    $lastTransaction = MealTransaction::where('vendor_id', $vendor->id)
+                        ->latest()
+                        ->first();
+
                     return [
                         'id' => $vendor->id,
                         'name' => $vendor->name,
                         'email' => $vendor->email,
                         'scans' => $vendor->scans,
-                        'last_scan' => $vendor->mealTransactions->first()
-                            ? $vendor->mealTransactions->first()->meal_date->format('M d, Y')
+                        'last_scan' => $lastTransaction
+                            ? $lastTransaction->meal_date->format('M d, Y')
                             : 'Never'
                     ];
                 });
@@ -514,8 +513,8 @@ class AdminController extends Controller
                 'month_revenue' => $unit->mealTransactions()
                     ->where('meal_date', '>=', now()->startOfMonth())
                     ->sum('amount'),
-                'active_vendors' => $unit->users()
-                    ->where('role', 2)
+                'active_vendors' => User::where('role', 2)
+                    ->where('unit_id', $unit->id)
                     ->whereHas('profile', function($q) {
                         $q->where('is_verified', true);
                     })
@@ -535,7 +534,8 @@ class AdminController extends Controller
             Log::error('Unit analytics error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to load unit analytics'
+                'error' => 'Failed to load unit analytics',
+                'message' => $e->getMessage()
             ], 500);
         }
     }
@@ -545,49 +545,58 @@ class AdminController extends Controller
      */
     public function getVendorDetails($vendorId)
     {
-        $vendor = User::with(['profile'])->findOrFail($vendorId);
+        try {
+            $vendor = User::with(['profile'])->findOrFail($vendorId);
 
-        $stats = [
-            'total_scans' => $vendor->mealTransactions()->count(),
-            'today_scans' => $vendor->mealTransactions()->whereDate('meal_date', today())->count(),
-            'week_scans' => $vendor->mealTransactions()->whereDate('meal_date', '>=', now()->startOfWeek())->count(),
-            'month_scans' => $vendor->mealTransactions()->whereDate('meal_date', '>=', now()->startOfMonth())->count(),
-            'total_revenue' => $vendor->mealTransactions()->sum('amount'),
-            'avg_daily_scans' => $vendor->mealTransactions()
-                ->whereDate('meal_date', '>=', now()->subDays(30))
-                ->groupBy('meal_date')
-                ->select(DB::raw('COUNT(*) as daily_count'))
-                ->get()
-                ->avg('daily_count') ?? 0
-        ];
+            $stats = [
+                'total_scans' => $vendor->mealTransactions()->count(),
+                'today_scans' => $vendor->mealTransactions()->whereDate('meal_date', today())->count(),
+                'week_scans' => $vendor->mealTransactions()->whereDate('meal_date', '>=', now()->startOfWeek())->count(),
+                'month_scans' => $vendor->mealTransactions()->whereDate('meal_date', '>=', now()->startOfMonth())->count(),
+                'total_revenue' => $vendor->mealTransactions()->sum('amount'),
+                'avg_daily_scans' => $vendor->mealTransactions()
+                    ->whereDate('meal_date', '>=', now()->subDays(30))
+                    ->groupBy('meal_date')
+                    ->select(DB::raw('COUNT(*) as daily_count'))
+                    ->get()
+                    ->avg('daily_count') ?? 0
+            ];
 
-        // Recent transactions - FIXED: access unit through employee
-        $recentTransactions = $vendor->mealTransactions()
-            ->with(['employee.department', 'employee.unit'])
-            ->latest()
-            ->take(10)
-            ->get();
+            // Recent transactions
+            $recentTransactions = $vendor->mealTransactions()
+                ->with(['employee.department', 'employee.unit'])
+                ->latest()
+                ->take(10)
+                ->get();
 
-        // Top employees served
-        $topEmployees = $vendor->mealTransactions()
-            ->join('employees', 'meal_transactions.employee_id', '=', 'employees.id')
-            ->select(
-                'employees.id',
-                'employees.formal_name',
-                'employees.department_id',
-                DB::raw('COUNT(*) as visit_count')
-            )
-            ->groupBy('employee_id')
-            ->orderBy('visit_count', 'desc')
-            ->take(5)
-            ->get();
+            // Top employees served
+            $topEmployees = $vendor->mealTransactions()
+                ->join('employees', 'meal_transactions.employee_id', '=', 'employees.id')
+                ->select(
+                    'employees.id',
+                    'employees.formal_name',
+                    'employees.department_id',
+                    DB::raw('COUNT(*) as visit_count')
+                )
+                ->groupBy('employee_id')
+                ->orderBy('visit_count', 'desc')
+                ->take(5)
+                ->get();
 
-        return response()->json([
-            'success' => true,
-            'vendor' => $vendor,
-            'stats' => $stats,
-            'recent_transactions' => $recentTransactions,
-            'top_employees' => $topEmployees
-        ]);
+            return response()->json([
+                'success' => true,
+                'vendor' => $vendor,
+                'stats' => $stats,
+                'recent_transactions' => $recentTransactions,
+                'top_employees' => $topEmployees
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Vendor details error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to load vendor details'
+            ], 500);
+        }
     }
 }
