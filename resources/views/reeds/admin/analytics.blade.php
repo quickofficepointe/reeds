@@ -278,30 +278,38 @@
 
     <!-- Dynamic Charts Section -->
     <div id="chartsSection" class="hidden">
-        <!-- Charts Grid -->
+        <!-- Charts Grid with Fixed Heights -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <!-- Scans Over Time Chart -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                 <h3 class="text-lg font-bold text-text-black mb-4">Scans Over Time</h3>
-                       <canvas id="scansChart"></canvas> <!-- Change to canvas -->
+                <div class="h-80"> <!-- Fixed height container -->
+                    <canvas id="scansChart"></canvas>
+                </div>
             </div>
 
             <!-- Unit Performance Chart -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                 <h3 class="text-lg font-bold text-text-black mb-4">Unit Performance</h3>
-       <canvas id="unitChart"></canvas> <!-- Change to canvas -->
+                <div class="h-80"> <!-- Fixed height container -->
+                    <canvas id="unitChart"></canvas>
+                </div>
             </div>
 
             <!-- Department Feeding Rates -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                 <h3 class="text-lg font-bold text-text-black mb-4">Department Feeding Rates</h3>
-                 <canvas id="departmentChart"></canvas> <!-- Change to canvas -->
+                <div class="h-80"> <!-- Fixed height container -->
+                    <canvas id="departmentChart"></canvas>
+                </div>
             </div>
 
             <!-- Employee Behavior -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                 <h3 class="text-lg font-bold text-text-black mb-4">Frequent Eaters</h3>
-               <canvas id="employeeChart"></canvas> <!-- Change to canvas -->
+                <div class="h-80"> <!-- Fixed height container -->
+                    <canvas id="employeeChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -461,8 +469,33 @@
             });
     }
 
-    // Update charts with safe data handling
+    // Update charts with fixed height configuration
     function updateCharts(data) {
+        // Common chart options for fixed height
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        drawBorder: false
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        };
+
         // Scans over time chart
         const scansCtx = document.getElementById('scansChart').getContext('2d');
         if (scansChart) scansChart.destroy();
@@ -477,12 +510,12 @@
                     borderColor: '#2596be',
                     backgroundColor: 'rgba(37, 150, 190, 0.1)',
                     tension: 0.4,
-                    fill: true
+                    fill: true,
+                    borderWidth: 2
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                ...commonOptions,
                 plugins: {
                     legend: {
                         display: false
@@ -516,16 +549,7 @@
                     }
                 ]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    }
-                }
-            }
+            options: commonOptions
         });
 
         // Department feeding rates
@@ -541,12 +565,18 @@
                     backgroundColor: [
                         '#e92c2a', '#2596be', '#10b981', '#f59e0b', '#8b5cf6',
                         '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'
-                    ]
+                    ],
+                    borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
             }
         });
 
@@ -561,12 +591,13 @@
                 datasets: [{
                     label: 'Meals',
                     data: data.employee_behavior.frequent_eaters.map(item => item.meal_count || 0),
-                    backgroundColor: '#10b981'
+                    backgroundColor: '#10b981',
+                    borderColor: '#10b981',
+                    borderWidth: 1
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                ...commonOptions,
                 indexAxis: 'y',
                 plugins: {
                     legend: {
@@ -664,11 +695,11 @@
                                 </div>
                             </div>
 
-                            <!-- Charts Section -->
+                            <!-- Charts Section with Fixed Height -->
                             <div>
                                 <h4 class="text-lg font-semibold text-text-black mb-4">Monthly Trends</h4>
-                                <div class="bg-gray-50 p-6 rounded-lg">
-                                    <canvas id="unitMonthlyChart" height="300"></canvas>
+                                <div class="h-64">
+                                    <canvas id="unitMonthlyChart"></canvas>
                                 </div>
                             </div>
 
@@ -720,7 +751,7 @@
                         </div>
                     `;
 
-                    // Initialize unit chart
+                    // Initialize unit chart with fixed height
                     const ctx = document.getElementById('unitMonthlyChart').getContext('2d');
                     new Chart(ctx, {
                         type: 'line',
@@ -732,11 +763,13 @@
                                 borderColor: '#2596be',
                                 backgroundColor: 'rgba(37, 150, 190, 0.1)',
                                 tension: 0.4,
-                                fill: true
+                                fill: true,
+                                borderWidth: 2
                             }]
                         },
                         options: {
                             responsive: true,
+                            maintainAspectRatio: false,
                             plugins: {
                                 legend: {
                                     display: false

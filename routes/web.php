@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminMealController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DepartmentController;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 // ===============================
 // PUBLIC DOCUMENT ROUTES (NO AUTH REQUIRED)
 // ===============================
+Route::get('/d/{token}', [EmployeeController::class, 'redirectShortLink'])
+        ->name('short-link');
 Route::prefix('documents')->name('documents.')->group(function () {
     Route::get('/upload/{token}', [EmployeeController::class, 'showDocumentUploadForm'])
         ->name('upload');
@@ -22,8 +25,7 @@ Route::prefix('documents')->name('documents.')->group(function () {
         ->name('process-upload');
     Route::get('/success/{token}', [EmployeeController::class, 'showUploadSuccess'])
         ->name('success');
-    Route::get('/d/{token}', [EmployeeController::class, 'redirectShortLink'])
-        ->name('short-link');
+
 });
 
 // ===============================
@@ -32,7 +34,7 @@ Route::prefix('documents')->name('documents.')->group(function () {
 Route::prefix('employee-onboarding')->group(function () {
     Route::get('/', [EmployeeOnboardingController::class, 'start'])
         ->name('employee.onboarding.start');
-    Route::post('/store', [EmployeeController::class, 'store'])
+    Route::post('/store', [EmployeeOnboardingController::class, 'store'])
         ->name('employee.onboarding.store');
     Route::get('/confirmation/{token}', [EmployeeOnboardingController::class, 'showConfirmation'])
         ->name('employee.onboarding.confirmation');
@@ -65,7 +67,22 @@ Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
+    Route::get('/meals/manual-entry', [AdminMealController::class, 'showManualEntryForm'])
+        ->name('meals.manual-entry');
 
+    Route::post('/meals/manual-entry', [AdminMealController::class, 'processManualEntry'])
+        ->name('meals.manual-entry.process');
+
+    Route::post('/meals/bulk-manual-entry', [AdminMealController::class, 'bulkManualEntry'])
+        ->name('meals.bulk-manual-entry');
+    Route::get('/meals/feb2-report', [AdminMealController::class, 'getFeb2Report'])
+        ->name('meals.feb2-report');
+        // web.php
+Route::get('/meals/recent-entries', [AdminMealController::class, 'getRecentEntries'])
+    ->name('meals.recent-entries');
+
+Route::get('/meals/unfed-employees', [AdminMealController::class, 'getUnfedEmployees'])
+    ->name('meals.unfed-employees');
     // Dashboard & General Admin
     Route::get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
     Route::get('/verifications', [ProfileController::class, 'pendingVerifications'])->name('verifications');
@@ -113,7 +130,13 @@ Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])
     Route::delete('/units/{unit}', [UnitController::class, 'destroy'])->name('units.destroy');
     Route::post('/units/{unit}/toggle-status', [UnitController::class, 'toggleStatus'])->name('units.toggle-status');
     Route::get('/units/{unit}/edit-modal', [UnitController::class, 'editModal'])->name('units.edit-modal');
+// In your routes file (web.php) add these inside the admin group:
 
+Route::get('/vendor/{vendor}/analytics/export', [AdminController::class, 'exportVendorAnalytics'])
+    ->name('vendor.analytics.export');
+
+Route::post('/vendor/{vendor}/analytics/share', [AdminController::class, 'shareVendorAnalytics'])
+    ->name('vendor.analytics.share');
     // ====================================
     // EMPLOYEE ROUTES (Admin only)
     // ====================================
@@ -125,7 +148,11 @@ Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])
     Route::get('employees/qr-codes', [EmployeeController::class, 'qrCodes'])->name('employees.qr-codes');
     Route::get('employees/search', [EmployeeController::class, 'search'])->name('employees.search');
     Route::get('employees/stats', [EmployeeController::class, 'getStats'])->name('employees.stats');
-
+// Document download routes
+Route::get('employees/{employee}/documents/{documentType}/download', [EmployeeController::class, 'downloadDocument'])
+    ->name('employees.documents.download');
+Route::get('employees/{employee}/documents/{documentType}/view', [EmployeeController::class, 'viewDocument'])
+    ->name('employees.documents.view');
     // Bulk operations
     Route::post('employees/bulk-regenerate-qr', [EmployeeController::class, 'bulkRegenerateQrCodes'])
         ->name('employees.bulk-regenerate-qr');
@@ -164,7 +191,13 @@ Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])
     Route::get('employees/create', [EmployeeController::class, 'create'])->name('employees.create');
     Route::get('employees/{employee}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
     Route::get('employees/{employee}', [EmployeeController::class, 'show'])->name('employees.show');
-
+// Add these routes inside the admin group
+Route::get('/vendor/{vendor}/analytics', [AdminController::class, 'getVendorAnalytics'])
+    ->name('vendor.analytics');
+Route::get('/vendor/{vendor}/analytics/export', [AdminController::class, 'exportVendorAnalytics'])
+    ->name('vendor.analytics.export');
+Route::post('/vendor/{vendor}/analytics/share', [AdminController::class, 'shareVendorAnalytics'])
+    ->name('vendor.analytics.share');
     // Employee actions
     Route::post('employees/{employee}/generate-qr', [EmployeeController::class, 'generateQrCode'])
         ->name('employees.generate-qr');
@@ -176,6 +209,32 @@ Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])
     // Resource routes LAST
     Route::resource('employees', EmployeeController::class)
         ->only(['index', 'store', 'update', 'destroy']);
+
+        Route::get('/test/vendor/{vendorId}', function($vendorId) {
+    try {
+        $vendor = User::with(['profile', 'unit'])->findOrFail($vendorId);
+        return response()->json([
+            'success' => true,
+            'vendor' => [
+                'id' => $vendor->id,
+                'name' => $vendor->name,
+                'email' => $vendor->email,
+                'has_profile' => !is_null($vendor->profile),
+                'has_unit' => !is_null($vendor->unit),
+                'total_scans' => $vendor->mealTransactions()->count()
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+
+
+
 });
 
 // ===============================

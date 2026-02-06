@@ -107,75 +107,77 @@
                         </div>
                     </div>
                 </div>
-<!-- Education Information -->
-<div>
-    <h3 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
-        Education Information
-    </h3>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Education Level -->
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-                Highest Education Level
-            </label>
-            <select name="education_level"
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                <option value="">Select Education Level</option>
-                <option value="High School" {{ old('education_level') == 'High School' ? 'selected' : '' }}>High School</option>
-                <option value="Certificate" {{ old('education_level') == 'Certificate' ? 'selected' : '' }}>Certificate</option>
-                <option value="Diploma" {{ old('education_level') == 'Diploma' ? 'selected' : '' }}>Diploma</option>
-                <option value="Degree (Undergraduate)" {{ old('education_level') == 'Degree (Undergraduate)' ? 'selected' : '' }}>Degree (Undergraduate)</option>
-                <option value="Masters" {{ old('education_level') == 'Masters' ? 'selected' : '' }}>Masters</option>
-                <option value="PhD" {{ old('education_level') == 'PhD' ? 'selected' : '' }}>PhD</option>
-            </select>
-            @error('education_level')
-                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-            @enderror
-        </div>
+                <!-- Education Information -->
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
+                        Education Information
+                    </h3>
 
-        <!-- Field of Study -->
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-                Field of Study
-            </label>
-            <input type="text" name="field_of_study" value="{{ old('field_of_study') }}"
-                   placeholder="e.g., Computer Science, Business Administration"
-                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-            @error('field_of_study')
-                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-            @enderror
-        </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Education Level -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Highest Education Level
+                            </label>
+                            <select name="education_level"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                                <option value="">Select Education Level</option>
+                                <option value="High School" {{ old('education_level') == 'High School' ? 'selected' : '' }}>High School</option>
+                                <option value="Certificate" {{ old('education_level') == 'Certificate' ? 'selected' : '' }}>Certificate</option>
+                                <option value="Diploma" {{ old('education_level') == 'Diploma' ? 'selected' : '' }}>Diploma</option>
+                                <option value="Degree (Undergraduate)" {{ old('education_level') == 'Degree (Undergraduate)' ? 'selected' : '' }}>Degree (Undergraduate)</option>
+                                <option value="Masters" {{ old('education_level') == 'Masters' ? 'selected' : '' }}>Masters</option>
+                                <option value="PhD" {{ old('education_level') == 'PhD' ? 'selected' : '' }}>PhD</option>
+                            </select>
+                            @error('education_level')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
 
-        <!-- Institution -->
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-                Institution
-            </label>
-            <input type="text" name="institution" value="{{ old('institution') }}"
-                   placeholder="e.g., University of Nairobi, Kenyatta University"
-                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-            @error('institution')
-                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-            @enderror
-        </div>
+                        <!-- Field of Study -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Field of Study
+                            </label>
+                            <input type="text" name="field_of_study" value="{{ old('field_of_study') }}"
+                                   placeholder="e.g., Computer Science, Business Administration"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                            @error('field_of_study')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
 
-        <!-- Year Completed -->
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-                Year Completed
-            </label>
-            <input type="text" name="year_completed" value="{{ old('year_completed') }}"
-                   placeholder="e.g., 2020"
-                   maxlength="4"
-                   pattern="\d{4}"
-                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-            @error('year_completed')
-                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-            @enderror
-        </div>
-    </div>
-</div>
+                        <!-- Institution -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Institution
+                            </label>
+                            <input type="text" name="institution" value="{{ old('institution') }}"
+                                   placeholder="e.g., University of Nairobi, Kenyatta University"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                            @error('institution')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        <!-- Year Completed -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Year Completed
+                            </label>
+                            <input type="text" name="year_completed" value="{{ old('year_completed') }}"
+                                   placeholder="e.g., 2020"
+                                   maxlength="4"
+                                   pattern="\d{4}"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                            @error('year_completed')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Employment Details -->
                 <div>
                     <h3 class="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">
@@ -224,20 +226,7 @@
                             @enderror
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                Unit
-                            </label>
-                            <select name="unit_id"
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                                <option value="">Select Unit</option>
-                                @foreach($units as $unit)
-                                    <option value="{{ $unit->id }}" {{ old('unit_id') == $unit->id ? 'selected' : '' }}>
-                                        {{ $unit->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
+                        <!-- UNIT FIELD REMOVED HERE -->
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -488,49 +477,50 @@
                 }
             });
         });
-// Add this to your script
-const yearInput = document.querySelector('input[name="year_completed"]');
-if (yearInput) {
-    yearInput.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value.length > 4) {
-            value = value.substring(0, 4);
-        }
-        e.target.value = value;
 
-        // Optional: Validate year range
-        if (value.length === 4) {
-            const year = parseInt(value);
-            const currentYear = new Date().getFullYear();
-            if (year < 1900 || year > currentYear) {
-                e.target.setCustomValidity(`Year must be between 1900 and ${currentYear}`);
-            } else {
-                e.target.setCustomValidity('');
-            }
+        // Year validation for education
+        const yearInput = document.querySelector('input[name="year_completed"]');
+        if (yearInput) {
+            yearInput.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length > 4) {
+                    value = value.substring(0, 4);
+                }
+                e.target.value = value;
+
+                // Optional: Validate year range
+                if (value.length === 4) {
+                    const year = parseInt(value);
+                    const currentYear = new Date().getFullYear();
+                    if (year < 1900 || year > currentYear) {
+                        e.target.setCustomValidity(`Year must be between 1900 and ${currentYear}`);
+                    } else {
+                        e.target.setCustomValidity('');
+                    }
+                }
+            });
         }
-    });
-}
+
         // File size validation
-       // File size validation
-const fileInputs = document.querySelectorAll('input[type="file"]');
-fileInputs.forEach(input => {
-    input.addEventListener('change', function(e) {
-        const file = this.files[0];
+        const fileInputs = document.querySelectorAll('input[type="file"]');
+        fileInputs.forEach(input => {
+            input.addEventListener('change', function(e) {
+                const file = this.files[0];
 
-        // Different max sizes for different file types
-        let maxSize;
-        if (this.name === 'cv_upload') {
-            maxSize = 10 * 1024 * 1024; // 10MB for CV
-        } else {
-            maxSize = 5 * 1024 * 1024; // 5MB for other documents
-        }
+                // Different max sizes for different file types
+                let maxSize;
+                if (this.name === 'cv_upload') {
+                    maxSize = 10 * 1024 * 1024; // 10MB for CV
+                } else {
+                    maxSize = 5 * 1024 * 1024; // 5MB for other documents
+                }
 
-        if (file && file.size > maxSize) {
-            alert(`File size must be less than ${this.name === 'cv_upload' ? '10MB' : '5MB'}`);
-            this.value = '';
-        }
-    });
-});
+                if (file && file.size > maxSize) {
+                    alert(`File size must be less than ${this.name === 'cv_upload' ? '10MB' : '5MB'}`);
+                    this.value = '';
+                }
+            });
+        });
     });
 </script>
 @endsection

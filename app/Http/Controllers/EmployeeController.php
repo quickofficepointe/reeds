@@ -112,10 +112,67 @@ class EmployeeController extends Controller
     /**
      * Export employees
      */
-    public function export()
-    {
-        return Excel::download(new EmployeesExport, 'employees_' . date('Y-m-d') . '.xlsx');
-    }
+   /**
+ * Export employees as CSV
+ */
+public function export()
+{
+    $employees = Employee::with(['department', 'subDepartment', 'unit'])
+        ->latest()
+        ->get();
+
+    $filename = 'employees_' . date('Y-m-d') . '.csv';
+
+    $headers = [
+        'Content-Type' => 'text/csv',
+        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+    ];
+
+    $callback = function() use ($employees) {
+        $file = fopen('php://output', 'w');
+
+        // Add BOM for UTF-8 to handle special characters
+        fwrite($file, "\xEF\xBB\xBF");
+
+        // Add headers
+        fputcsv($file, [
+            'ID',
+            'Employee Code',
+            'First Name',
+            'Last Name',
+            'Email',
+            'Phone',
+            'Department',
+            'Sub Department',
+            'Unit',
+            'Designation',
+            'Status',
+            'Created At'
+        ]);
+
+        // Add data rows
+        foreach ($employees as $employee) {
+            fputcsv($file, [
+                $employee->id,
+                $employee->employee_code,
+                $employee->first_name,
+                $employee->last_name,
+                $employee->email,
+                $employee->phone,
+                $employee->department?->name,
+                $employee->subDepartment?->name,
+                $employee->unit?->name,
+                $employee->designation,
+                $employee->is_active ? 'Active' : 'Inactive',
+                $employee->created_at->format('Y-m-d H:i:s'),
+            ]);
+        }
+
+        fclose($file);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
 
     /**
      * Show QR codes page
@@ -440,7 +497,127 @@ class EmployeeController extends Controller
             return response()->json(['error' => 'Failed to search employees!'], 500);
         }
     }
+/**
+ * Download employee document
+ */
+public function downloadDocument(Employee $employee, $documentType)
+{
+    $allowedDocuments = [
+        'national_id_photo',
+        'passport_photo',
+        'passport_size_photo',
+        'nssf_card_photo',
+        'sha_card_photo',
+        'kra_certificate_photo'
+    ];
 
+    if (!in_array($documentType, $allowedDocuments)) {
+        abort(404);
+    }
+
+    $document = $employee->documents;
+
+    if (!$document || !$document->$documentType) {
+        abort(404);
+    }
+
+    $path = $document->$documentType;
+    $filename = $this->getDocumentFilename($documentType, $employee->employee_code);
+
+    return Storage::disk('public')->download($path, $filename);
+}
+
+/**
+ * View employee document
+ */
+public function viewDocument(Employee $employee, $documentType)
+{
+    $allowedDocuments = [
+        'national_id_photo',
+        'passport_photo',
+        'passport_size_photo',
+        'nssf_card_photo',
+        'sha_card_photo',
+        'kra_certificate_photo'
+    ];
+
+    if (!in_array($documentType, $allowedDocuments)) {
+        abort(404);
+    }
+
+    $document = $employee->documents;
+
+    if (!$document || !$document->$documentType) {
+        abort(404);
+    }
+
+    $path = $document->$documentType;
+    $fullPath = Storage::disk('public')->path($path);
+    $mimeType = mime_content_type($fullPath);
+    $filename = $this->getDocumentFilename($documentType, $employee->employee_code);
+
+    // Check if it's an image
+    if (str_starts_with($mimeType, 'image/')) {
+        $fileContent = Storage::disk('public')->get($path);
+        $base64 = base64_encode($fileContent);
+
+        return view('reeds.admin.employees.document-view', [
+            'employee' => $employee,
+            'documentType' => $documentType,
+            'documentTitle' => $this->getDocumentTitle($documentType),
+            'mimeType' => $mimeType,
+            'base64' => $base64,
+            'filename' => $filename,
+            'isImage' => true
+        ]);
+    } else {
+        // For PDFs and other files, show download option
+        return view('reeds.admin.employees.document-view', [
+            'employee' => $employee,
+            'documentType' => $documentType,
+            'documentTitle' => $this->getDocumentTitle($documentType),
+            'mimeType' => $mimeType,
+            'fileUrl' => Storage::disk('public')->url($path),
+            'filename' => $filename,
+            'isImage' => false
+        ]);
+    }
+}
+
+/**
+ * Get document filename
+ */
+private function getDocumentFilename($documentType, $employeeCode)
+{
+    $names = [
+        'national_id_photo' => 'National-ID',
+        'passport_photo' => 'Passport-Photo',
+        'passport_size_photo' => 'Passport-Size-Photo',
+        'nssf_card_photo' => 'NSSF-Card',
+        'sha_card_photo' => 'SHA-Card',
+        'kra_certificate_photo' => 'KRA-Certificate'
+    ];
+
+    $name = $names[$documentType] ?? $documentType;
+    return "{$employeeCode}-{$name}.jpg";
+}
+
+/**
+ * Get document title
+ */
+private function getDocumentTitle($documentType)
+{
+    $titles = [
+        'national_id_photo' => 'National ID',
+        'passport_photo' => 'Passport Photo',
+        'passport_size_photo' => 'Passport Size Photo',
+        'nssf_card_photo' => 'NSSF Card',
+        'sha_card_photo' => 'SHA Card',
+        'kra_certificate_photo' => 'KRA Certificate'
+    ];
+
+    return $titles[$documentType] ?? $documentType;
+}
     /**
      * Bulk delete employees
      */

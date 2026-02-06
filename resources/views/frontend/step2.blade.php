@@ -84,7 +84,7 @@
 
           <form method="POST" action="{{ route('employee.onboarding.update', $onboarding->token) }}" enctype="multipart/form-data" class="p-6">
                 @csrf
-               
+
 
                 <!-- Personal Details -->
                 <div class="mb-8">

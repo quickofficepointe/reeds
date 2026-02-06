@@ -20,6 +20,12 @@
     <i class="fas fa-download mr-2"></i>
     Download All PDFs
 </button>
+<!-- Add this button alongside your existing download buttons -->
+<button onclick="downloadTodaysMealCards()"
+    class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 focus:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150">
+    <i class="fas fa-calendar-day mr-2"></i>
+    Download Today's PDFs
+</button>
                 <button onclick="printQRCodes()"
                         class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700 focus:bg-red-700 active:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition ease-in-out duration-150">
                     <i class="fas fa-print mr-2"></i>
@@ -817,10 +823,11 @@ async function generatePDFBlob(qrData, employee) {
 }
 
 // Helper function to update loading message
+// Helper function to update loading message
 function updateLoadingMessage(message) {
-    const loadingText = document.querySelector('#loadingOverlay span');
-    if (loadingText) {
-        loadingText.textContent = message;
+    const progressText = document.querySelector('#progressText');
+    if (progressText) {
+        progressText.textContent = message;
     }
 }
     // Helper function to generate and download a single PDF
@@ -1036,7 +1043,127 @@ function updateLoadingMessage(message) {
             }
         });
     }
+// Function to download today's uploaded meal cards (client-side filtering)
+async function downloadTodaysMealCards() {
+    // Get today's date in YYYY-MM-DD format (same format as created_at)
+    const today = new Date().toISOString().split('T')[0];
 
+    // Filter employees created today
+    const todaysEmployees = employees.filter(emp => {
+        if (!emp.created_at) return false;
+
+        // Convert created_at to YYYY-MM-DD format if it's not already
+        const empDate = new Date(emp.created_at).toISOString().split('T')[0];
+        return empDate === today;
+    });
+
+    if (todaysEmployees.length === 0) {
+        alert('No employees were uploaded today.');
+        return;
+    }
+
+    showLoading();
+    updateLoadingMessage(`Found ${todaysEmployees.length} employee(s) uploaded today. Preparing download...`);
+
+    try {
+        const zip = new JSZip();
+        let downloadCount = 0;
+        let failedCount = 0;
+
+        for (let i = 0; i < todaysEmployees.length; i++) {
+            const employee = todaysEmployees[i];
+
+            try {
+                // Fetch fresh QR data from backend
+                const response = await fetch(`${baseUrl}/admin/employees/${employee.id}/qr-data`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                });
+
+                if (!response.ok) {
+                    console.error(`Failed to fetch QR data for employee ${employee.id}`);
+                    failedCount++;
+                    continue;
+                }
+
+                const data = await response.json();
+
+                if (!data.success || !data.qr_data) {
+                    console.error(`Failed to fetch QR data for employee ${employee.id}`, data);
+                    failedCount++;
+                    continue;
+                }
+
+                // Generate PDF as blob using your existing function
+                const pdfBlob = await generatePDFBlob(data.qr_data, employee);
+
+                if (pdfBlob) {
+                    // Sanitize filename - use employee data as fallback
+                    let fileName;
+                    if (data.qr_data.formal_name) {
+                        fileName = `MealCard_${data.qr_data.formal_name.replace(/[^a-zA-Z0-9]/g, '_')}_${employee.employee_code}.pdf`;
+                    } else if (employee.formal_name) {
+                        fileName = `MealCard_${employee.formal_name.replace(/[^a-zA-Z0-9]/g, '_')}_${employee.employee_code}.pdf`;
+                    } else {
+                        fileName = `MealCard_Employee_${employee.id}.pdf`;
+                    }
+
+                    zip.file(fileName, pdfBlob);
+                    downloadCount++;
+                } else {
+                    failedCount++;
+                }
+
+            } catch (error) {
+                console.error(`Error processing employee ${employee.id}:`, error);
+                failedCount++;
+            }
+
+            // Update loading message
+            updateLoadingMessage(`Generating PDFs... (${i + 1}/${todaysEmployees.length}) - ${downloadCount} successful, ${failedCount} failed`);
+
+            // Add a small delay between requests to avoid overwhelming the server
+            if (i < todaysEmployees.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        }
+
+        if (downloadCount === 0) {
+            hideLoading();
+            alert('Failed to generate any PDFs. Please try again.');
+            return;
+        }
+
+        // Generate and download ZIP file
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const zipUrl = URL.createObjectURL(zipBlob);
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = zipUrl;
+        downloadLink.download = `Today_Employee_Meal_Cards_${today}.zip`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+
+        // Clean up URL object
+        setTimeout(() => URL.revokeObjectURL(zipUrl), 100);
+
+        hideLoading();
+
+        let successMessage = `Successfully downloaded ${downloadCount} PDF meal cards from today (${today})!`;
+        if (failedCount > 0) {
+            successMessage += ` (${failedCount} failed)`;
+        }
+        alert(successMessage);
+
+    } catch (error) {
+        console.error('Error downloading today\'s meal cards:', error);
+        hideLoading();
+        alert('An error occurred while generating the ZIP file. Please try again.');
+    }
+}
 
 
 

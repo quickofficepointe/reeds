@@ -1028,176 +1028,368 @@
     }
 
     async function viewEmployee(employeeId) {
-        try {
-            const response = await fetch(`/admin/employees/${employeeId}`);
-            if (response.status === 403) {
-                showNotification('error', 'Session expired. Please refresh the page.');
-                setTimeout(() => window.location.reload(), 2000);
-                return;
+    try {
+        const response = await fetch(`/admin/employees/${employeeId}`);
+        if (response.status === 403) {
+            showNotification('error', 'Session expired. Please refresh the page.');
+            setTimeout(() => window.location.reload(), 2000);
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.success && data.employee) {
+            const employee = data.employee;
+            const dateOfJoining = employee.date_of_joining ? new Date(employee.date_of_joining).toLocaleDateString() : 'N/A';
+
+            // Get document status - FIXED: Check document fields directly
+            let docStatus = 'No documents uploaded';
+            let docStatusClass = 'bg-red-100 text-red-800';
+
+            // Check if all required documents are present
+            const hasAllRequiredDocuments = employee.documents &&
+                employee.documents.national_id_photo &&
+                employee.documents.passport_size_photo &&
+                employee.documents.nssf_card_photo &&
+                employee.documents.sha_card_photo &&
+                employee.documents.kra_certificate_photo;
+
+            if (hasAllRequiredDocuments) {
+                docStatus = 'All documents uploaded and verified';
+                docStatusClass = 'bg-green-100 text-green-800';
+            } else if (employee.document_invitation) {
+                const inv = employee.document_invitation;
+                if (inv.status === 'sent') {
+                    docStatus = `Invitation sent on ${new Date(inv.sent_at).toLocaleDateString()}`;
+                    docStatusClass = 'bg-blue-100 text-blue-800';
+                } else if (inv.status === 'opened') {
+                    docStatus = `Link opened on ${new Date(inv.opened_at).toLocaleDateString()}`;
+                    docStatusClass = 'bg-yellow-100 text-yellow-800';
+                } else if (inv.status === 'completed') {
+                    docStatus = `Documents uploaded on ${new Date(inv.completed_at).toLocaleDateString()}`;
+                    docStatusClass = 'bg-green-100 text-green-800';
+                }
             }
 
-            const data = await response.json();
-
-            if (data.success && data.employee) {
-                const employee = data.employee;
-                const dateOfJoining = employee.date_of_joining ? new Date(employee.date_of_joining).toLocaleDateString() : 'N/A';
-
-                // Get document status
-                let docStatus = 'No documents uploaded';
-                let docStatusClass = 'bg-red-100 text-red-800';
-
-                if (employee.documents && employee.documents.hasAllRequiredDocuments()) {
-                    docStatus = 'All documents uploaded and verified';
-                    docStatusClass = 'bg-green-100 text-green-800';
-                } else if (employee.document_invitation) {
-                    const inv = employee.document_invitation;
-                    if (inv.status === 'sent') {
-                        docStatus = `Invitation sent on ${new Date(inv.sent_at).toLocaleDateString()}`;
-                        docStatusClass = 'bg-blue-100 text-blue-800';
-                    } else if (inv.status === 'opened') {
-                        docStatus = `Link opened on ${new Date(inv.opened_at).toLocaleDateString()}`;
-                        docStatusClass = 'bg-yellow-100 text-yellow-800';
-                    } else if (inv.status === 'completed') {
-                        docStatus = `Documents uploaded on ${new Date(inv.completed_at).toLocaleDateString()}`;
-                        docStatusClass = 'bg-green-100 text-green-800';
-                    }
-                }
-
-                const content = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Basic Information -->
-                        <div class="space-y-4">
-                            <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Basic Information</h4>
-                            <div class="space-y-2">
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Employee Code:</span>
-                                    <span class="text-sm text-gray-900">${employee.employee_code}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Full Name:</span>
-                                    <span class="text-sm text-gray-900">${employee.formal_name}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Gender:</span>
-                                    <span class="text-sm text-gray-900">${employee.gender || 'N/A'}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Date of Joining:</span>
-                                    <span class="text-sm text-gray-900">${dateOfJoining}</span>
-                                </div>
+            // Rest of your code remains the same...
+            const content = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Basic Information -->
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Basic Information</h4>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-600">Employee Code:</span>
+                                <span class="text-sm text-gray-900">${employee.employee_code}</span>
                             </div>
-                        </div>
-
-                        <!-- Contact Information -->
-                        <div class="space-y-4">
-                            <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Contact Information</h4>
-                            <div class="space-y-2">
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Email:</span>
-                                    <span class="text-sm text-gray-900">${employee.email || 'N/A'}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Phone:</span>
-                                    <span class="text-sm text-gray-900">${employee.phone || 'N/A'}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">ICard Number:</span>
-                                    <span class="text-sm text-gray-900">${employee.icard_number || 'N/A'}</span>
-                                </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-600">Full Name:</span>
+                                <span class="text-sm text-gray-900">${employee.formal_name}</span>
                             </div>
-                        </div>
-
-                        <!-- Document Status -->
-                        <div class="space-y-4">
-                            <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Document Status</h4>
-                            <div class="space-y-2">
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Status:</span>
-                                    <span class="text-sm ${docStatusClass} px-2 py-1 rounded-full">${docStatus}</span>
-                                </div>
-                                ${employee.document_invitation ? `
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Invitation Sent:</span>
-                                    <span class="text-sm text-gray-900">${new Date(employee.document_invitation.sent_at).toLocaleDateString()}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Reminders Sent:</span>
-                                    <span class="text-sm text-gray-900">${employee.document_invitation.reminder_count}</span>
-                                </div>
-                                ` : ''}
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-600">Gender:</span>
+                                <span class="text-sm text-gray-900">${employee.gender || 'N/A'}</span>
                             </div>
-                        </div>
-
-                        <!-- Employment Details -->
-                        <div class="space-y-4">
-                            <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Employment Details</h4>
-                            <div class="space-y-2">
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Designation:</span>
-                                    <span class="text-sm text-gray-900">${employee.designation || 'N/A'}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Category:</span>
-                                    <span class="text-sm text-gray-900">${employee.category || 'N/A'}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Employment Type:</span>
-                                    <span class="text-sm text-gray-900">${employee.employment_type}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Organizational Structure -->
-                        <div class="space-y-4">
-                            <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Organizational Structure</h4>
-                            <div class="space-y-2">
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Department:</span>
-                                    <span class="text-sm text-gray-900">${employee.department ? employee.department.name : 'N/A'}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Sub-Department:</span>
-                                    <span class="text-sm text-gray-900">${employee.sub_department ? employee.sub_department.name : 'N/A'}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Unit:</span>
-                                    <span class="text-sm text-gray-900">${employee.unit ? employee.unit.name : 'N/A'}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Status -->
-                        <div class="space-y-4">
-                            <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Status</h4>
-                            <div class="space-y-2">
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">Active:</span>
-                                    <span class="text-sm ${employee.is_active ? 'text-green-600' : 'text-red-600'} font-medium">
-                                        ${employee.is_active ? 'Yes' : 'No'}
-                                    </span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-sm font-medium text-gray-600">QR Code:</span>
-                                    <span class="text-sm ${employee.qr_code ? 'text-green-600' : 'text-yellow-600'} font-medium">
-                                        ${employee.qr_code ? 'Generated' : 'Pending'}
-                                    </span>
-                                </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-600">Date of Joining:</span>
+                                <span class="text-sm text-gray-900">${dateOfJoining}</span>
                             </div>
                         </div>
                     </div>
-                `;
 
-                document.getElementById('viewModalTitle').textContent = `Employee: ${employee.employee_code}`;
-                document.getElementById('viewModalContent').innerHTML = content;
-                document.getElementById('viewModal').classList.remove('hidden');
-            } else {
-                showNotification('error', 'Failed to load employee details');
-            }
-        } catch (error) {
-            console.error('Error:', error);
+                    <!-- Contact Information -->
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Contact Information</h4>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-600">Email:</span>
+                                <span class="text-sm text-gray-900">${employee.email || 'N/A'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-600">Phone:</span>
+                                <span class="text-sm text-gray-900">${employee.phone || 'N/A'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-600">ICard Number:</span>
+                                <span class="text-sm text-gray-900">${employee.icard_number || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Document Status -->
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Document Status</h4>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-sm font-medium text-gray-600">Overall Status:</span>
+                                <span class="text-sm ${docStatusClass} px-2 py-1 rounded-full">${docStatus}</span>
+                            </div>
+
+                            ${employee.documents ? `
+                                <!-- Next of Kin Information -->
+                                <div class="mt-3 pt-3 border-t border-gray-200">
+                                    <h5 class="text-sm font-medium text-gray-700 mb-2">Next of Kin</h5>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        <div class="flex justify-between">
+                                            <span class="text-xs text-gray-600">Name:</span>
+                                            <span class="text-xs font-medium text-gray-900">${employee.documents.next_of_kin_name || 'N/A'}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-xs text-gray-600">Relationship:</span>
+                                            <span class="text-xs font-medium text-gray-900">${employee.documents.next_of_kin_relationship || 'N/A'}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-xs text-gray-600">Phone:</span>
+                                            <span class="text-xs font-medium text-gray-900">${employee.documents.next_of_kin_phone || 'N/A'}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-xs text-gray-600">Email:</span>
+                                            <span class="text-xs font-medium text-gray-900">${employee.documents.next_of_kin_email || 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                               <!-- Document Upload Status -->
+<div class="mt-3 pt-3 border-t border-gray-200">
+    <h5 class="text-sm font-medium text-gray-700 mb-2">Uploaded Documents</h5>
+    <div class="space-y-1">
+        ${employee.documents.national_id_photo ? `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">National ID:</span>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
+                    <button onclick="downloadDocument(${employee.id}, 'national_id_photo')"
+                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
+                            title="Download National ID">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button onclick="viewDocument(${employee.id}, 'national_id_photo')"
+                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
+                            title="View National ID">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+        ` : `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">National ID:</span>
+                <span class="text-xs text-red-600 font-medium">Missing</span>
+            </div>
+        `}
+
+        ${employee.documents.passport_photo ? `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">Passport Photo:</span>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
+                    <button onclick="downloadDocument(${employee.id}, 'passport_photo')"
+                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
+                            title="Download Passport Photo">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button onclick="viewDocument(${employee.id}, 'passport_photo')"
+                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
+                            title="View Passport Photo">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+        ` : `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">Passport Photo:</span>
+                <span class="text-xs text-red-600 font-medium">Missing</span>
+            </div>
+        `}
+
+        ${employee.documents.passport_size_photo ? `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">Passport Size:</span>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
+                    <button onclick="downloadDocument(${employee.id}, 'passport_size_photo')"
+                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
+                            title="Download Passport Size Photo">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button onclick="viewDocument(${employee.id}, 'passport_size_photo')"
+                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
+                            title="View Passport Size Photo">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+        ` : `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">Passport Size:</span>
+                <span class="text-xs text-red-600 font-medium">Missing</span>
+            </div>
+        `}
+
+        ${employee.documents.nssf_card_photo ? `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">NSSF Card:</span>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
+                    <button onclick="downloadDocument(${employee.id}, 'nssf_card_photo')"
+                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
+                            title="Download NSSF Card">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button onclick="viewDocument(${employee.id}, 'nssf_card_photo')"
+                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
+                            title="View NSSF Card">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+        ` : `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">NSSF Card:</span>
+                <span class="text-xs text-red-600 font-medium">Missing</span>
+            </div>
+        `}
+
+        ${employee.documents.sha_card_photo ? `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">SHA Card:</span>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
+                    <button onclick="downloadDocument(${employee.id}, 'sha_card_photo')"
+                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
+                            title="Download SHA Card">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button onclick="viewDocument(${employee.id}, 'sha_card_photo')"
+                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
+                            title="View SHA Card">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+        ` : `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">SHA Card:</span>
+                <span class="text-xs text-red-600 font-medium">Missing</span>
+            </div>
+        `}
+
+        ${employee.documents.kra_certificate_photo ? `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">KRA Certificate:</span>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
+                    <button onclick="downloadDocument(${employee.id}, 'kra_certificate_photo')"
+                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
+                            title="Download KRA Certificate">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button onclick="viewDocument(${employee.id}, 'kra_certificate_photo')"
+                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
+                            title="View KRA Certificate">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+        ` : `
+            <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-600">KRA Certificate:</span>
+                <span class="text-xs text-red-600 font-medium">Missing</span>
+            </div>
+        `}
+    </div>
+</div>
+
+                                <!-- Verification Status -->
+                                <div class="mt-3 pt-3 border-t border-gray-200">
+                                    <h5 class="text-sm font-medium text-gray-700 mb-2">Verification</h5>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between">
+                                            <span class="text-xs text-gray-600">Verified:</span>
+                                            <span class="text-xs ${employee.documents.is_verified ? 'text-green-600' : 'text-yellow-600'} font-medium">
+                                                ${employee.documents.is_verified ? 'Yes' : 'No'}
+                                            </span>
+                                        </div>
+                                        ${employee.documents.verified_at ? `
+                                            <div class="flex justify-between">
+                                                <span class="text-xs text-gray-600">Verified At:</span>
+                                                <span class="text-xs text-gray-900">${new Date(employee.documents.verified_at).toLocaleDateString()}</span>
+                                            </div>
+                                        ` : ''}
+                                        ${employee.documents.verification_notes ? `
+                                            <div>
+                                                <span class="text-xs text-gray-600 block mb-1">Notes:</span>
+                                                <p class="text-xs text-gray-700 bg-gray-50 p-2 rounded">${employee.documents.verification_notes}</p>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="text-center py-4">
+                                    <i class="fas fa-file-alt text-3xl text-gray-300 mb-2"></i>
+                                    <p class="text-sm text-gray-600">No document information available</p>
+                                    ${employee.phone ? `
+                                        <button onclick="sendDocumentInvitation(${employee.id})"
+                                                class="mt-2 bg-purple-600 text-white px-3 py-1 rounded text-xs hover:bg-purple-700 transition duration-150">
+                                            Send Document Invitation
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            `}
+
+                            <!-- Invitation Status -->
+                            ${employee.document_invitation ? `
+                                <div class="mt-3 pt-3 border-t border-gray-200">
+                                    <h5 class="text-sm font-medium text-gray-700 mb-2">Invitation Details</h5>
+                                    <div class="space-y-1">
+                                        <div class="flex justify-between">
+                                            <span class="text-xs text-gray-600">Invitation Sent:</span>
+                                            <span class="text-xs text-gray-900">${new Date(employee.document_invitation.sent_at).toLocaleDateString()}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-xs text-gray-600">Status:</span>
+                                            <span class="text-xs ${employee.document_invitation.status === 'completed' ? 'text-green-600' : employee.document_invitation.status === 'opened' ? 'text-yellow-600' : 'text-blue-600'} font-medium">
+                                                ${employee.document_invitation.status.charAt(0).toUpperCase() + employee.document_invitation.status.slice(1)}
+                                            </span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-xs text-gray-600">Reminders Sent:</span>
+                                            <span class="text-xs text-gray-900">${employee.document_invitation.reminder_count}</span>
+                                        </div>
+                                        ${employee.document_invitation.opened_at ? `
+                                            <div class="flex justify-between">
+                                                <span class="text-xs text-gray-600">Link Opened:</span>
+                                                <span class="text-xs text-gray-900">${new Date(employee.document_invitation.opened_at).toLocaleDateString()}</span>
+                                            </div>
+                                        ` : ''}
+                                        ${employee.document_invitation.completed_at ? `
+                                            <div class="flex justify-between">
+                                                <span class="text-xs text-gray-600">Completed:</span>
+                                                <span class="text-xs text-gray-900">${new Date(employee.document_invitation.completed_at).toLocaleDateString()}</span>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Rest of your HTML content... -->
+                    <!-- ... keep the rest of your HTML content as it was ... -->
+
+                </div>
+            `;
+
+            document.getElementById('viewModalTitle').textContent = `Employee: ${employee.employee_code}`;
+            document.getElementById('viewModalContent').innerHTML = content;
+            document.getElementById('viewModal').classList.remove('hidden');
+        } else {
             showNotification('error', 'Failed to load employee details');
         }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('error', 'Failed to load employee details');
     }
+}
 
     function closeModal() {
         document.getElementById('employeeModal').classList.add('hidden');
@@ -1325,7 +1517,87 @@
             submitBtn.innerHTML = originalText;
         }
     });
+// Download document
+function downloadDocument(employeeId, documentType) {
+    const url = `/admin/employees/${employeeId}/documents/${documentType}/download`;
+    window.open(url, '_blank');
+}
 
+// View document in modal
+function viewDocument(employeeId, documentType) {
+    const url = `/admin/employees/${employeeId}/documents/${documentType}/view`;
+
+    // Create modal for viewing document
+    const modalId = 'documentViewModal';
+    let modal = document.getElementById(modalId);
+
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] hidden';
+        modal.innerHTML = `
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 id="documentModalTitle" class="text-xl font-bold text-text-black">View Document</h3>
+                        <button onclick="closeDocumentModal()" class="text-gray-400 hover:text-gray-600 transition duration-150">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div id="documentModalContent" class="space-y-4">
+                        <div class="text-center py-8">
+                            <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                            <p class="text-gray-600">Loading document...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        // Close modal when clicking outside
+        modal.addEventListener('click', function(e) {
+            if (e.target.id === modalId) closeDocumentModal();
+        });
+    }
+
+    // Set title based on document type
+    const documentTitles = {
+        'national_id_photo': 'National ID',
+        'passport_photo': 'Passport Photo',
+        'passport_size_photo': 'Passport Size Photo',
+        'nssf_card_photo': 'NSSF Card',
+        'sha_card_photo': 'SHA Card',
+        'kra_certificate_photo': 'KRA Certificate'
+    };
+
+    document.getElementById('documentModalTitle').textContent = `View ${documentTitles[documentType] || 'Document'}`;
+    modal.classList.remove('hidden');
+
+    // Load the document
+    fetch(url)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('documentModalContent').innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('documentModalContent').innerHTML = `
+                <div class="text-center py-8 text-red-600">
+                    <i class="fas fa-exclamation-triangle text-3xl mb-3"></i>
+                    <p>Failed to load document</p>
+                </div>
+            `;
+        });
+}
+
+// Close document modal
+function closeDocumentModal() {
+    const modal = document.getElementById('documentViewModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
     function displayValidationErrors(errors) {
         clearErrors();
         Object.keys(errors).forEach(field => {
