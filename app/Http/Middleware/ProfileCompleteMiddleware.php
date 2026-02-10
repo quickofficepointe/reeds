@@ -15,28 +15,41 @@ class ProfileCompleteMiddleware
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
-    {
-        if (!Auth::check()) {
-            return redirect()->route('login');
-        }
+{
+    if (!Auth::check()) {
+        return redirect()->route('login');
+    }
 
-        $user = Auth::user();
+    $user = Auth::user();
 
-        // Skip profile check for these routes
-        if ($request->routeIs('profile.*') || $request->routeIs('logout')) {
-            return $next($request);
-        }
-
-        // Check if profile exists and is complete
-        if (!$user->profile || !$user->profile->isComplete()) {
-            return redirect()->route('profile.edit')->with('warning', 'Please complete your profile before proceeding.');
-        }
-
-        // For vendors, check if they are verified by admin
-        if ($user->isVendor() && !$user->profile->isVerified()) {
-            return redirect()->route('profile.edit')->with('warning', 'Your account is pending verification by an administrator.');
-        }
-
+    // Skip profile check for these routes
+    if (
+        $request->routeIs('profile.*') ||
+        $request->routeIs('logout')
+    ) {
         return $next($request);
     }
+
+    // ✅ ADMINS BYPASS PROFILE CHECKS
+    if ($user->isAdmin()) {
+        return $next($request);
+    }
+
+    // Check if profile exists and is complete
+    if (!$user->profile || !$user->profile->isComplete()) {
+        return redirect()
+            ->route('profile.edit')
+            ->with('warning', 'Please complete your profile before proceeding.');
+    }
+
+    // For vendors, check verification
+    if ($user->isVendor() && !$user->profile->isVerified()) {
+        return redirect()
+            ->route('profile.edit')
+            ->with('warning', 'Your account is pending verification by an administrator.');
+    }
+
+    return $next($request);
+}
+
 }

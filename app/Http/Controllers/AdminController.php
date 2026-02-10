@@ -10,6 +10,8 @@ use App\Models\SubDepartment;
 use App\Models\Profile;
 use App\Models\Vendor;
 use App\Models\Unit;
+use Illuminate\Validation\Rule;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +23,194 @@ class AdminController extends Controller
     /**
      * Display admin dashboard with comprehensive statistics
      */
+ public function usersIndex(Request $request)
+{
+    $query = User::with(['unit', 'profile'])
+        ->select(['id', 'name', 'email', 'role', 'unit_id', 'email_verified_at', 'created_at'])
+        ->latest();
+
+    // Apply filters
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%");
+        });
+    }
+
+    if ($request->filled('role')) {
+        $query->where('role', $request->role);
+    }
+
+    if ($request->filled('unit_id')) {
+        $query->where('unit_id', $request->unit_id);
+    }
+
+    if ($request->filled('status')) {
+        if ($request->status === 'active') {
+            $query->whereNotNull('email_verified_at');
+        } elseif ($request->status === 'inactive') {
+            $query->whereNull('email_verified_at');
+        } elseif ($request->status === 'unassigned') {
+            $query->whereNull('unit_id');
+        }
+    }
+
+    $users = $query->paginate(20);
+    $units = Unit::active()->get();
+
+    $stats = [
+        'totalUsers' => User::count(),
+        'adminCount' => User::where('role', User::ROLE_ADMIN)->count(),
+        'vendorCount' => User::where('role', User::ROLE_VENDOR)->count(),
+        'unassignedCount' => User::whereNull('unit_id')->count(),
+    ];
+
+    return view('reeds.admin.users.index', compact('users', 'units', 'stats'));
+}
+
+    /**
+     * Store a new user
+     */
+    public function storeUser(Request $request)
+{
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|string|email|max:255|unique:users',
+        'role' => ['required', Rule::in([User::ROLE_ADMIN, User::ROLE_VENDOR])],
+        'unit_id' => 'nullable|exists:units,id',
+        'password' => 'required|string|min:8|confirmed',
+    ]);
+
+    $user = User::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'role' => $request->role,
+        'unit_id' => $request->unit_id,
+        'password' => Hash::make($request->password),
+        'email_verified_at' => now(), // Auto-verify admin-created users
+    ]);
+
+    return redirect()->route('admin.users.index')
+        ->with('success', 'User created successfully. A welcome email has been sent.');
+}
+
+    /**
+     * Show edit user form
+     */
+    public function editUser(User $user)
+    {
+        $units = Unit::active()->get();
+        return view('reeds.admin.users.edit-modal', compact('user', 'units'));
+    }
+
+    /**
+     * Update user details
+     */
+    public function updateUser(Request $request, User $user)
+{
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+        'role' => ['required', Rule::in([User::ROLE_ADMIN, User::ROLE_VENDOR])],
+        'unit_id' => 'nullable|exists:units,id',
+    ]);
+
+    $user->update([
+        'name' => $request->name,
+        'email' => $request->email,
+        'role' => $request->role,
+        'unit_id' => $request->unit_id,
+    ]);
+
+    // Optionally add email verification status if you want
+    if ($request->has('verify_email') && $request->boolean('verify_email')) {
+        $user->update(['email_verified_at' => now()]);
+    }
+
+    if ($request->ajax()) {
+        return response()->json(['success' => true, 'message' => 'User updated successfully']);
+    }
+
+    return redirect()->route('admin.users.index')
+        ->with('success', 'User updated successfully');
+}
+
+    /**
+     * Delete a user
+     */
+    public function destroyUser(User $user)
+    {
+        // Prevent deleting own account
+        if ($user->id === auth()->id()) {
+            return redirect()->back()
+                ->with('error', 'You cannot delete your own account.');
+        }
+
+        $user->delete();
+
+        return redirect()->route('reeds.admin.users.index')
+            ->with('success', 'User deleted successfully');
+    }
+
+    /**
+     * Show assign unit form
+     */
+    public function assignUnitForm(User $user)
+    {
+        $units = Unit::active()->get();
+        return view('reeds.admin.users.assign-unit-modal', compact('user', 'units'));
+    }
+
+    /**
+     * Assign unit to user
+     */
+    public function assignUnit(Request $request, User $user)
+    {
+        $request->validate([
+            'unit_id' => 'required|exists:units,id',
+        ]);
+
+        $user->update(['unit_id' => $request->unit_id]);
+
+        if ($request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Unit assigned successfully']);
+        }
+
+        return redirect()->route('reeds.admin.users.index')
+            ->with('success', 'Unit assigned successfully');
+    }
+
+    /**
+     * Show reset password form
+     */
+    public function resetPasswordForm(User $user)
+    {
+        return view('reeds.admin.users.reset-password-modal', compact('user'));
+    }
+
+    /**
+     * Reset user password
+     */
+    public function resetPassword(Request $request, User $user)
+    {
+        $request->validate([
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        if ($request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Password reset successfully']);
+        }
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'Password reset successfully');
+    }
+
+
     public function index()
     {
         $today = now()->format('Y-m-d');
@@ -2240,4 +2430,325 @@ private function exportVendorAnalyticsPDF($vendor, $analyticsData)
             ]
         ];
     }
+
+
+    /**
+ * Export unit analytics
+ */
+public function exportUnitAnalytics(Request $request)
+{
+    try {
+        $format = $request->get('format', 'excel');
+        $unitId = $request->get('unit_id', 'all');
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
+        // Get unit data
+        $units = $this->getUnitExportData($unitId, $startDate, $endDate);
+
+        if ($format === 'pdf') {
+            return $this->exportUnitAnalyticsPDF($units, $startDate, $endDate);
+        } elseif ($format === 'csv') {
+            return $this->exportUnitAnalyticsCSV($units, $startDate, $endDate);
+        }
+
+        return $this->exportUnitAnalyticsExcel($units, $startDate, $endDate);
+
+    } catch (\Exception $e) {
+        Log::error('Export unit analytics error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'error' => 'Failed to export unit analytics'
+        ], 500);
+    }
+}
+
+/**
+ * Get unit export data
+ */
+private function getUnitExportData($unitId = 'all', $startDate = null, $endDate = null)
+{
+    $query = Unit::query();
+
+    if ($unitId !== 'all') {
+        $query->where('id', $unitId);
+    }
+
+    $units = $query->get()->map(function($unit) use ($startDate, $endDate) {
+        // Calculate date range
+        $dateStart = $startDate ? Carbon::parse($startDate) : now()->startOfMonth();
+        $dateEnd = $endDate ? Carbon::parse($endDate) : now();
+
+        // Get employee counts
+        $totalEmployees = $unit->employees()->count();
+        $activeEmployees = $unit->employees()->where('is_active', true)->count();
+
+        // Get scan data
+        $scansQuery = MealTransaction::whereHas('employee', function($q) use ($unit) {
+            $q->where('unit_id', $unit->id);
+        });
+
+        if ($startDate && $endDate) {
+            $scansQuery->whereBetween('meal_date', [$dateStart, $dateEnd]);
+        }
+
+        $totalScans = $scansQuery->count();
+        $totalRevenue = $scansQuery->sum('amount');
+        $avgTransaction = $totalScans > 0 ? $totalRevenue / $totalScans : 0;
+
+        // Get vendor data
+        $activeVendors = User::where('role', 2)
+            ->where('unit_id', $unit->id)
+            ->whereHas('profile', function($q) {
+                $q->where('is_verified', true);
+            })
+            ->count();
+
+        // Get daily averages
+        $daysDiff = $dateStart->diffInDays($dateEnd) + 1;
+        $avgDailyScans = $daysDiff > 0 ? $totalScans / $daysDiff : 0;
+
+        return [
+            'id' => $unit->id,
+            'name' => $unit->name,
+            'code' => $unit->code,
+            'location' => $unit->location,
+            'capacity' => $unit->capacity,
+            'current_employees' => $unit->current_employee_count,
+            'total_employees' => $totalEmployees,
+            'active_employees' => $activeEmployees,
+            'employee_participation_rate' => $activeEmployees > 0 ?
+                round(($totalEmployees / $activeEmployees) * 100, 1) : 0,
+            'total_scans' => $totalScans,
+            'total_revenue' => $totalRevenue,
+            'avg_transaction_value' => round($avgTransaction, 2),
+            'avg_daily_scans' => round($avgDailyScans, 1),
+            'active_vendors' => $activeVendors,
+            'capacity_utilization' => $unit->capacity > 0 ?
+                round(($unit->current_employee_count / $unit->capacity) * 100, 0) : null,
+            'date_range' => [
+                'start' => $dateStart->format('Y-m-d'),
+                'end' => $dateEnd->format('Y-m-d'),
+                'days' => $daysDiff
+            ]
+        ];
+    });
+
+    return $units;
+}
+
+/**
+ * Export unit analytics to Excel
+ */
+private function exportUnitAnalyticsExcel($units, $startDate = null, $endDate = null)
+{
+    // Generate filename
+    $dateRange = $startDate && $endDate
+        ? $startDate . '_to_' . $endDate
+        : now()->format('Y-m-d');
+
+    $filename = 'unit-analytics-' . $dateRange . '.csv';
+
+    // Create CSV content
+    $csvData = [];
+
+    // Header
+    $csvData[] = ['UNIT ANALYTICS REPORT'];
+    $csvData[] = ['Generated on: ' . now()->format('Y-m-d H:i:s')];
+    if ($startDate && $endDate) {
+        $csvData[] = ['Period: ' . $startDate . ' to ' . $endDate];
+    }
+    $csvData[] = []; // Empty row
+
+    // Units Data
+    $csvData[] = ['UNIT PERFORMANCE SUMMARY'];
+    $csvData[] = [
+        'Unit Name', 'Code', 'Location', 'Capacity', 'Current Employees',
+        'Total Employees', 'Active Employees', 'Total Scans', 'Total Revenue',
+        'Avg Transaction', 'Avg Daily Scans', 'Active Vendors', 'Capacity Utilization'
+    ];
+
+    foreach ($units as $unit) {
+        $csvData[] = [
+            $unit['name'],
+            $unit['code'] ?? 'N/A',
+            $unit['location'] ?? 'N/A',
+            $unit['capacity'] ?? 'N/A',
+            $unit['current_employees'],
+            $unit['total_employees'],
+            $unit['active_employees'],
+            $unit['total_scans'],
+            'KSh ' . number_format($unit['total_revenue'], 2),
+            'KSh ' . number_format($unit['avg_transaction_value'], 2),
+            $unit['avg_daily_scans'],
+            $unit['active_vendors'],
+            $unit['capacity_utilization'] ? $unit['capacity_utilization'] . '%' : 'N/A'
+        ];
+    }
+
+    // Create CSV string
+    $output = '';
+    foreach ($csvData as $row) {
+        $output .= $this->formatCsvRow($row) . "\n";
+    }
+
+    return response($output, 200, [
+        'Content-Type' => 'text/csv',
+        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+    ]);
+}
+
+/**
+ * Export unit analytics to CSV
+ */
+private function exportUnitAnalyticsCSV($units, $startDate = null, $endDate = null)
+{
+    return $this->exportUnitAnalyticsExcel($units, $startDate, $endDate);
+}
+
+/**
+ * Export unit analytics to PDF
+ */
+private function exportUnitAnalyticsPDF($units, $startDate = null, $endDate = null)
+{
+    // Check if DomPDF is available
+    if (!class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+        throw new \Exception('PDF generation library not installed');
+    }
+
+    $data = [
+        'units' => $units,
+        'startDate' => $startDate,
+        'endDate' => $endDate,
+        'generatedAt' => now()->format('Y-m-d H:i:s')
+    ];
+
+    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reeds.admin.exports.unit-analytics-pdf', $data);
+
+    $filename = 'unit-analytics-' . ($startDate ? $startDate . '_to_' . $endDate : now()->format('Y-m-d')) . '.pdf';
+
+    return $pdf->download($filename);
+}
+
+/**
+ * Export single unit analytics
+ */
+public function exportSingleUnit(Unit $unit, Request $request)
+{
+    try {
+        $format = $request->get('format', 'excel');
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
+        // Get detailed unit data
+        $unitData = $this->getDetailedUnitData($unit, $startDate, $endDate);
+
+        if ($format === 'pdf') {
+            return $this->exportSingleUnitPDF($unit, $unitData, $startDate, $endDate);
+        } elseif ($format === 'csv') {
+            return $this->exportSingleUnitCSV($unit, $unitData, $startDate, $endDate);
+        }
+
+        return $this->exportSingleUnitExcel($unit, $unitData, $startDate, $endDate);
+
+    } catch (\Exception $e) {
+        Log::error('Export single unit error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'error' => 'Failed to export unit data'
+        ], 500);
+    }
+}
+
+/**
+ * Get detailed unit data
+ */
+private function getDetailedUnitData($unit, $startDate = null, $endDate = null)
+{
+    $dateStart = $startDate ? Carbon::parse($startDate) : now()->startOfMonth();
+    $dateEnd = $endDate ? Carbon::parse($endDate) : now();
+
+    // Get daily scan data
+    $dailyScans = [];
+    $period = CarbonPeriod::create($dateStart, $dateEnd);
+
+    foreach ($period as $date) {
+        $dateStr = $date->format('Y-m-d');
+        $dailyScans[$dateStr] = [
+            'date' => $dateStr,
+            'scans' => MealTransaction::whereHas('employee', function($q) use ($unit) {
+                    $q->where('unit_id', $unit->id);
+                })
+                ->whereDate('meal_date', $dateStr)
+                ->count(),
+            'revenue' => MealTransaction::whereHas('employee', function($q) use ($unit) {
+                    $q->where('unit_id', $unit->id);
+                })
+                ->whereDate('meal_date', $dateStr)
+                ->sum('amount')
+        ];
+    }
+
+    // Get top employees
+    $topEmployees = MealTransaction::whereHas('employee', function($q) use ($unit) {
+            $q->where('unit_id', $unit->id);
+        })
+        ->whereBetween('meal_date', [$dateStart, $dateEnd])
+        ->with('employee.department')
+        ->select(
+            'employee_id',
+            DB::raw('COUNT(*) as meal_count'),
+            DB::raw('SUM(amount) as total_spent')
+        )
+        ->groupBy('employee_id')
+        ->orderByDesc('meal_count')
+        ->limit(10)
+        ->get()
+        ->map(function($transaction) {
+            return [
+                'employee_id' => $transaction->employee_id,
+                'formal_name' => $transaction->employee->formal_name ?? 'Unknown',
+                'department' => $transaction->employee->department->name ?? 'N/A',
+                'meal_count' => $transaction->meal_count,
+                'total_spent' => $transaction->total_spent
+            ];
+        });
+
+    // Get vendor performance
+    $vendorPerformance = User::where('role', 2)
+        ->where('unit_id', $unit->id)
+        ->whereHas('mealTransactions', function($q) use ($dateStart, $dateEnd) {
+            $q->whereBetween('meal_date', [$dateStart, $dateEnd]);
+        })
+        ->withCount(['mealTransactions as scans' => function($q) use ($dateStart, $dateEnd) {
+            $q->whereBetween('meal_date', [$dateStart, $dateEnd]);
+        }])
+        ->withSum(['mealTransactions as revenue' => function($q) use ($dateStart, $dateEnd) {
+            $q->whereBetween('meal_date', [$dateStart, $dateEnd]);
+        }], 'amount')
+        ->get()
+        ->map(function($vendor) {
+            return [
+                'name' => $vendor->name,
+                'scans' => $vendor->scans,
+                'revenue' => $vendor->revenue
+            ];
+        });
+
+    return [
+        'unit' => $unit,
+        'daily_scans' => $dailyScans,
+        'top_employees' => $topEmployees,
+        'vendor_performance' => $vendorPerformance,
+        'date_range' => [
+            'start' => $dateStart->format('Y-m-d'),
+            'end' => $dateEnd->format('Y-m-d'),
+            'days' => $dateStart->diffInDays($dateEnd) + 1
+        ]
+    ];
+}
+
+
+
+
 }

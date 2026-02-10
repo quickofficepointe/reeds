@@ -210,32 +210,31 @@
                         Scan QR Code
                     </a>
                 </li>
-                <li>
-                    <a href="{{ route('vendor.scan-history') }}"
-                       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('vendor.scan-history') ? 'active' : '' }}">
-                        <i class="fas fa-history mr-3 w-5 text-center"></i>
-                        Scan History
-                    </a>
-                </li>
-
-                <!-- Reports -->
-                <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider section-header">Reports</p>
-                </li>
-                <li>
-                    <a href="#"
-                       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link">
-                        <i class="fas fa-file-alt mr-3 w-5 text-center"></i>
-                        Daily Reports
-                    </a>
-                </li>
-                <li>
-                    <a href="#"
-                       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link">
-                        <i class="fas fa-chart-line mr-3 w-5 text-center"></i>
-                        Performance Analytics
-                    </a>
-                </li>
+                <!-- Reports Section -->
+<li class="mt-4">
+    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider section-header">Reports</p>
+</li>
+<li>
+    <a href="{{ route('vendor.history') }}"
+       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('vendor.history') ? 'active' : '' }}">
+        <i class="fas fa-history mr-3 w-5 text-center"></i>
+        Scan History
+    </a>
+</li>
+<li>
+    <a href="{{ route('vendor.performance') }}"
+       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('vendor.performance') ? 'active' : '' }}">
+        <i class="fas fa-chart-line mr-3 w-5 text-center"></i>
+        Performance Analytics
+    </a>
+</li>
+<li>
+    <a href="{{ route('vendor.invoices') }}"
+       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('vendor.invoices') ? 'active' : '' }}">
+        <i class="fas fa-file-invoice mr-3 w-5 text-center"></i>
+        Invoices
+    </a>
+</li>
 
                 <!-- Account -->
                 <li class="mt-4">
@@ -272,7 +271,7 @@
                 this.lastActivity = Date.now();
                 this.isActive = true;
                 this.warningShown = false;
-               
+
                 this.loginUrl = '{{ route("login") }}';
                 this.csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 

@@ -67,6 +67,26 @@ Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
+// Add these routes inside your admin group:
+
+// Users Management Routes
+Route::prefix('users')->name('users.')->group(function () {
+    Route::get('/', [AdminController::class, 'usersIndex'])->name('index');
+    Route::post('/', [AdminController::class, 'storeUser'])->name('store');
+    Route::get('/{user}/edit', [AdminController::class, 'editUser'])->name('edit');
+    Route::put('/{user}', [AdminController::class, 'updateUser'])->name('update');
+    Route::delete('/{user}', [AdminController::class, 'destroyUser'])->name('destroy');
+    Route::get('/{user}/assign-unit', [AdminController::class, 'assignUnitForm'])->name('assign-unit.form');
+    Route::post('/{user}/assign-unit', [AdminController::class, 'assignUnit'])->name('assign-unit');
+    Route::get('/{user}/reset-password', [AdminController::class, 'resetPasswordForm'])->name('reset-password.form');
+    Route::post('/{user}/reset-password', [AdminController::class, 'resetPassword'])->name('reset-password');
+});
+// Inside admin group, add these routes:
+Route::prefix('analytics')->name('analytics.')->group(function () {
+    Route::get('/export/units', [AdminController::class, 'exportUnitAnalytics'])->name('export.units');
+    Route::get('/export/unit/{unit}', [AdminController::class, 'exportSingleUnit'])->name('export.unit');
+});
+
     Route::get('/meals/manual-entry', [AdminMealController::class, 'showManualEntryForm'])
         ->name('meals.manual-entry');
 
@@ -240,10 +260,30 @@ Route::post('/vendor/{vendor}/analytics/share', [AdminController::class, 'shareV
 // ===============================
 // VENDOR ROUTES
 // ===============================
+// ===============================
+// VENDOR ROUTES
+// ===============================
 Route::middleware(['auth', 'verified', 'vendor', 'profile.complete'])->prefix('vendor')->name('vendor.')->group(function () {
     Route::get('/dashboard', [VendorController::class, 'index'])->name('dashboard');
     Route::get('/scan', [VendorController::class, 'scan'])->name('scan');
     Route::post('/scan', [VendorController::class, 'processScan'])->name('process-scan');
     Route::get('/scan-history', [VendorController::class, 'getScanHistory'])->name('scan-history');
     Route::get('/dashboard-stats', [VendorController::class, 'getDashboardStats'])->name('dashboard-stats');
+
+    // NEW ROUTES
+     Route::get('/history', [VendorController::class, 'history'])->name('history');
+    Route::get('/history/data', [VendorController::class, 'getScanHistory'])->name('history.data');
+    Route::get('/performance', [VendorController::class, 'performance'])->name('performance');
+        Route::get('/invoices', [VendorController::class, 'invoices'])->name('invoices');
+    Route::get('/invoices/data', [VendorController::class, 'invoicesData'])->name('invoices.data');
+    Route::get('/invoices/{id}/details', [VendorController::class, 'getInvoiceDetails'])->name('invoices.details');
+    Route::get('/invoices/{id}/download', [VendorController::class, 'downloadInvoice'])->name('invoices.download');
+    Route::post('/invoices/generate-test', [VendorController::class, 'generateTestInvoice'])->name('invoices.generate-test');
+    // Analytics data routes
+// Performance analytics routes
+Route::get('/performance', [VendorController::class, 'performance'])->name('performance');
+Route::get('/analytics/daily', [VendorController::class, 'dailyAnalytics'])->name('analytics.daily');
+Route::get('/analytics/weekly', [VendorController::class, 'weeklyAnalytics'])->name('analytics.weekly');
+Route::get('/analytics/monthly', [VendorController::class, 'monthlyAnalytics'])->name('analytics.monthly');
+Route::get('/vendor/diagnose-analytics', [VendorController::class, 'diagnoseAnalytics'])->name('vendor.diagnose-analytics');
 });

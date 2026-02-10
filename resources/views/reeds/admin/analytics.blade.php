@@ -2,25 +2,108 @@
 
 @section('content')
 <div class="max-w-7xl mx-auto">
-    <!-- Header -->
+    <!-- Header with Export Buttons -->
     <div class="mb-8">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-text-black">Analytics & Reports</h1>
                 <p class="text-gray-600 mt-2">Comprehensive insights into feeding patterns and vendor performance</p>
             </div>
-            <div class="mt-4 md:mt-0 flex space-x-3">
-                <select id="unitFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
-                    <option value="all">All Units</option>
-                    @foreach($units as $unit)
-                        <option value="{{ $unit->id }}">{{ $unit->name }}</option>
-                    @endforeach
-                </select>
-                <select id="periodSelect" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
-                    <option value="week">Last 7 Days</option>
-                    <option value="month" selected>Last 30 Days</option>
-                    <option value="year">Last 12 Months</option>
-                </select>
+            <div class="mt-4 md:mt-0 flex flex-wrap gap-3">
+                <!-- Export Buttons -->
+                <div class="flex items-center space-x-2">
+                    <button onclick="exportUnitPerformance('excel')"
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-150 flex items-center">
+                        <i class="fas fa-file-excel mr-2"></i> Export Excel
+                    </button>
+                    <button onclick="exportUnitPerformance('pdf')"
+                            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-150 flex items-center">
+                        <i class="fas fa-file-pdf mr-2"></i> Export PDF
+                    </button>
+                    <button onclick="exportUnitPerformance('csv')"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 flex items-center">
+                        <i class="fas fa-file-csv mr-2"></i> Export CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Date Range Filters -->
+        <div class="mt-6 bg-white rounded-xl shadow-md border border-gray-100 p-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between">
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-text-black mb-3">Date Range Filter</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <!-- Quick Range Buttons -->
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="setDateRange('today')"
+                                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition">
+                                Today
+                            </button>
+                            <button onclick="setDateRange('yesterday')"
+                                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition">
+                                Yesterday
+                            </button>
+                            <button onclick="setDateRange('week')"
+                                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition">
+                                This Week
+                            </button>
+                            <button onclick="setDateRange('biweekly')"
+                                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition">
+                                Bi-Weekly
+                            </button>
+                            <button onclick="setDateRange('month')"
+                                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition">
+                                This Month
+                            </button>
+                            <button onclick="setDateRange('quarter')"
+                                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition">
+                                This Quarter
+                            </button>
+                            <button onclick="setDateRange('year')"
+                                    class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition">
+                                This Year
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Date Range -->
+                <div class="mt-4 md:mt-0">
+                    <h3 class="text-lg font-semibold text-text-black mb-3">Custom Range</h3>
+                    <div class="flex flex-col md:flex-row gap-3">
+                        <div class="flex items-center">
+                            <label class="text-sm text-gray-600 mr-2">From:</label>
+                            <input type="date"
+                                   id="customStartDate"
+                                   class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
+                        </div>
+                        <div class="flex items-center">
+                            <label class="text-sm text-gray-600 mr-2">To:</label>
+                            <input type="date"
+                                   id="customEndDate"
+                                   class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
+                        </div>
+                        <button onclick="applyCustomRange()"
+                                class="px-4 py-2 bg-secondary-blue text-white rounded-lg hover:bg-blue-600 transition duration-150">
+                            Apply
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Filters Display -->
+            <div id="activeFilters" class="mt-4 p-3 bg-blue-50 rounded-lg hidden">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-sm font-medium text-blue-800">Active Filters:</span>
+                        <span id="filterText" class="text-sm text-blue-600 ml-2"></span>
+                    </div>
+                    <button onclick="clearFilters()"
+                            class="text-sm text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-times mr-1"></i> Clear
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -103,6 +186,12 @@
                         <button onclick="viewUnitAnalytics({{ $unit['id'] }})"
                                 class="w-full mt-4 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm font-medium transition duration-150 flex items-center justify-center">
                             <i class="fas fa-chart-bar mr-2"></i> View Details
+                        </button>
+
+                        <!-- Quick Export Button -->
+                        <button onclick="exportUnitData({{ $unit['id'] }})"
+                                class="w-full mt-2 px-3 py-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-sm font-medium transition duration-150 flex items-center justify-center">
+                            <i class="fas fa-download mr-2"></i> Export Unit Data
                         </button>
                     </div>
                 </div>
@@ -417,9 +506,103 @@
     </div>
 </div>
 
+<!-- Export Modal -->
+<div id="exportModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-md">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-text-black">Export Unit Analytics</h3>
+                <button onclick="closeExportModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Export Format</label>
+                    <select id="exportFormat"
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
+                        <option value="excel">Excel (.xlsx)</option>
+                        <option value="csv">CSV (.csv)</option>
+                        <option value="pdf">PDF (.pdf)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Unit Selection</label>
+                    <select id="exportUnitFilter"
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
+                        <option value="all">All Units</option>
+                        @foreach($units as $unit)
+                            <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+                    <select id="exportDateRange"
+                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="week">This Week</option>
+                        <option value="biweekly">Bi-Weekly</option>
+                        <option value="month" selected>This Month</option>
+                        <option value="quarter">This Quarter</option>
+                        <option value="year">This Year</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+                <div id="customExportRange" class="hidden space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                        <input type="date"
+                               id="exportStartDate"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                        <input type="date"
+                               id="exportEndDate"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Include Data</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" checked class="rounded border-gray-300 text-secondary-blue focus:ring-secondary-blue">
+                            <span class="ml-2 text-sm text-gray-700">Unit Statistics</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" checked class="rounded border-gray-300 text-secondary-blue focus:ring-secondary-blue">
+                            <span class="ml-2 text-sm text-gray-700">Scan Details</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="rounded border-gray-300 text-secondary-blue focus:ring-secondary-blue">
+                            <span class="ml-2 text-sm text-gray-700">Revenue Breakdown</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="rounded border-gray-300 text-secondary-blue focus:ring-secondary-blue">
+                            <span class="ml-2 text-sm text-gray-700">Vendor Performance</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 flex justify-end space-x-3">
+                <button type="button"
+                        onclick="closeExportModal()"
+                        class="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button onclick="processExport()"
+                        class="px-5 py-2.5 bg-secondary-blue text-white rounded-lg hover:bg-blue-600 transition font-medium">
+                    <i class="fas fa-download mr-2"></i> Export Now
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
     let scansChart, unitChart, departmentChart, employeeChart;
 
@@ -443,11 +626,241 @@
         document.getElementById('chartsSection').classList.remove('hidden');
     }
 
+    // Date Range Functions
+    let currentStartDate = null;
+    let currentEndDate = null;
+
+    function setDateRange(range) {
+        const today = new Date();
+        let startDate, endDate;
+
+        switch (range) {
+            case 'today':
+                startDate = new Date(today);
+                endDate = new Date(today);
+                break;
+            case 'yesterday':
+                startDate = new Date(today);
+                startDate.setDate(today.getDate() - 1);
+                endDate = new Date(startDate);
+                break;
+            case 'week':
+                startDate = new Date(today);
+                startDate.setDate(today.getDate() - today.getDay() + 1); // Monday of current week
+                endDate = new Date(today);
+                break;
+            case 'biweekly':
+                startDate = new Date(today);
+                startDate.setDate(today.getDate() - 14);
+                endDate = new Date(today);
+                break;
+            case 'month':
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                endDate = new Date(today);
+                break;
+            case 'quarter':
+                const quarter = Math.floor(today.getMonth() / 3);
+                startDate = new Date(today.getFullYear(), quarter * 3, 1);
+                endDate = new Date(today);
+                break;
+            case 'year':
+                startDate = new Date(today.getFullYear(), 0, 1);
+                endDate = new Date(today);
+                break;
+            default:
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                endDate = new Date(today);
+        }
+
+        currentStartDate = startDate;
+        currentEndDate = endDate;
+
+        updateFilterDisplay(range);
+        loadAnalyticsWithDateRange();
+    }
+
+    function applyCustomRange() {
+        const startInput = document.getElementById('customStartDate');
+        const endInput = document.getElementById('customEndDate');
+
+        if (!startInput || !endInput) {
+            console.error('Date input elements not found');
+            return;
+        }
+
+        if (!startInput.value || !endInput.value) {
+            alert('Please select both start and end dates');
+            return;
+        }
+
+        currentStartDate = new Date(startInput.value);
+        currentEndDate = new Date(endInput.value);
+
+        if (currentStartDate > currentEndDate) {
+            [currentStartDate, currentEndDate] = [currentEndDate, currentStartDate];
+        }
+
+        updateFilterDisplay('custom');
+        loadAnalyticsWithDateRange();
+    }
+
+    function updateFilterDisplay(range) {
+        const filterElement = document.getElementById('activeFilters');
+        const filterText = document.getElementById('filterText');
+
+        if (!filterElement || !filterText) {
+            console.error('Filter display elements not found');
+            return;
+        }
+
+        let displayText = '';
+        const formatDate = (date) => date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+
+        if (range === 'custom') {
+            displayText = `Custom: ${formatDate(currentStartDate)} - ${formatDate(currentEndDate)}`;
+        } else {
+            const rangeNames = {
+                'today': 'Today',
+                'yesterday': 'Yesterday',
+                'week': 'This Week',
+                'biweekly': 'Last 14 Days',
+                'month': 'This Month',
+                'quarter': 'This Quarter',
+                'year': 'This Year'
+            };
+            displayText = `${rangeNames[range]} (${formatDate(currentStartDate)} - ${formatDate(currentEndDate)})`;
+        }
+
+        filterText.textContent = displayText;
+        filterElement.classList.remove('hidden');
+    }
+
+    function clearFilters() {
+        currentStartDate = null;
+        currentEndDate = null;
+
+        const activeFilters = document.getElementById('activeFilters');
+        if (activeFilters) {
+            activeFilters.classList.add('hidden');
+        }
+
+        const customStartDate = document.getElementById('customStartDate');
+        const customEndDate = document.getElementById('customEndDate');
+        if (customStartDate) customStartDate.value = '';
+        if (customEndDate) customEndDate.value = '';
+
+        const unitFilter = document.getElementById('unitFilter');
+        if (unitFilter) unitFilter.value = 'all';
+
+        setDateRange('month');
+    }
+
+    // Load analytics with date range
+    function loadAnalyticsWithDateRange() {
+        const unitFilter = document.getElementById('unitFilter');
+        const unitId = unitFilter ? unitFilter.value : 'all';
+
+        // For the analytics data, we're using 'month' as default period since periodSelect doesn't exist
+        loadAnalyticsData('month', unitId);
+    }
+
+    // Export Functions
+    function exportUnitPerformance(format) {
+        showExportModal();
+    }
+
+    function exportUnitData(unitId) {
+        const exportUnitFilter = document.getElementById('exportUnitFilter');
+        if (exportUnitFilter) {
+            exportUnitFilter.value = unitId;
+        }
+        showExportModal();
+    }
+
+    function showExportModal() {
+        const exportModal = document.getElementById('exportModal');
+        if (exportModal) {
+            exportModal.classList.remove('hidden');
+        }
+    }
+
+    function closeExportModal() {
+        const exportModal = document.getElementById('exportModal');
+        if (exportModal) {
+            exportModal.classList.add('hidden');
+        }
+    }
+
+    function processExport() {
+        const exportFormat = document.getElementById('exportFormat');
+        const exportDateRange = document.getElementById('exportDateRange');
+        const exportUnitFilter = document.getElementById('exportUnitFilter');
+
+        if (!exportFormat || !exportDateRange || !exportUnitFilter) {
+            alert('Export configuration elements not found');
+            return;
+        }
+
+        const format = exportFormat.value;
+        const dateRange = exportDateRange.value;
+        const unitId = exportUnitFilter.value || 'all';
+
+        let startDate, endDate;
+
+        if (dateRange === 'custom') {
+            const exportStartDate = document.getElementById('exportStartDate');
+            const exportEndDate = document.getElementById('exportEndDate');
+
+            if (!exportStartDate || !exportEndDate) {
+                alert('Custom date range elements not found');
+                return;
+            }
+
+            startDate = exportStartDate.value;
+            endDate = exportEndDate.value;
+
+            if (!startDate || !endDate) {
+                alert('Please select custom date range');
+                return;
+            }
+        } else {
+            startDate = currentStartDate?.toISOString().split('T')[0];
+            endDate = currentEndDate?.toISOString().split('T')[0];
+        }
+
+        let url = `/admin/analytics/export/units?format=${format}`;
+
+        if (unitId !== 'all') {
+            url += `&unit_id=${unitId}`;
+        }
+
+        if (startDate && endDate) {
+            url += `&start_date=${startDate}&end_date=${endDate}`;
+        }
+
+        window.open(url, '_blank');
+
+        showNotification('Export started successfully!', 'success');
+        closeExportModal();
+    }
+
     // Load analytics data with unit filter
     function loadAnalyticsData(period = 'month', unitId = 'all') {
         showLoading();
 
-        fetch(`/admin/analytics/data?period=${period}&unit_id=${unitId}`)
+        let url = `/admin/analytics/data?period=${period}&unit_id=${unitId}`;
+
+        if (currentStartDate && currentEndDate) {
+            const startStr = currentStartDate.toISOString().split('T')[0];
+            const endStr = currentEndDate.toISOString().split('T')[0];
+            url += `&custom_start=${startStr}&custom_end=${endStr}`;
+        }
+
+        fetch(url)
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
@@ -497,7 +910,13 @@
         };
 
         // Scans over time chart
-        const scansCtx = document.getElementById('scansChart').getContext('2d');
+        const scansCanvas = document.getElementById('scansChart');
+        if (!scansCanvas) {
+            console.error('Scans chart canvas not found');
+            return;
+        }
+
+        const scansCtx = scansCanvas.getContext('2d');
         if (scansChart) scansChart.destroy();
 
         scansChart = new Chart(scansCtx, {
@@ -525,156 +944,177 @@
         });
 
         // Unit performance chart
-        const unitCtx = document.getElementById('unitChart').getContext('2d');
-        if (unitChart) unitChart.destroy();
+        const unitCanvas = document.getElementById('unitChart');
+        if (unitCanvas) {
+            const unitCtx = unitCanvas.getContext('2d');
+            if (unitChart) unitChart.destroy();
 
-        unitChart = new Chart(unitCtx, {
-            type: 'bar',
-            data: {
-                labels: data.unit_performance.map(item => item.name),
-                datasets: [
-                    {
-                        label: 'Scans',
-                        data: data.unit_performance.map(item => item.scans || 0),
-                        backgroundColor: '#e92c2a',
-                        borderColor: '#e92c2a',
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Employees',
-                        data: data.unit_performance.map(item => item.employees || 0),
-                        backgroundColor: '#2596be',
-                        borderColor: '#2596be',
-                        borderWidth: 1
-                    }
-                ]
-            },
-            options: commonOptions
-        });
+            unitChart = new Chart(unitCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.unit_performance.map(item => item.name),
+                    datasets: [
+                        {
+                            label: 'Scans',
+                            data: data.unit_performance.map(item => item.scans || 0),
+                            backgroundColor: '#e92c2a',
+                            borderColor: '#e92c2a',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Employees',
+                            data: data.unit_performance.map(item => item.employees || 0),
+                            backgroundColor: '#2596be',
+                            borderColor: '#2596be',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: commonOptions
+            });
+        }
 
         // Department feeding rates
-        const deptCtx = document.getElementById('departmentChart').getContext('2d');
-        if (departmentChart) departmentChart.destroy();
+        const deptCanvas = document.getElementById('departmentChart');
+        if (deptCanvas) {
+            const deptCtx = deptCanvas.getContext('2d');
+            if (departmentChart) departmentChart.destroy();
 
-        departmentChart = new Chart(deptCtx, {
-            type: 'doughnut',
-            data: {
-                labels: data.department_feeding.map(item => item.name),
-                datasets: [{
-                    data: data.department_feeding.map(item => item.feeding_rate || 0),
-                    backgroundColor: [
-                        '#e92c2a', '#2596be', '#10b981', '#f59e0b', '#8b5cf6',
-                        '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right'
+            departmentChart = new Chart(deptCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.department_feeding.map(item => item.name),
+                    datasets: [{
+                        data: data.department_feeding.map(item => item.feeding_rate || 0),
+                        backgroundColor: [
+                            '#e92c2a', '#2596be', '#10b981', '#f59e0b', '#8b5cf6',
+                            '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
         // Employee behavior
-        const empCtx = document.getElementById('employeeChart').getContext('2d');
-        if (employeeChart) employeeChart.destroy();
+        const empCanvas = document.getElementById('employeeChart');
+        if (empCanvas) {
+            const empCtx = empCanvas.getContext('2d');
+            if (employeeChart) employeeChart.destroy();
 
-        employeeChart = new Chart(empCtx, {
-            type: 'bar',
-            data: {
-                labels: data.employee_behavior.frequent_eaters.map(item => item.formal_name),
-                datasets: [{
-                    label: 'Meals',
-                    data: data.employee_behavior.frequent_eaters.map(item => item.meal_count || 0),
-                    backgroundColor: '#10b981',
-                    borderColor: '#10b981',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                ...commonOptions,
-                indexAxis: 'y',
-                plugins: {
-                    legend: {
-                        display: false
+            employeeChart = new Chart(empCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.employee_behavior.frequent_eaters.map(item => item.formal_name),
+                    datasets: [{
+                        label: 'Meals',
+                        data: data.employee_behavior.frequent_eaters.map(item => item.meal_count || 0),
+                        backgroundColor: '#10b981',
+                        borderColor: '#10b981',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 
     // Update tables with safe data
     function updateTables(data) {
         // Unit table
         const unitTable = document.getElementById('unitTable');
-        if (data.unit_performance.length > 0) {
-            unitTable.innerHTML = data.unit_performance.map(unit => `
-                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="py-3 text-sm text-text-black">${unit.name}</td>
-                    <td class="py-3 text-sm text-gray-700 text-right">${unit.employees || 0}</td>
-                    <td class="py-3 text-sm text-gray-700 text-right">${unit.scans || 0}</td>
-                    <td class="py-3 text-sm text-green-600 text-right">KSh ${(unit.revenue || 0).toLocaleString()}</td>
-                </tr>
-            `).join('');
-        } else {
-            unitTable.innerHTML = `
-                <tr>
-                    <td colspan="4" class="py-8 text-center text-gray-500">
-                        <i class="fas fa-building text-2xl mb-2"></i>
-                        <p>No unit data available</p>
-                    </td>
-                </tr>
-            `;
+        if (unitTable) {
+            if (data.unit_performance && data.unit_performance.length > 0) {
+                unitTable.innerHTML = data.unit_performance.map(unit => `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="py-3 text-sm text-text-black">${unit.name}</td>
+                        <td class="py-3 text-sm text-gray-700 text-right">${unit.employees || 0}</td>
+                        <td class="py-3 text-sm text-gray-700 text-right">${unit.scans || 0}</td>
+                        <td class="py-3 text-sm text-green-600 text-right">KSh ${(unit.revenue || 0).toLocaleString()}</td>
+                    </tr>
+                `).join('');
+            } else {
+                unitTable.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="py-8 text-center text-gray-500">
+                            <i class="fas fa-building text-2xl mb-2"></i>
+                            <p>No unit data available</p>
+                        </td>
+                    </tr>
+                `;
+            }
         }
 
         // Vendor table
         const vendorTable = document.getElementById('vendorTable');
-        if (data.vendor_performance.length > 0) {
-            vendorTable.innerHTML = data.vendor_performance.map(vendor => `
-                <tr class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="py-3 text-sm text-text-black">${vendor.name}</td>
-                    <td class="py-3 text-sm text-gray-700 text-right">${vendor.scans || 0}</td>
-                    <td class="py-3 text-sm text-green-600 text-right">KSh ${(vendor.revenue || 0).toLocaleString()}</td>
-                </tr>
-            `).join('');
-        } else {
-            vendorTable.innerHTML = `
-                <tr>
-                    <td colspan="3" class="py-8 text-center text-gray-500">
-                        <i class="fas fa-store text-2xl mb-2"></i>
-                        <p>No vendor data available</p>
-                    </td>
-                </tr>
-            `;
+        if (vendorTable) {
+            if (data.vendor_performance && data.vendor_performance.length > 0) {
+                vendorTable.innerHTML = data.vendor_performance.map(vendor => `
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                        <td class="py-3 text-sm text-text-black">${vendor.name}</td>
+                        <td class="py-3 text-sm text-gray-700 text-right">${vendor.scans || 0}</td>
+                        <td class="py-3 text-sm text-green-600 text-right">KSh ${(vendor.revenue || 0).toLocaleString()}</td>
+                    </tr>
+                `).join('');
+            } else {
+                vendorTable.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="py-8 text-center text-gray-500">
+                            <i class="fas fa-store text-2xl mb-2"></i>
+                            <p>No vendor data available</p>
+                        </td>
+                    </tr>
+                `;
+            }
         }
     }
 
     // View unit analytics
     function viewUnitAnalytics(unitId) {
-        // Show loading state
-        document.getElementById('unitDetailsContent').innerHTML = `
-            <div class="text-center py-8">
-                <i class="fas fa-spinner fa-spin text-2xl text-secondary-blue mb-2"></i>
-                <p>Loading unit analytics...</p>
-            </div>
-        `;
+        const unitDetailsContent = document.getElementById('unitDetailsContent');
+        if (unitDetailsContent) {
+            unitDetailsContent.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl text-secondary-blue mb-2"></i>
+                    <p>Loading unit analytics...</p>
+                </div>
+            `;
+        }
 
-        document.getElementById('unitDetailsModal').classList.remove('hidden');
+        const unitDetailsModal = document.getElementById('unitDetailsModal');
+        if (unitDetailsModal) {
+            unitDetailsModal.classList.remove('hidden');
+        }
 
-        // Fetch unit details via AJAX
         fetch(`/admin/analytics/unit/${unitId}`)
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.unit) {
+                if (data.success && data.unit && unitDetailsContent) {
                     const unit = data.unit;
 
-                    document.getElementById('unitModalTitle').textContent = `${unit.name} Analytics`;
-                    document.getElementById('unitDetailsContent').innerHTML = `
+                    const unitModalTitle = document.getElementById('unitModalTitle');
+                    if (unitModalTitle) {
+                        unitModalTitle.textContent = `${unit.name} Analytics`;
+                    }
+
+                    unitDetailsContent.innerHTML = `
                         <div class="space-y-6">
                             <!-- Unit Overview -->
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -707,7 +1147,7 @@
                             <div>
                                 <h4 class="text-lg font-semibold text-text-black mb-4">Top Employees</h4>
                                 <div class="space-y-3">
-                                    ${unit.top_employees.length > 0 ? unit.top_employees.map(emp => `
+                                    ${unit.top_employees && unit.top_employees.length > 0 ? unit.top_employees.map(emp => `
                                         <div class="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
                                             <div>
                                                 <p class="font-medium text-text-black">${emp.formal_name}</p>
@@ -730,7 +1170,7 @@
                             <div>
                                 <h4 class="text-lg font-semibold text-text-black mb-4">Active Vendors</h4>
                                 <div class="space-y-3">
-                                    ${unit.vendors.length > 0 ? unit.vendors.map(vendor => `
+                                    ${unit.vendors && unit.vendors.length > 0 ? unit.vendors.map(vendor => `
                                         <div class="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
                                             <div>
                                                 <p class="font-medium text-text-black">${vendor.name}</p>
@@ -752,33 +1192,35 @@
                     `;
 
                     // Initialize unit chart with fixed height
-                    const ctx = document.getElementById('unitMonthlyChart').getContext('2d');
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: unit.monthly_trends.labels,
-                            datasets: [{
-                                label: 'Daily Scans',
-                                data: unit.monthly_trends.scans,
-                                borderColor: '#2596be',
-                                backgroundColor: 'rgba(37, 150, 190, 0.1)',
-                                tension: 0.4,
-                                fill: true,
-                                borderWidth: 2
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    display: false
+                    const ctx = document.getElementById('unitMonthlyChart');
+                    if (ctx) {
+                        new Chart(ctx.getContext('2d'), {
+                            type: 'line',
+                            data: {
+                                labels: unit.monthly_trends.labels,
+                                datasets: [{
+                                    label: 'Daily Scans',
+                                    data: unit.monthly_trends.scans,
+                                    borderColor: '#2596be',
+                                    backgroundColor: 'rgba(37, 150, 190, 0.1)',
+                                    tension: 0.4,
+                                    fill: true,
+                                    borderWidth: 2
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        display: false
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
+                    }
                 } else {
-                    document.getElementById('unitDetailsContent').innerHTML = `
+                    unitDetailsContent.innerHTML = `
                         <div class="text-center py-8">
                             <i class="fas fa-exclamation-triangle text-2xl text-red-500 mb-2"></i>
                             <p>Failed to load unit analytics.</p>
@@ -788,36 +1230,84 @@
                 }
             })
             .catch(error => {
-                document.getElementById('unitDetailsContent').innerHTML = `
-                    <div class="text-center py-8">
-                        <i class="fas fa-exclamation-triangle text-2xl text-red-500 mb-2"></i>
-                        <p>Error loading unit analytics.</p>
-                        <p class="text-sm text-gray-600 mt-1">Please try again later.</p>
-                    </div>
-                `;
+                if (unitDetailsContent) {
+                    unitDetailsContent.innerHTML = `
+                        <div class="text-center py-8">
+                            <i class="fas fa-exclamation-triangle text-2xl text-red-500 mb-2"></i>
+                            <p>Error loading unit analytics.</p>
+                            <p class="text-sm text-gray-600 mt-1">Please try again later.</p>
+                        </div>
+                    `;
+                }
             });
     }
 
     // Close unit modal
     function closeUnitModal() {
-        document.getElementById('unitDetailsModal').classList.add('hidden');
+        const unitDetailsModal = document.getElementById('unitDetailsModal');
+        if (unitDetailsModal) {
+            unitDetailsModal.classList.add('hidden');
+        }
     }
 
-    // Initialize
+    // Show export modal for custom date range
     document.addEventListener('DOMContentLoaded', function() {
+        const exportDateRange = document.getElementById('exportDateRange');
+        if (exportDateRange) {
+            exportDateRange.addEventListener('change', function() {
+                const customRangeDiv = document.getElementById('customExportRange');
+                if (this.value === 'custom') {
+                    if (customRangeDiv) {
+                        customRangeDiv.classList.remove('hidden');
+                    }
+
+                    const exportStartDate = document.getElementById('exportStartDate');
+                    const exportEndDate = document.getElementById('exportEndDate');
+                    if (exportStartDate && exportEndDate) {
+                        exportStartDate.value = currentStartDate?.toISOString().split('T')[0] || '';
+                        exportEndDate.value = currentEndDate?.toISOString().split('T')[0] || '';
+                    }
+                } else {
+                    if (customRangeDiv) {
+                        customRangeDiv.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        // Initialize date range
+        setDateRange('month');
+
+        // Load initial analytics data
         loadAnalyticsData('month');
 
-        // Period selector
-        document.getElementById('periodSelect').addEventListener('change', function() {
-            const unitId = document.getElementById('unitFilter').value;
-            loadAnalyticsData(this.value, unitId);
-        });
-
-        // Unit filter
-        document.getElementById('unitFilter').addEventListener('change', function() {
-            const period = document.getElementById('periodSelect').value;
-            loadAnalyticsData(period, this.value);
-        });
+        // Unit filter event listener
+        const unitFilter = document.getElementById('unitFilter');
+        if (unitFilter) {
+            unitFilter.addEventListener('change', function() {
+                loadAnalyticsData('month', this.value);
+            });
+        }
     });
+
+    // Notification function
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 ${
+            type === 'success' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'
+        } border`;
+        notification.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
 </script>
 @endsection

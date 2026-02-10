@@ -266,7 +266,16 @@
                         </span>
                     </a>
                 </li>
-
+<li>
+    <a href="{{ route('admin.users.index') }}"
+       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+        <i class="fas fa-user-cog mr-3 w-5 text-center"></i>
+        User Management
+        <span class="ml-auto bg-blue-500 text-white text-xs rounded-full px-2 py-1">
+            {{ \App\Models\User::count() }}
+        </span>
+    </a>
+</li>
                 <!-- System Management -->
                 <li class="mt-4">
                     <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider section-header">System</p>
@@ -439,15 +448,7 @@
                 document.getElementById('mainContent').classList.add('ml-0');
             }
 
-            // Add data-route attributes to all navigation links
-            document.querySelectorAll('.nav-link').forEach(link => {
-                const href = link.getAttribute('href');
-                if (href) {
-                    // Extract route name from URL
-                    const routeName = href.replace(window.location.origin, '').replace(/^\//, '');
-                    link.setAttribute('data-route', '{{ Route::currentRouteName() }}');
-                }
-            });
+
 
             // Set active navigation
             setActiveNavLinks();

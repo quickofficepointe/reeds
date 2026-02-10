@@ -5,8 +5,9 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
 // ============================================
-// INSPIRATION COMMAND
+// INSPIRATION COMMAND (Your existing code)
 // ============================================
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
@@ -16,7 +17,7 @@ Artisan::command('inspire', function () {
 // ============================================
 
 // Generate bi-weekly invoices every Saturday at 3:00 PM Nairobi Time
-// Saturday = 6 (Sunday = 0, Monday = 1, ..., Friday = 5, Saturday = 6)
+// Saturday = 6 (Sunday = 0, Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = 4, Friday = 5, Saturday = 6)
 Schedule::command('invoices:generate-biweekly')
     ->weeklyOn(6, '15:00') // Saturday at 3:00 PM
     ->timezone('Africa/Nairobi')
@@ -55,8 +56,7 @@ Schedule::command('telescope:prune --hours=48')
     ->daily()
     ->description('Prune old Telescope entries');
 
-// Clear application cache every Sunday at 2:00 AM
-// Sunday = 0
+// Clear application cache every Sunday at 2:00 AM (Sunday = 0)
 Schedule::command('cache:clear')
     ->weeklyOn(0, '02:00')
     ->description('Clear application cache weekly');
@@ -90,12 +90,14 @@ Schedule::command('reports:generate-daily')
 
 // Command to manually trigger invoice generation
 Artisan::command('vendor:generate-invoice {vendor_id} {--period=current}', function ($vendorId, $period) {
+    // You can implement this if you need manual invoice generation
     $this->info("Generating invoice for vendor {$vendorId} for {$period} period...");
     // Call your invoice generation logic here
 })->purpose('Manually generate invoice for a specific vendor');
 
 // Command to test email sending
 Artisan::command('test:invoice-email {email}', function ($email) {
+    // You can implement this to test invoice emails
     $this->info("Sending test invoice email to {$email}...");
     // Test email logic here
 })->purpose('Test invoice email sending to a specific address');

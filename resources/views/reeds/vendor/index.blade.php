@@ -240,9 +240,7 @@
         </div>
     </div>
 </div>
-@endsection
 
-@section('scripts')
 <!-- SweetAlert -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
