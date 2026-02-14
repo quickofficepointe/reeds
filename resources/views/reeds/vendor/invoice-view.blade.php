@@ -1,3 +1,4 @@
+{{-- resources/views/reeds/vendor/invoice-view.blade.php --}}
 @extends('reeds.vendor.layout.vendorlayout')
 
 @section('content')
@@ -7,7 +8,14 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-text-black">Invoice #{{ $invoice->invoice_number }}</h1>
-                <p class="text-gray-600 mt-2">Period: {{ $invoice->period_start->format('F j, Y') }} - {{ $invoice->period_end->format('F j, Y') }}</p>
+                <p class="text-gray-600 mt-2">
+                    Period: {{ $invoice->period_start->format('F j, Y') }} - {{ $invoice->period_end->format('F j, Y') }}
+                    @if($invoice->cycle_number)
+                        <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            Cycle {{ $invoice->cycle_number }}
+                        </span>
+                    @endif
+                </p>
             </div>
 
             <!-- Action Buttons -->
@@ -44,6 +52,14 @@
                     <p class="text-sm">Due on {{ $invoice->due_date->format('F j, Y') }}</p>
                 </div>
             </div>
+        @elseif($invoice->status == 'overdue')
+            <div class="bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded-lg flex items-center">
+                <i class="fas fa-exclamation-triangle text-red-500 mr-3 text-xl"></i>
+                <div>
+                    <p class="font-semibold">This invoice is OVERDUE</p>
+                    <p class="text-sm">Payment was due on {{ $invoice->due_date->format('F j, Y') }}</p>
+                </div>
+            </div>
         @endif
     </div>
 
@@ -71,6 +87,14 @@
                         <p class="text-sm text-gray-600">Due Date</p>
                         <p class="font-semibold">{{ $invoice->due_date->format('F j, Y') }}</p>
                     </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Cycle Number</p>
+                        <p class="font-semibold">Cycle {{ $invoice->cycle_number ?? 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Rate per Meal</p>
+                        <p class="font-semibold">Ksh 65.00</p>
+                    </div>
                 </div>
 
                 <!-- Invoice Items -->
@@ -81,6 +105,7 @@
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scans</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
@@ -93,11 +118,14 @@
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                         {{ $item->date->format('M j, Y') }}
                                     </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                        {{ $item->date->format('l') }}
+                                    </td>
                                     <td class="px-4 py-3 text-sm text-gray-500">
                                         {{ $item->description }}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                        {{ $item->scans }}
+                                        {{ number_format($item->scans) }}
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                         Ksh {{ number_format($item->rate, 2) }}
@@ -122,11 +150,11 @@
                 <div class="space-y-3">
                     <div class="flex justify-between">
                         <span class="text-gray-600">Total Scans:</span>
-                        <span class="font-semibold">{{ $invoice->total_scans }}</span>
+                        <span class="font-semibold">{{ number_format($invoice->total_scans) }}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Rate per meal:</span>
-                        <span class="font-semibold">Ksh 70.00</span>
+                        <span class="font-semibold">Ksh 65.00</span>
                     </div>
                     <div class="border-t pt-3 mt-3">
                         <div class="flex justify-between text-lg">
@@ -137,6 +165,37 @@
                 </div>
             </div>
 
+            <!-- Vendor Payment Information -->
+            <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-8">
+                <h3 class="text-lg font-semibold text-text-black mb-4">Vendor Payment Details</h3>
+
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">Vendor Name</p>
+                        <p class="font-medium">{{ $invoice->vendor->name }}</p>
+                    </div>
+
+                    @if($invoice->vendor_phone)
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">Contact Phone</p>
+                        <p class="font-medium text-secondary-blue">{{ $invoice->vendor_phone }}</p>
+                    </div>
+                    @endif
+
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">Email</p>
+                        <p class="font-medium">{{ $invoice->vendor->email }}</p>
+                    </div>
+
+                    @if($invoice->vendor_business_name)
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">Business Name</p>
+                        <p class="font-medium">{{ $invoice->vendor_business_name }}</p>
+                    </div>
+                    @endif
+                </div>
+            </div>
+
             <!-- Payment Information -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
                 <h3 class="text-lg font-semibold text-text-black mb-4">Payment Information</h3>
@@ -144,22 +203,27 @@
                 <div class="space-y-4">
                     <div>
                         <p class="text-sm text-gray-600 mb-1">Bank Name</p>
-                        <p class="font-medium">Cooperative Bank of Kenya</p>
+                        <p class="font-medium">{{ $invoice->vendor_bank_details['bank_name'] }}</p>
                     </div>
 
                     <div>
                         <p class="text-sm text-gray-600 mb-1">Account Name</p>
-                        <p class="font-medium">REEDS Africa Talent Gateway</p>
+                        <p class="font-medium">{{ $invoice->vendor_bank_details['account_name'] }}</p>
                     </div>
 
                     <div>
                         <p class="text-sm text-gray-600 mb-1">Account Number</p>
-                        <p class="font-medium">011 123 456 78900</p>
+                        <p class="font-medium">{{ $invoice->vendor_bank_details['account_number'] }}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-sm text-gray-600 mb-1">Bank Branch</p>
+                        <p class="font-medium">{{ $invoice->vendor_bank_details['bank_branch'] }}</p>
                     </div>
 
                     <div>
                         <p class="text-sm text-gray-600 mb-1">Swift Code</p>
-                        <p class="font-medium">KCOOKENA</p>
+                        <p class="font-medium">{{ $invoice->vendor_bank_details['swift_code'] }}</p>
                     </div>
 
                     <div class="pt-4 border-t">
@@ -182,6 +246,10 @@
                         @elseif($invoice->status == 'pending')
                             <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
                                 Pending
+                            </span>
+                        @elseif($invoice->status == 'overdue')
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                Overdue
                             </span>
                         @elseif($invoice->status == 'draft')
                             <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
@@ -227,7 +295,6 @@
 </div>
 
 <script>
-    // Add any JavaScript functionality here if needed
     document.addEventListener('DOMContentLoaded', function() {
         console.log('Invoice view page loaded');
     });

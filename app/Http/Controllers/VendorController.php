@@ -1,10 +1,13 @@
 <?php
+// app/Http/Controllers/VendorController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\MealTransaction;
 use App\Models\VendorInvoice;
+use App\Services\InvoiceGenerationService;
+use App\Services\InvoicePeriodService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -13,43 +16,60 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\VendorInvoiceGenerated;
 use Carbon\Carbon;
+use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class VendorController extends Controller
 {
+    protected $invoiceService;
+    protected $periodService;
+
+    public function __construct(InvoiceGenerationService $invoiceService, InvoicePeriodService $periodService)
+    {
+        $this->invoiceService = $invoiceService;
+        $this->periodService = $periodService;
+    }
+
     /**
      * Display vendor dashboard
      */
     public function index()
     {
-        $vendor = Auth::user();
-        $today = now()->format('Y-m-d');
+        try {
+            $vendor = Auth::user();
+            $today = now()->format('Y-m-d');
 
-        // Get today's stats
-        $todayStats = MealTransaction::where('vendor_id', $vendor->id)
-            ->whereDate('meal_date', $today)
-            ->select(
-                DB::raw('COUNT(*) as total_meals'),
-                DB::raw('SUM(amount) as total_amount')
-            )
-            ->first();
+            // Get today's stats
+            $todayStats = MealTransaction::where('vendor_id', $vendor->id)
+                ->whereDate('meal_date', $today)
+                ->select(
+                    DB::raw('COUNT(*) as total_meals'),
+                    DB::raw('SUM(amount) as total_amount')
+                )
+                ->first();
 
-        // Get total stats
-        $totalStats = MealTransaction::where('vendor_id', $vendor->id)
-            ->select(
-                DB::raw('COUNT(*) as total_meals'),
-                DB::raw('SUM(amount) as total_amount')
-            )
-            ->first();
+            // Get total stats
+            $totalStats = MealTransaction::where('vendor_id', $vendor->id)
+                ->select(
+                    DB::raw('COUNT(*) as total_meals'),
+                    DB::raw('SUM(amount) as total_amount')
+                )
+                ->first();
 
-        // Recent transactions
-        $recentTransactions = MealTransaction::with('employee.department')
-            ->where('vendor_id', $vendor->id)
-            ->whereDate('meal_date', $today)
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get();
+            // Recent transactions
+            $recentTransactions = MealTransaction::with('employee.department')
+                ->where('vendor_id', $vendor->id)
+                ->whereDate('meal_date', $today)
+                ->orderBy('created_at', 'desc')
+                ->take(5)
+                ->get();
 
-        return view('reeds.vendor.index', compact('todayStats', 'totalStats', 'recentTransactions'));
+            return view('reeds.vendor.index', compact('todayStats', 'totalStats', 'recentTransactions'));
+
+        } catch (\Exception $e) {
+            Log::error('Error loading vendor dashboard: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to load dashboard. Please try again.');
+        }
     }
 
     /**
@@ -57,27 +77,33 @@ class VendorController extends Controller
      */
     public function scan()
     {
-        $vendor = Auth::user();
+        try {
+            $vendor = Auth::user();
 
-        // Check if vendor is assigned to a unit
-        if (!$vendor->unit_id) {
-            return redirect()->route('vendor.dashboard')
-                ->with('error', 'You are not assigned to any unit. Please contact administrator.');
+            // Check if vendor is assigned to a unit
+            if (!$vendor->unit_id) {
+                return redirect()->route('vendor.dashboard')
+                    ->with('error', 'You are not assigned to any unit. Please contact administrator.');
+            }
+
+            // Get recent scans for this vendor
+            $recentScans = MealTransaction::with(['employee.department', 'employee.unit'])
+                ->where('vendor_id', $vendor->id)
+                ->whereDate('meal_date', today())
+                ->latest()
+                ->take(10)
+                ->get();
+
+            return view('reeds.vendor.scan', compact('vendor', 'recentScans'));
+
+        } catch (\Exception $e) {
+            Log::error('Error loading scan page: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to load scan page.');
         }
-
-        // Get recent scans for this vendor
-        $recentScans = MealTransaction::with(['employee.department', 'employee.unit'])
-            ->where('vendor_id', $vendor->id)
-            ->whereDate('meal_date', today())
-            ->latest()
-            ->take(10)
-            ->get();
-
-        return view('reeds.vendor.scan', compact('vendor', 'recentScans'));
     }
 
     /**
-     * Process QR scan - UPDATED FOR MINIMAL QR CODES
+     * Process QR scan
      */
     public function processScan(Request $request)
     {
@@ -89,7 +115,6 @@ class VendorController extends Controller
             'user_agent' => $request->userAgent()
         ]);
 
-        // Test endpoint check
         if ($request->has('test')) {
             return response()->json([
                 'success' => true,
@@ -98,9 +123,8 @@ class VendorController extends Controller
             ]);
         }
 
-        // Updated validation for minimal QR codes
         $validator = Validator::make($request->all(), [
-            'qr_code' => 'required|string|min:3|max:100' // Adjusted for minimal codes
+            'qr_code' => 'required|string|min:3|max:100'
         ]);
 
         if ($validator->fails()) {
@@ -130,7 +154,7 @@ class VendorController extends Controller
             $employee = null;
             $extractionMethod = 'unknown';
 
-            // METHOD 1: Direct employee code match (PRIMARY FOR MINIMAL QR)
+            // METHOD 1: Direct employee code match
             $employee = Employee::where('employee_code', $qrCode)
                 ->where('is_active', true)
                 ->with('department')
@@ -144,7 +168,7 @@ class VendorController extends Controller
                 ]);
             }
 
-            // METHOD 2: Try QR code field match (backward compatibility)
+            // METHOD 2: Try QR code field match
             if (!$employee) {
                 $employee = Employee::where('qr_code', $qrCode)
                     ->where('is_active', true)
@@ -159,7 +183,7 @@ class VendorController extends Controller
                 }
             }
 
-            // METHOD 3: Extract from text QR (for existing QR codes)
+            // METHOD 3: Extract from text QR
             if (!$employee && strpos($qrCode, 'REEDS AFRICA CONSULT') !== false) {
                 Log::info('Detected text QR code, extracting employee code...');
                 $employeeCode = $this->extractEmployeeCodeFromText($qrCode);
@@ -182,7 +206,6 @@ class VendorController extends Controller
                 }
             }
 
-            // Employee not found
             if (!$employee) {
                 Log::warning('No employee found for QR code', [
                     'qr_code_length' => strlen($qrCode),
@@ -197,7 +220,6 @@ class VendorController extends Controller
                 ], 200);
             }
 
-            // Check if employee can be fed
             $canFeed = $employee->canBeFedNow();
             if (!$canFeed['can_be_fed']) {
                 Log::warning('Employee cannot be fed', [
@@ -212,7 +234,6 @@ class VendorController extends Controller
                 ], 200);
             }
 
-            // Check for duplicate meal today
             $existingMeal = $employee->getTodayMealTransaction();
             if ($existingMeal) {
                 Log::warning('Duplicate meal attempt', [
@@ -228,7 +249,6 @@ class VendorController extends Controller
                 ], 200);
             }
 
-            // Create meal transaction
             $transaction = $employee->recordMeal($vendor->id, $qrCode);
 
             DB::commit();
@@ -277,14 +297,12 @@ class VendorController extends Controller
      */
     private function extractEmployeeCodeFromText(string $qrText): ?string
     {
-        // Method 1: Look for "Employee No: XXXXX" pattern
         if (preg_match('/Employee No:\s*([A-Za-z0-9]+)/i', $qrText, $matches)) {
             $code = trim($matches[1]);
             Log::info('Extracted employee code using pattern 1:', ['code' => $code]);
             return $code;
         }
 
-        // Method 2: Look for employee code on the line after "Employee No:"
         $lines = explode("\n", $qrText);
         for ($i = 0; $i < count($lines) - 1; $i++) {
             if (strpos($lines[$i], 'Employee No:') !== false && isset($lines[$i + 1])) {
@@ -296,7 +314,6 @@ class VendorController extends Controller
             }
         }
 
-        // Method 3: Look for any alphanumeric code that might be employee code
         if (preg_match('/Employee No[^A-Za-z0-9]*([A-Za-z0-9]{3,20})/i', $qrText, $matches)) {
             $code = trim($matches[1]);
             Log::info('Extracted employee code using pattern 3:', ['code' => $code]);
@@ -314,140 +331,130 @@ class VendorController extends Controller
     /**
      * Get scan history
      */
-   /**
- * Get scan history - FIXED VERSION
- */
-/**
- * Get scan history - CORRECTED VERSION
- */
-public function getScanHistory(Request $request)
-{
-    try {
-        $vendor = Auth::user();
-        $date = $request->get('date', today()->format('Y-m-d'));
+    public function getScanHistory(Request $request)
+    {
+        try {
+            $vendor = Auth::user();
+            $date = $request->get('date', today()->format('Y-m-d'));
 
-        Log::info('Fetching scan history for vendor', [
-            'vendor_id' => $vendor->id,
-            'date' => $date
-        ]);
+            Log::info('Fetching scan history for vendor', [
+                'vendor_id' => $vendor->id,
+                'date' => $date
+            ]);
 
-        // Start the query
-        $query = MealTransaction::query();
+            $query = MealTransaction::where('vendor_id', $vendor->id)
+                ->with(['employee.department', 'employee.unit']);
 
-        // Apply vendor filter
-        $query->where('vendor_id', $vendor->id);
+            if ($date && $date !== 'all') {
+                $query->whereDate('meal_date', $date);
+            }
 
-        // Apply date filter
-        if ($date && $date !== 'all') {
-            $query->whereDate('meal_date', $date);
-        }
+            $perPage = $request->get('per_page', 50);
+            $transactions = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        // Eager load employee with all necessary relationships
-        $query->with([
-            'employee.department',
-            'employee.unit'
-        ]);
+            Log::info('Found transactions', [
+                'count' => $transactions->count(),
+                'vendor_id' => $vendor->id,
+                'date' => $date
+            ]);
 
-        // Get transactions
-        $transactions = $query->orderBy('created_at', 'desc')->get();
+            $formattedTransactions = $transactions->map(function ($transaction) {
+                $employee = $transaction->employee;
 
-        Log::info('Found transactions', [
-            'count' => $transactions->count(),
-            'vendor_id' => $vendor->id,
-            'date' => $date
-        ]);
-
-        // Transform data for frontend
-        $formattedTransactions = $transactions->map(function ($transaction) {
-            // Safely get employee data
-            $employee = $transaction->employee;
-
-            return [
-                'id' => $transaction->id,
-                'transaction_code' => $transaction->transaction_code ?? 'N/A',
-                'employee' => [
-                    'formal_name' => $employee->formal_name ?? 'N/A',
-                    'employee_code' => $employee->employee_code ?? 'N/A',
-                    'department' => [
-                        'name' => $employee->department->name ?? 'N/A'
+                return [
+                    'id' => $transaction->id,
+                    'transaction_code' => $transaction->transaction_code ?? 'N/A',
+                    'employee' => [
+                        'formal_name' => $employee->formal_name ?? 'N/A',
+                        'employee_code' => $employee->employee_code ?? 'N/A',
+                        'department' => [
+                            'name' => $employee->department->name ?? 'N/A'
+                        ],
+                        'unit' => [
+                            'name' => $employee->unit->name ?? 'N/A'
+                        ]
                     ],
-                    'unit' => [
-                        'name' => $employee->unit->name ?? 'N/A'
-                    ]
+                    'amount' => floatval($transaction->amount ?? 0),
+                    'meal_time' => $transaction->meal_time ?? 'N/A',
+                    'meal_date' => $transaction->meal_date ? $transaction->meal_date->format('Y-m-d') : 'N/A',
+                    'created_at' => $transaction->created_at ? $transaction->created_at->format('H:i:s') : 'N/A',
+                ];
+            });
+
+            $totalScans = $transactions->total();
+            $totalRevenue = $transactions->sum('amount');
+
+            return response()->json([
+                'success' => true,
+                'transactions' => $formattedTransactions,
+                'stats' => [
+                    'total_scans' => $totalScans,
+                    'total_revenue' => floatval($totalRevenue),
+                    'average_daily' => $totalScans
                 ],
-                'amount' => floatval($transaction->amount ?? 0),
-                'meal_time' => $transaction->meal_time ?? 'N/A',
-                'meal_date' => $transaction->meal_date ? $transaction->meal_date->format('Y-m-d') : 'N/A',
-                'created_at' => $transaction->created_at ? $transaction->created_at->format('H:i:s') : 'N/A',
-            ];
-        });
+                'pagination' => [
+                    'current_page' => $transactions->currentPage(),
+                    'last_page' => $transactions->lastPage(),
+                    'per_page' => $transactions->perPage(),
+                    'total' => $transactions->total()
+                ]
+            ]);
 
-        // Calculate stats
-        $totalScans = $transactions->count();
-        $totalRevenue = $transactions->sum('amount');
-        $averageDaily = $totalScans; // For single day, it's just the count
+        } catch (\Exception $e) {
+            Log::error('Error in getScanHistory: ' . $e->getMessage(), [
+                'exception' => $e->getTraceAsString()
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'transactions' => $formattedTransactions,
-            'stats' => [
-                'total_scans' => $totalScans,
-                'total_revenue' => floatval($totalRevenue),
-                'average_daily' => $averageDaily
-            ],
-            'meta' => [
-                'current_page' => 1,
-                'total' => $totalScans,
-                'per_page' => 50
-            ]
-        ]);
-
-    } catch (\Exception $e) {
-        Log::error('Error in getScanHistory: ' . $e->getMessage(), [
-            'exception' => $e->getTraceAsString()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Error loading history: ' . $e->getMessage(),
-            'error' => $e->getMessage()
-        ], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load history. Please try again.'
+            ], 500);
+        }
     }
-}
+
     /**
      * Get dashboard stats
      */
     public function getDashboardStats()
     {
-        $vendor = Auth::user();
-        $today = now()->format('Y-m-d');
+        try {
+            $vendor = Auth::user();
+            $today = now()->format('Y-m-d');
 
-        $todayStats = MealTransaction::where('vendor_id', $vendor->id)
-            ->whereDate('meal_date', $today)
-            ->select(
-                DB::raw('COUNT(*) as total_meals'),
-                DB::raw('SUM(amount) as total_amount')
-            )
-            ->first();
+            $todayStats = MealTransaction::where('vendor_id', $vendor->id)
+                ->whereDate('meal_date', $today)
+                ->select(
+                    DB::raw('COUNT(*) as total_meals'),
+                    DB::raw('SUM(amount) as total_amount')
+                )
+                ->first();
 
-        $totalStats = MealTransaction::where('vendor_id', $vendor->id)
-            ->select(
-                DB::raw('COUNT(*) as total_meals'),
-                DB::raw('SUM(amount) as total_amount')
-            )
-            ->first();
+            $totalStats = MealTransaction::where('vendor_id', $vendor->id)
+                ->select(
+                    DB::raw('COUNT(*) as total_meals'),
+                    DB::raw('SUM(amount) as total_amount')
+                )
+                ->first();
 
-        return response()->json([
-            'success' => true,
-            'today' => [
-                'scans' => $todayStats->total_meals ?? 0,
-                'revenue' => $todayStats->total_amount ?? 0
-            ],
-            'total' => [
-                'scans' => $totalStats->total_meals ?? 0,
-                'revenue' => $totalStats->total_amount ?? 0
-            ]
-        ]);
+            return response()->json([
+                'success' => true,
+                'today' => [
+                    'scans' => $todayStats->total_meals ?? 0,
+                    'revenue' => $todayStats->total_amount ?? 0
+                ],
+                'total' => [
+                    'scans' => $totalStats->total_meals ?? 0,
+                    'revenue' => $totalStats->total_amount ?? 0
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error getting dashboard stats: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load dashboard stats'
+            ], 500);
+        }
     }
 
     /**
@@ -469,454 +476,366 @@ public function getScanHistory(Request $request)
     /**
      * Show invoices page
      */
-public function invoices()
-{
-    return view('reeds.vendor.invoices');
-}
-public function invoicesData()
-{
-    $vendor = Auth::user();
+    public function invoices()
+    {
+        return view('reeds.vendor.invoices');
+    }
 
-    $invoices = VendorInvoice::where('vendor_id', $vendor->id)
-        ->orderBy('created_at', 'desc')
-        ->get();
+    /**
+     * Get periods data
+     */
+    public function getPeriods()
+    {
+        try {
+            $periods = $this->periodService->getAllPeriodsFor2026();
 
-    $stats = [
-        'pending_invoices' => $invoices->where('status', 'pending')->count(),
-        'paid_invoices' => $invoices->where('status', 'paid')->count(),
-        'total_revenue' => $invoices->sum('total_amount')
-    ];
+            return response()->json([
+                'success' => true,
+                'current' => $this->periodService->getCurrentPeriod(),
+                'previous' => $this->periodService->getPreviousPeriod(),
+                'next' => $this->periodService->getNextPeriod(),
+                'all_periods' => $periods
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting periods: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load periods'
+            ], 500);
+        }
+    }
 
-    return response()->json([
-        'success' => true,
-        'invoices' => $invoices->map(function($invoice) {
-            return [
-                'id' => $invoice->id,
-                'invoice_number' => $invoice->invoice_number,
-                'period_start' => $invoice->period_start->format('Y-m-d'),
-                'period_end' => $invoice->period_end->format('Y-m-d'),
-                'period' => $invoice->period_start->format('M d') . ' - ' . $invoice->period_end->format('M d, Y'),
-                'total_amount' => floatval($invoice->total_amount),
-                'total_scans' => $invoice->total_scans,
-                'status' => $invoice->status,
-                'invoice_date' => $invoice->invoice_date ? $invoice->invoice_date->format('Y-m-d') : $invoice->created_at->format('Y-m-d'),
-                'due_date' => $invoice->due_date ? $invoice->due_date->format('Y-m-d') : null,
-                'created_at' => $invoice->created_at->format('Y-m-d H:i:s'),
-                'is_test' => $invoice->is_test ?? false
+    /**
+     * Get invoices data with pagination and filtering
+     */
+    public function invoicesData(Request $request)
+    {
+        try {
+            $vendor = Auth::user();
+
+            $query = VendorInvoice::with('vendor.profile')
+                ->withCount('items')
+                ->where('vendor_id', $vendor->id)
+                ->orderBy('created_at', 'desc');
+
+            if ($request->has('status') && $request->status !== 'all') {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->has('date_from') && $request->has('date_to')) {
+                $query->whereBetween('invoice_date', [$request->date_from, $request->date_to]);
+            }
+
+            if ($request->has('cycle') && $request->cycle !== 'all') {
+                $query->where('cycle_number', $request->cycle);
+            }
+
+            if ($request->has('search') && !empty($request->search)) {
+                $query->where('invoice_number', 'like', '%' . $request->search . '%');
+            }
+
+            $perPage = $request->get('per_page', 10);
+            $invoices = $query->paginate($perPage);
+
+            $stats = [
+                'pending_invoices' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'pending')->count(),
+                'paid_invoices' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'paid')->count(),
+                'overdue_invoices' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'overdue')->count(),
+                'total_revenue' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'paid')->sum('total_amount'),
+                'total_pending_amount' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'pending')->sum('total_amount'),
+                'total_overdue_amount' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'overdue')->sum('total_amount')
             ];
-        }),
-        'stats' => $stats
-    ]);
-}
-/**
- * Get invoice details for modal view
- */
-public function getInvoiceDetails($id)
-{
-    $vendor = Auth::user();
 
-    $invoice = VendorInvoice::with(['items', 'vendor.profile'])
-        ->where('vendor_id', $vendor->id)
-        ->where('id', $id)
-        ->firstOrFail();
+            return response()->json([
+                'success' => true,
+                'invoices' => $invoices->map(function($invoice) {
+                    return [
+                        'id' => $invoice->id,
+                        'invoice_number' => $invoice->invoice_number,
+                        'period_start' => $invoice->period_start->format('Y-m-d'),
+                        'period_end' => $invoice->period_end->format('Y-m-d'),
+                        'period' => $invoice->formatted_period,
+                        'total_amount' => floatval($invoice->total_amount),
+                        'formatted_total' => $invoice->formatted_total,
+                        'total_scans' => $invoice->total_scans,
+                        'status' => $invoice->status,
+                        'status_text' => $invoice->status_text,
+                        'status_badge' => $invoice->status_badge,
+                        'invoice_date' => $invoice->invoice_date->format('Y-m-d'),
+                        'due_date' => $invoice->due_date->format('Y-m-d'),
+                        'is_test' => $invoice->is_test,
+                        'cycle' => $invoice->cycle_number,
+                        'period_name' => $invoice->period_name,
+                        'item_count' => $invoice->items_count,
+                        'created_at' => $invoice->created_at->format('Y-m-d H:i:s'),
+                        'is_overdue' => $invoice->isOverdue()
+                    ];
+                }),
+                'stats' => $stats,
+                'pagination' => [
+                    'current_page' => $invoices->currentPage(),
+                    'last_page' => $invoices->lastPage(),
+                    'per_page' => $invoices->perPage(),
+                    'total' => $invoices->total()
+                ]
+            ]);
 
-    return response()->json([
-        'success' => true,
-        'invoice' => [
-            'id' => $invoice->id,
-            'invoice_number' => $invoice->invoice_number,
-            'period_start' => $invoice->period_start->format('F j, Y'),
-            'period_end' => $invoice->period_end->format('F j, Y'),
-            'total_amount' => floatval($invoice->total_amount),
-            'total_scans' => $invoice->total_scans,
-            'status' => $invoice->status,
-            'invoice_date' => $invoice->invoice_date->format('F j, Y'),
-            'due_date' => $invoice->due_date->format('F j, Y'),
-            'is_test' => $invoice->is_test ?? false,
-            'notes' => $invoice->notes,
-            'items' => $invoice->items->map(function($item) {
-                return [
-                    'date' => $item->date->format('M j, Y'),
-                    'description' => $item->description,
-                    'scans' => $item->scans,
-                    'rate' => floatval($item->rate),
-                    'amount' => floatval($item->amount)
-                ];
-            })
-        ]
-    ]);
-}
+        } catch (\Exception $e) {
+            Log::error('Error loading invoices: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load invoices. Please try again.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get invoice details for modal view
+     */
+    public function getInvoiceDetails($id)
+    {
+        try {
+            $vendor = Auth::user();
+
+            $invoice = VendorInvoice::with(['items', 'vendor.profile'])
+                ->where('id', $id)
+                ->where('vendor_id', $vendor->id)
+                ->firstOrFail();
+
+            return response()->json([
+                'success' => true,
+                'invoice' => [
+                    'id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'period_start' => $invoice->period_start->format('F j, Y'),
+                    'period_end' => $invoice->period_end->format('F j, Y'),
+                    'total_amount' => floatval($invoice->total_amount),
+                    'formatted_total' => $invoice->formatted_total,
+                    'total_scans' => $invoice->total_scans,
+                    'status' => $invoice->status,
+                    'status_text' => $invoice->status_text,
+                    'status_badge' => $invoice->status_badge,
+                    'invoice_date' => $invoice->invoice_date->format('F j, Y'),
+                    'due_date' => $invoice->due_date->format('F j, Y'),
+                    'is_test' => $invoice->is_test,
+                    'notes' => $invoice->notes,
+                    'cycle' => $invoice->cycle_number,
+                    'period_name' => $invoice->period_name,
+                    'vendor_phone' => $invoice->vendor_phone,
+                    'vendor_email' => $invoice->vendor_email,
+                    'vendor_business_name' => $invoice->vendor_business_name,
+                    'bank_details' => $invoice->vendor_bank_details,
+                    'items' => $invoice->items->map(function($item) {
+                        return [
+                            'date' => $item->date->format('M j, Y'),
+                            'day' => $item->day_name,
+                            'description' => $item->description,
+                            'scans' => $item->scans,
+                            'rate' => floatval($item->rate),
+                            'formatted_rate' => $item->formatted_rate,
+                            'amount' => floatval($item->amount),
+                            'formatted_amount' => $item->formatted_amount
+                        ];
+                    })
+                ]
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invoice not found or you do not have permission to view it.'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error loading invoice details: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load invoice details.'
+            ], 500);
+        }
+    }
+
     /**
      * View invoice
      */
     public function viewInvoice($id)
-{
-    $vendor = Auth::user();
-
-    $invoice = VendorInvoice::with(['items', 'vendor.profile'])
-        ->where('vendor_id', $vendor->id)
-        ->where('id', $id)
-        ->firstOrFail();
-
-    return view('reeds.vendor.invoice-view', compact('invoice'));
-}
-
-    /**
-     * Download invoice
-     */
-  public function downloadInvoice($id)
-{
-    $vendor = Auth::user();
-    $invoice = VendorInvoice::with(['items', 'vendor.profile'])
-        ->where('vendor_id', $vendor->id)
-        ->where('id', $id)
-        ->firstOrFail();
-
-    $pdf = \PDF::loadView('reeds.vendor.invoice-pdf', compact('invoice'));
-
-    return $pdf->download('invoice-' . $invoice->invoice_number . '.pdf');
-}
-
-    /**
-     * Get daily analytics
-     */
-/**
- * Get daily analytics - FIXED VERSION
- */
-public function dailyAnalytics()
-{
-    try {
-        $vendor = Auth::user();
-        $startDate = Carbon::now()->subDays(30);
-        $endDate = Carbon::now();
-
-        Log::info('Fetching daily analytics', [
-            'vendor_id' => $vendor->id,
-            'start_date' => $startDate,
-            'end_date' => $endDate
-        ]);
-
-        // Get daily transactions
-        $transactions = MealTransaction::where('vendor_id', $vendor->id)
-            ->whereBetween('meal_date', [$startDate, $endDate])
-            ->select(
-                DB::raw('DATE(meal_date) as date'),
-                DB::raw('COUNT(*) as scans'),
-                DB::raw('SUM(amount) as revenue')
-            )
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-
-        // Fill in missing days
-        $allDates = [];
-        $currentDate = $startDate->copy();
-        while ($currentDate <= $endDate) {
-            $allDates[] = $currentDate->format('Y-m-d');
-            $currentDate->addDay();
-        }
-
-        $dailyData = [];
-        foreach ($allDates as $date) {
-            $transaction = $transactions->firstWhere('date', $date);
-            $dailyData[] = [
-                'date' => $date,
-                'scans' => $transaction ? $transaction->scans : 0,
-                'revenue' => $transaction ? floatval($transaction->revenue) : 0
-            ];
-        }
-
-        $labels = array_map(function($item) {
-            return Carbon::parse($item['date'])->format('M d');
-        }, $dailyData);
-
-        $scansData = array_column($dailyData, 'scans');
-        $revenueData = array_column($dailyData, 'revenue');
-
-        // Get department distribution
-        $departments = MealTransaction::where('vendor_id', $vendor->id)
-            ->whereBetween('meal_date', [$startDate, $endDate])
-            ->join('employees', 'meal_transactions.employee_id', '=', 'employees.id')
-            ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
-            ->select(
-                'departments.name',
-                DB::raw('COUNT(*) as count')
-            )
-            ->groupBy('departments.name')
-            ->get();
-
-        // Get peak hours
-        $peakHours = MealTransaction::where('vendor_id', $vendor->id)
-            ->whereBetween('meal_date', [$startDate, $endDate])
-            ->select(
-                DB::raw('HOUR(meal_time) as hour'),
-                DB::raw('COUNT(*) as count')
-            )
-            ->groupBy('hour')
-            ->orderBy('hour')
-            ->get();
-
-        $hourLabels = [];
-        $hourData = [];
-        for ($i = 6; $i <= 18; $i++) { // 6 AM to 6 PM
-            $hourLabels[] = sprintf('%02d:00', $i);
-            $transaction = $peakHours->firstWhere('hour', $i);
-            $hourData[] = $transaction ? $transaction->count : 0;
-        }
-
-        // Get top employees
-        $topEmployees = MealTransaction::where('vendor_id', $vendor->id)
-            ->whereBetween('meal_date', [$startDate, $endDate])
-            ->join('employees', 'meal_transactions.employee_id', '=', 'employees.id')
-            ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
-            ->select(
-                'employees.id',
-                'employees.formal_name',
-                'employees.employee_code',
-                'departments.name as department',
-                DB::raw('COUNT(*) as total_scans'),
-                DB::raw('MAX(meal_transactions.created_at) as last_scan')
-            )
-            ->groupBy('employees.id', 'employees.formal_name', 'employees.employee_code', 'departments.name')
-            ->orderBy('total_scans', 'desc')
-            ->limit(10)
-            ->get()
-            ->map(function($employee) {
-                $lastScan = $employee->last_scan ? Carbon::parse($employee->last_scan)->format('M d, H:i') : 'N/A';
-
-                return [
-                    'formal_name' => $employee->formal_name ?? 'Unknown',
-                    'employee_code' => $employee->employee_code ?? 'N/A',
-                    'department' => $employee->department ?? 'N/A',
-                    'total_scans' => $employee->total_scans,
-                    'last_scan' => $lastScan,
-                    'avg_time' => 'N/A' // We'll calculate this separately if needed
-                ];
-            });
-
-        // Calculate metrics
-        $totalScans = $transactions->sum('scans');
-        $totalRevenue = $transactions->sum('revenue');
-        $averageDaily = $totalScans / max(count($transactions), 1);
-
-        // Find best day
-        $bestDay = $transactions->sortByDesc('scans')->first();
-
-        return response()->json([
-            'success' => true,
-            'metrics' => [
-                'total_scans' => $totalScans,
-                'total_revenue' => floatval($totalRevenue),
-                'average_daily' => round($averageDaily, 1),
-                'best_day' => $bestDay ? [
-                    'date' => Carbon::parse($bestDay->date)->format('M d'),
-                    'count' => $bestDay->scans
-                ] : null
-            ],
-            'charts' => [
-                'daily_scans' => [
-                    'labels' => $labels,
-                    'data' => $scansData
-                ],
-                'revenue' => [
-                    'labels' => $labels,
-                    'data' => $revenueData
-                ],
-                'departments' => [
-                    'labels' => $departments->pluck('name')->toArray(),
-                    'data' => $departments->pluck('count')->toArray()
-                ],
-                'peak_hours' => [
-                    'labels' => $hourLabels,
-                    'data' => $hourData
-                ]
-            ],
-            'top_employees' => $topEmployees
-        ]);
-
-    } catch (\Exception $e) {
-        Log::error('Error in dailyAnalytics: ' . $e->getMessage(), [
-            'exception' => $e->getTraceAsString()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to load analytics: ' . $e->getMessage()
-        ], 500);
-    }
-}
-
-    /**
-     * Get weekly analytics
-     */
-    public function weeklyAnalytics()
     {
-        $vendor = Auth::user();
-        $startDate = Carbon::now()->subWeeks(12);
+        try {
+            $vendor = Auth::user();
 
-        $transactions = MealTransaction::where('vendor_id', $vendor->id)
-            ->where('meal_date', '>=', $startDate)
-            ->select(
-                DB::raw('YEARWEEK(meal_date, 1) as week'),
-                DB::raw('MIN(DATE(meal_date)) as week_start'),
-                DB::raw('MAX(DATE(meal_date)) as week_end'),
-                DB::raw('COUNT(*) as scans'),
-                DB::raw('SUM(amount) as revenue')
-            )
-            ->groupBy('week')
-            ->orderBy('week')
-            ->get();
+            $invoice = VendorInvoice::with(['items', 'vendor.profile'])
+                ->where('id', $id)
+                ->where('vendor_id', $vendor->id)
+                ->firstOrFail();
 
-        $labels = $transactions->map(function($transaction) {
-            return 'Week ' . Carbon::parse($transaction->week_start)->format('W');
-        })->toArray();
+            return view('reeds.vendor.invoice-view', compact('invoice'));
 
-        $scansData = $transactions->pluck('scans')->toArray();
-        $revenueData = $transactions->pluck('revenue')->toArray();
-
-        // Calculate metrics
-        $totalScans = $transactions->sum('scans');
-        $totalRevenue = $transactions->sum('revenue');
-        $averageWeekly = $totalScans / max(count($transactions), 1);
-        $bestWeek = $transactions->sortByDesc('scans')->first();
-
-        return response()->json([
-            'success' => true,
-            'metrics' => [
-                'total_scans' => $totalScans,
-                'total_revenue' => $totalRevenue,
-                'average_weekly' => round($averageWeekly, 1),
-                'best_week' => $bestWeek ? [
-                    'week' => 'Week ' . Carbon::parse($bestWeek->week_start)->format('W'),
-                    'count' => $bestWeek->scans
-                ] : null
-            ],
-            'charts' => [
-                'weekly_scans' => [
-                    'labels' => $labels,
-                    'data' => $scansData
-                ],
-                'weekly_revenue' => [
-                    'labels' => $labels,
-                    'data' => $revenueData
-                ]
-            ]
-        ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return redirect()->route('vendor.invoices')
+                ->with('error', 'Invoice not found or you do not have permission to view it.');
+        } catch (\Exception $e) {
+            Log::error('Error viewing invoice: ' . $e->getMessage());
+            return redirect()->route('vendor.invoices')
+                ->with('error', 'Failed to load invoice.');
+        }
     }
 
     /**
-     * Get monthly analytics
+     * Download invoice PDF
      */
-    public function monthlyAnalytics()
+    public function downloadInvoice($id)
     {
-        $vendor = Auth::user();
-        $startDate = Carbon::now()->subMonths(12);
+        try {
+            $vendor = Auth::user();
 
-        $transactions = MealTransaction::where('vendor_id', $vendor->id)
-            ->where('meal_date', '>=', $startDate)
-            ->select(
-                DB::raw('DATE_FORMAT(meal_date, "%Y-%m") as month'),
-                DB::raw('COUNT(*) as scans'),
-                DB::raw('SUM(amount) as revenue')
-            )
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get();
+            $invoice = VendorInvoice::with(['items', 'vendor.profile'])
+                ->where('id', $id)
+                ->where('vendor_id', $vendor->id)
+                ->firstOrFail();
 
-        $labels = $transactions->map(function($transaction) {
-            return Carbon::createFromFormat('Y-m', $transaction->month)->format('M Y');
-        })->toArray();
+            $pdf = Pdf::loadView('reeds.vendor.invoice-pdf', compact('invoice'));
 
-        $scansData = $transactions->pluck('scans')->toArray();
-        $revenueData = $transactions->pluck('revenue')->toArray();
+            return $pdf->download('invoice-' . $invoice->invoice_number . '.pdf');
 
-        // Calculate metrics
-        $totalScans = $transactions->sum('scans');
-        $totalRevenue = $transactions->sum('revenue');
-        $averageMonthly = $totalScans / max(count($transactions), 1);
-        $bestMonth = $transactions->sortByDesc('scans')->first();
-
-        return response()->json([
-            'success' => true,
-            'metrics' => [
-                'total_scans' => $totalScans,
-                'total_revenue' => $totalRevenue,
-                'average_monthly' => round($averageMonthly, 1),
-                'best_month' => $bestMonth ? [
-                    'month' => Carbon::createFromFormat('Y-m', $bestMonth->month)->format('F Y'),
-                    'count' => $bestMonth->scans
-                ] : null
-            ],
-            'charts' => [
-                'monthly_scans' => [
-                    'labels' => $labels,
-                    'data' => $scansData
-                ],
-                'monthly_revenue' => [
-                    'labels' => $labels,
-                    'data' => $revenueData
-                ]
-            ]
-        ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return redirect()->route('vendor.invoices')
+                ->with('error', 'Invoice not found or you do not have permission to download it.');
+        } catch (\Exception $e) {
+            Log::error('PDF generation failed: ' . $e->getMessage());
+            return redirect()->route('vendor.invoices')
+                ->with('error', 'Failed to generate PDF. Please try again.');
+        }
     }
 
     /**
-     * Generate test invoice
+     * Generate test invoice with validation
      */
     public function generateTestInvoice(Request $request)
     {
-        $vendor = Auth::user();
-
-        // Determine period
-        if ($request->period === 'custom') {
-            $startDate = Carbon::parse($request->start_date);
-            $endDate = Carbon::parse($request->end_date);
-        } else {
-            // Calculate current 2-week period
-            $startDate = Carbon::now()->startOfWeek(); // Monday
-            $endDate = Carbon::now()->endOfWeek()->subDay(); // Saturday
-
-            // If it's the second week, go back one week
-            $weekNumber = Carbon::now()->weekOfMonth;
-            if ($weekNumber % 2 === 0) {
-                $startDate->subWeek();
-                $endDate->subWeek();
-            }
-        }
-
-        // Get transactions for period
-        $transactions = MealTransaction::where('vendor_id', $vendor->id)
-            ->whereBetween('meal_date', [$startDate, $endDate])
-            ->get();
-
-        // Create invoice
-        $invoice = new VendorInvoice();
-        $invoice->vendor_id = $vendor->id;
-        $invoice->invoice_number = 'TEST-' . Carbon::now()->format('Ymd-His');
-        $invoice->period_start = $startDate->format('Y-m-d');
-        $invoice->period_end = $endDate->format('Y-m-d');
-        $invoice->total_scans = $transactions->count();
-        $invoice->total_amount = $transactions->sum('amount');
-        $invoice->status = 'draft';
-        $invoice->is_test = true;
-        $invoice->save();
-
-        // Generate invoice items
-        foreach ($transactions->groupBy('meal_date') as $date => $dayTransactions) {
-            $invoice->items()->create([
-                'date' => $date,
-                'scans' => $dayTransactions->count(),
-                'amount' => $dayTransactions->sum('amount'),
-                'rate' => 70, // Ksh 70 per meal
-                'description' => 'Meal transactions for ' . Carbon::parse($date)->format('F j, Y')
-            ]);
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Test invoice generated successfully',
-            'invoice' => $invoice
+        $validator = Validator::make($request->all(), [
+            'period' => 'required|in:current,previous,custom,first_period',
+            'start_date' => 'required_if:period,custom|date|nullable',
+            'end_date' => 'required_if:period,custom|date|after_or_equal:start_date|nullable'
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $vendor = Auth::user();
+
+            // Special case for first period test (Feb 2-14, 2026)
+            if ($request->period === 'first_period') {
+                $invoice = $this->invoiceService->generateFirstPeriodTestInvoice($vendor);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'First period test invoice generated successfully (Feb 2-14, 2026)',
+                    'invoice' => [
+                        'id' => $invoice->id,
+                        'invoice_number' => $invoice->invoice_number
+                    ]
+                ]);
+            }
+
+            // Check if test invoice already exists for this period
+            if ($request->period === 'custom') {
+                $startDate = Carbon::parse($request->start_date);
+                $endDate = Carbon::parse($request->end_date);
+
+                $existingTest = VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('is_test', true)
+                    ->whereDate('period_start', $startDate)
+                    ->whereDate('period_end', $endDate)
+                    ->first();
+
+                if ($existingTest) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'A test invoice already exists for this period. Please use a different date range.'
+                    ], 422);
+                }
+
+                $invoice = $this->invoiceService->generateTestInvoice($vendor, $startDate, $endDate);
+            } else {
+                $invoice = $this->invoiceService->generateTestInvoice($vendor);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Test invoice generated successfully',
+                'invoice' => [
+                    'id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Test invoice generation failed: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate test invoice. Please try again.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get invoice statistics for dashboard
+     */
+    public function getInvoiceStats()
+    {
+        try {
+            $vendor = Auth::user();
+
+            $stats = [
+                'pending_count' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'pending')->count(),
+                'pending_amount' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'pending')->sum('total_amount'),
+                'paid_count' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'paid')->count(),
+                'paid_amount' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'paid')->sum('total_amount'),
+                'overdue_count' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'overdue')->count(),
+                'overdue_amount' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'overdue')->sum('total_amount'),
+                'last_invoice_date' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->latest()->value('invoice_date'),
+                'next_due_date' => VendorInvoice::where('vendor_id', $vendor->id)
+                    ->where('status', 'pending')
+                    ->orderBy('due_date')
+                    ->value('due_date')
+            ];
+
+            return response()->json([
+                'success' => true,
+                'stats' => $stats
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching invoice stats: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load invoice statistics'
+            ], 500);
+        }
     }
 
     /**
@@ -924,130 +843,14 @@ public function dailyAnalytics()
      */
     public function generateBiWeeklyInvoices()
     {
-        Log::info('Starting bi-weekly invoice generation');
+        Log::warning('generateBiWeeklyInvoices called via HTTP - should use command line');
 
-        // Get all active vendors
-        $vendors = \App\Models\User::where('role', 'vendor')
-            ->where('is_active', true)
-            ->whereHas('profile', function($q) {
-                $q->where('is_verified', true);
-            })
-            ->get();
+        $results = $this->invoiceService->generateAllInvoices();
 
-        $invoiceCount = 0;
-        $errors = [];
-
-        foreach ($vendors as $vendor) {
-            try {
-                // Calculate 2-week period (Monday to Saturday, every 2 weeks)
-                $today = Carbon::now();
-
-                // Find the most recent Monday that's part of a 2-week cycle
-                $startDate = $today->copy()->startOfWeek(); // Monday
-                $endDate = $today->copy()->endOfWeek()->subDay(); // Saturday
-
-                // Check if this is the second week of the cycle
-                $weekOfYear = $startDate->weekOfYear;
-                if ($weekOfYear % 2 !== 0) {
-                    // If odd week, go back one week to get the full 2-week period
-                    $startDate->subWeek();
-                    $endDate->subWeek();
-                }
-
-                // Check if invoice already exists for this period
-                $existingInvoice = VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('period_start', $startDate->format('Y-m-d'))
-                    ->where('period_end', $endDate->format('Y-m-d'))
-                    ->first();
-
-                if ($existingInvoice) {
-                    Log::info("Invoice already exists for vendor {$vendor->id}, period {$startDate} to {$endDate}");
-                    continue;
-                }
-
-                // Get transactions for period
-                $transactions = MealTransaction::where('vendor_id', $vendor->id)
-                    ->whereBetween('meal_date', [$startDate, $endDate])
-                    ->get();
-
-                if ($transactions->isEmpty()) {
-                    Log::info("No transactions found for vendor {$vendor->id}, period {$startDate} to {$endDate}");
-                    continue;
-                }
-
-                // Generate invoice number
-                $invoiceNumber = 'INV-' . $vendor->id . '-' . $endDate->format('Ymd') . '-' . str_pad($vendor->invoices()->count() + 1, 3, '0', STR_PAD_LEFT);
-
-                // Create invoice
-                $invoice = new VendorInvoice();
-                $invoice->vendor_id = $vendor->id;
-                $invoice->invoice_number = $invoiceNumber;
-                $invoice->period_start = $startDate->format('Y-m-d');
-                $invoice->period_end = $endDate->format('Y-m-d');
-                $invoice->total_scans = $transactions->count();
-                $invoice->total_amount = $transactions->sum('amount');
-                $invoice->status = 'pending';
-                $invoice->due_date = $endDate->copy()->addDays(30)->format('Y-m-d');
-                $invoice->save();
-
-                // Generate invoice items
-                foreach ($transactions->groupBy('meal_date') as $date => $dayTransactions) {
-                    $invoice->items()->create([
-                        'date' => $date,
-                        'scans' => $dayTransactions->count(),
-                        'amount' => $dayTransactions->sum('amount'),
-                        'rate' => 70, // Ksh 70 per meal
-                        'description' => 'Meal transactions for ' . Carbon::parse($date)->format('F j, Y')
-                    ]);
-                }
-
-                // Send invoice emails
-                $this->sendInvoiceEmails($invoice, $vendor);
-
-                $invoiceCount++;
-                Log::info("Invoice generated for vendor {$vendor->id}: {$invoiceNumber}");
-
-            } catch (\Exception $e) {
-                $errors[] = "Vendor {$vendor->id}: " . $e->getMessage();
-                Log::error("Failed to generate invoice for vendor {$vendor->id}: " . $e->getMessage());
-            }
-        }
-
-        Log::info("Bi-weekly invoice generation completed. Generated: {$invoiceCount}, Errors: " . count($errors));
-
-        return [
-            'generated' => $invoiceCount,
-            'errors' => $errors
-        ];
-    }
-
-    /**
-     * Send invoice emails to recipients
-     */
-    private function sendInvoiceEmails(VendorInvoice $invoice, $vendor)
-    {
-        $recipients = [
-            'isaacnmuteru@gmail.com',
-            'info@driftplus.co.ke',
-            'info@vibeeplug.com',
-            'info@quickofficepointe.co.ke'
-        ];
-
-        foreach ($recipients as $recipient) {
-            try {
-                Mail::to($recipient)->send(new VendorInvoiceGenerated($invoice, $vendor));
-                Log::info("Invoice email sent to {$recipient} for invoice {$invoice->invoice_number}");
-            } catch (\Exception $e) {
-                Log::error("Failed to send invoice email to {$recipient}: " . $e->getMessage());
-            }
-        }
-
-        // Also send to vendor
-        try {
-            Mail::to($vendor->email)->send(new VendorInvoiceGenerated($invoice, $vendor, true));
-            Log::info("Invoice email sent to vendor {$vendor->email} for invoice {$invoice->invoice_number}");
-        } catch (\Exception $e) {
-            Log::error("Failed to send invoice email to vendor {$vendor->email}: " . $e->getMessage());
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Invoice generation completed',
+            'results' => $results
+        ]);
     }
 }

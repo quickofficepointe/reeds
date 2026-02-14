@@ -6,9 +6,11 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\MealTransaction;
 use App\Models\Department;
+use App\Models\VendorInvoice;
 use App\Models\SubDepartment;
 use App\Models\Profile;
 use App\Models\Vendor;
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Unit;
 use Illuminate\Validation\Rule;
 
@@ -2749,6 +2751,325 @@ private function getDetailedUnitData($unit, $startDate = null, $endDate = null)
 }
 
 
+/**
+ * Display admin invoices page
+ */
+public function invoices()
+{
+    $stats = [
+        'total_invoices' => VendorInvoice::count(),
+        'pending_invoices' => VendorInvoice::where('status', 'pending')->count(),
+        'paid_invoices' => VendorInvoice::where('status', 'paid')->count(),
+        'overdue_invoices' => VendorInvoice::where('status', 'overdue')->count(),
+        'total_revenue' => VendorInvoice::where('status', 'paid')->sum('total_amount'),
+        'pending_amount' => VendorInvoice::where('status', 'pending')->sum('total_amount'),
+        'overdue_amount' => VendorInvoice::where('status', 'overdue')->sum('total_amount'),
+    ];
 
+    return view('reeds.admin.invoices.index', compact('stats'));
+}
+
+/**
+ * Get invoices data with filtering
+ */
+public function invoicesData(Request $request)
+{
+    try {
+        $query = VendorInvoice::with(['vendor.profile', 'items'])
+            ->withCount('items')
+            ->orderBy('created_at', 'desc');
+
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('vendor_id') && $request->vendor_id !== 'all') {
+            $query->where('vendor_id', $request->vendor_id);
+        }
+
+        if ($request->has('date_from') && $request->has('date_to')) {
+            $query->whereBetween('invoice_date', [$request->date_from, $request->date_to]);
+        }
+
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('invoice_number', 'like', "%{$search}%")
+                  ->orWhereHas('vendor', function($vendorQ) use ($search) {
+                      $vendorQ->where('name', 'like', "%{$search}%")
+                             ->orWhere('email', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $perPage = $request->get('per_page', 15);
+        $invoices = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'invoices' => $invoices->map(function($invoice) {
+                return [
+                    'id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'vendor_name' => $invoice->vendor->name,
+                    'vendor_email' => $invoice->vendor->email,
+                    'vendor_phone' => $invoice->vendor_phone,
+                    'period' => $invoice->formatted_period,
+                    'period_start' => $invoice->period_start->format('Y-m-d'),
+                    'period_end' => $invoice->period_end->format('Y-m-d'),
+                    'total_amount' => floatval($invoice->total_amount),
+                    'formatted_total' => $invoice->formatted_total,
+                    'total_scans' => $invoice->total_scans,
+                    'status' => $invoice->status,
+                    'status_badge' => $invoice->status_badge,
+                    'invoice_date' => $invoice->invoice_date->format('Y-m-d'),
+                    'due_date' => $invoice->due_date->format('Y-m-d'),
+                    'cycle' => $invoice->cycle_number,
+                    'period_name' => $invoice->period_name,
+                    'is_test' => $invoice->is_test,
+                    'is_overdue' => $invoice->isOverdue(),
+                    'created_at' => $invoice->created_at->format('Y-m-d H:i:s'),
+                ];
+            }),
+            'pagination' => [
+                'current_page' => $invoices->currentPage(),
+                'last_page' => $invoices->lastPage(),
+                'per_page' => $invoices->perPage(),
+                'total' => $invoices->total()
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Admin invoices data error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to load invoices'
+        ], 500);
+    }
+}
+
+/**
+ * View single invoice
+ */
+public function viewInvoice($id)
+{
+    try {
+        $invoice = VendorInvoice::with(['items', 'vendor.profile'])
+            ->findOrFail($id);
+
+        return view('reeds.admin.invoices.view', compact('invoice'));
+
+    } catch (\Exception $e) {
+        Log::error('View invoice error: ' . $e->getMessage());
+        return redirect()->route('admin.invoices.index')
+            ->with('error', 'Invoice not found');
+    }
+}
+
+/**
+ * Download invoice PDF
+ */
+public function downloadInvoice($id)
+{
+    try {
+        $invoice = VendorInvoice::with(['items', 'vendor.profile'])
+            ->findOrFail($id);
+
+        $pdf = Pdf::loadView('reeds.vendor.invoice-pdf', compact('invoice'));
+
+        return $pdf->download('invoice-' . $invoice->invoice_number . '.pdf');
+
+    } catch (\Exception $e) {
+        Log::error('Download invoice error: ' . $e->getMessage());
+        return redirect()->back()->with('error', 'Failed to download invoice');
+    }
+}
+
+/**
+ * Mark invoice as paid
+ */
+public function markInvoiceAsPaid(Request $request, $id)
+{
+    try {
+        $invoice = VendorInvoice::findOrFail($id);
+
+        $invoice->status = 'paid';
+        $invoice->save();
+
+        Log::info('Invoice marked as paid', [
+            'invoice_id' => $id,
+            'admin_id' => auth()->id(),
+            'invoice_number' => $invoice->invoice_number
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Invoice marked as paid successfully'
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Mark invoice paid error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to mark invoice as paid'
+        ], 500);
+    }
+}
+
+/**
+ * Send invoice reminder emails
+ */
+public function sendInvoiceReminder(Request $request, $id)
+{
+    try {
+        $invoice = VendorInvoice::with('vendor.profile')->findOrFail($id);
+
+        $recipients = [
+            'emmanuel.bore@unityhomes.co.ke',
+            'unityhomesreeds@gmail.com',
+            'julius.kibe@unityhomes.co.ke',
+            'hr@reedsconsulting.com',
+            'gm@reedsconsluting.com'
+        ];
+
+        foreach ($recipients as $recipient) {
+            Mail::to($recipient)->queue(new AdminInvoiceNotification($invoice, $invoice->vendor));
+        }
+
+        Mail::to($invoice->vendor->email)->queue(new AdminInvoiceNotification($invoice, $invoice->vendor));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Reminder emails sent successfully'
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Send invoice reminder error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to send reminder emails'
+        ], 500);
+    }
+}
+
+/**
+ * Send bulk invoice emails
+ */
+public function sendBulkInvoiceEmails(Request $request)
+{
+    try {
+        $request->validate([
+            'invoice_ids' => 'required|array',
+            'invoice_ids.*' => 'exists:vendor_invoices,id'
+        ]);
+
+        $invoices = VendorInvoice::with('vendor.profile')
+            ->whereIn('id', $request->invoice_ids)
+            ->get();
+
+        $recipients = [
+            'emmanuel.bore@unityhomes.co.ke',
+            'unityhomesreeds@gmail.com',
+            'julius.kibe@unityhomes.co.ke',
+            'hr@reedsconsulting.com',
+            'gm@reedsconsluting.com'
+        ];
+
+        $sentCount = 0;
+        foreach ($invoices as $invoice) {
+            foreach ($recipients as $recipient) {
+                Mail::to($recipient)->queue(new AdminInvoiceNotification($invoice, $invoice->vendor));
+                $sentCount++;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$sentCount} emails queued successfully"
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Bulk invoice email error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to send bulk emails'
+        ], 500);
+    }
+}
+
+/**
+ * Get pending invoices
+ */
+public function pendingInvoices()
+{
+    $invoices = VendorInvoice::with('vendor')
+        ->where('status', 'pending')
+        ->orderBy('due_date')
+        ->get();
+
+    return view('reeds.admin.invoices.pending', compact('invoices'));
+}
+
+/**
+ * Get overdue invoices
+ */
+public function overdueInvoices()
+{
+    $invoices = VendorInvoice::with('vendor')
+        ->where('status', 'overdue')
+        ->orderBy('due_date')
+        ->get();
+
+    return view('reeds.admin.invoices.overdue', compact('invoices'));
+}
+
+/**
+ * Get email recipients
+ */
+public function getEmailRecipients()
+{
+    $recipients = [
+        'emmanuel.bore@unityhomes.co.ke',
+        'unityhomesreeds@gmail.com',
+        'julius.kibe@unityhomes.co.ke',
+        'hr@reedsconsulting.com',
+        'gm@reedsconsluting.com'
+    ];
+
+    return response()->json([
+        'success' => true,
+        'recipients' => $recipients
+    ]);
+}
+
+/**
+ * Update email recipients
+ */
+public function updateEmailRecipients(Request $request)
+{
+    try {
+        $request->validate([
+            'recipients' => 'required|array',
+            'recipients.*' => 'email'
+        ]);
+
+        Log::info('Email recipients updated', [
+            'recipients' => $request->recipients,
+            'admin_id' => auth()->id()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Email recipients updated successfully'
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Update email recipients error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to update email recipients'
+        ], 500);
+    }
+}
 
 }

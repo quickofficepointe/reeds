@@ -12,10 +12,6 @@
 
             <!-- Action Buttons -->
             <div class="mt-4 md:mt-0 flex space-x-3">
-                <button onclick="generateTestInvoice()" class="bg-secondary-blue text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition duration-300 flex items-center space-x-2">
-                    <i class="fas fa-plus mr-2"></i>
-                    <span>Generate Test Invoice</span>
-                </button>
                 <button onclick="refreshInvoices()" class="bg-gray-200 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-300 transition duration-200 flex items-center">
                     <i class="fas fa-sync-alt mr-2"></i>
                     Refresh
@@ -25,7 +21,7 @@
     </div>
 
     <!-- Invoice Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex items-center justify-between">
                 <div>
@@ -53,12 +49,49 @@
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex items-center justify-between">
                 <div>
+                    <p class="text-sm font-medium text-gray-600">Overdue Invoices</p>
+                    <p class="text-2xl font-bold text-red-600 mt-2" id="overdueInvoices">0</p>
+                </div>
+                <div class="w-12 h-12 bg-red-500 bg-opacity-10 rounded-full flex items-center justify-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+            <div class="flex items-center justify-between">
+                <div>
                     <p class="text-sm font-medium text-gray-600">Total Revenue</p>
                     <p class="text-2xl font-bold text-text-black mt-2" id="totalInvoiceRevenue">Ksh 0.00</p>
                 </div>
                 <div class="w-12 h-12 bg-purple-500 bg-opacity-10 rounded-full flex items-center justify-center">
                     <i class="fas fa-money-bill-wave text-purple-500 text-xl"></i>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-4 mb-6">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Filter by Status</label>
+                <select id="statusFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
+                    <option value="all">All Invoices</option>
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                </select>
+            </div>
+            <div class="flex-1 min-w-[200px]">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <input type="text" id="searchInput" placeholder="Search invoice number..."
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
+            </div>
+            <div class="flex items-end">
+                <button onclick="applyFilters()" class="bg-secondary-blue text-white px-4 py-2 rounded-md hover:bg-blue-600">
+                    <i class="fas fa-filter mr-2"></i>Apply Filters
+                </button>
             </div>
         </div>
     </div>
@@ -85,11 +118,12 @@
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period/Cycle</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scans</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
@@ -98,6 +132,18 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- Pagination -->
+            <div class="px-6 py-4 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-500" id="paginationInfo"></div>
+                    <div class="flex space-x-2">
+                        <button id="prevPage" onclick="changePage('prev')" class="px-3 py-1 border rounded-md hover:bg-gray-50 disabled:opacity-50">Previous</button>
+                        <span id="currentPage" class="px-3 py-1">Page 1</span>
+                        <button id="nextPage" onclick="changePage('next')" class="px-3 py-1 border rounded-md hover:bg-gray-50 disabled:opacity-50">Next</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Empty State -->
@@ -105,9 +151,6 @@
             <i class="fas fa-file-invoice text-4xl text-gray-300 mb-4"></i>
             <p class="text-gray-500">No invoices found</p>
             <p class="text-sm text-gray-400 mt-1">Invoices are generated automatically every 2 weeks</p>
-            <button onclick="generateTestInvoice()" class="mt-4 px-4 py-2 bg-secondary-blue text-white rounded-lg hover:bg-blue-600">
-                Generate Test Invoice
-            </button>
         </div>
     </div>
 
@@ -121,61 +164,39 @@
                     Invoices are automatically generated every 2 weeks on Saturday at 3:00 PM.
                     The next invoice will be generated on: <span id="nextInvoiceDate" class="font-semibold">Calculating...</span>
                 </p>
-                <div class="text-xs text-gray-500 space-y-1">
-                    <p>• Invoice periods run from Monday to Saturday</p>
-                    <p>• Each invoice covers a 2-week period</p>
-                    <p>• Payment rate: Ksh 70 per meal</p>
-                    <p>• Invoices are sent to: isaacnmuteru@gmail.com, info@driftplus.co.ke, info@vibeeplug.com, info@quickofficepointe.co.ke</p>
-                    <p>• Payment is processed within 7-14 business days</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-500">
+                    <div>
+                        <p class="font-semibold text-gray-700">Period Details:</p>
+                        <p>• System started: Monday, February 2, 2026</p>
+                        <p>• Invoice periods: Monday to Saturday</p>
+                        <p>• Each invoice covers a 2-week period</p>
+                        <p>• Current cycle: <span id="currentCycle">Calculating...</span></p>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-700">Payment Details:</p>
+                        <p>• Payment rate: <strong class="text-secondary-blue">Ksh 65 per meal</strong></p>
+                        <p>• Invoices sent to: isaacnmuteru@gmail.com, info@driftplus.co.ke, info@vibeeplug.com, info@quickofficepointe.co.ke</p>
+                        <p>• Payment due: 30 days from invoice date</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Generate Test Invoice Modal -->
-<div id="testInvoiceModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-    <div class="bg-white rounded-lg p-6 w-full max-w-md">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-bold text-text-black">Generate Test Invoice</h3>
-            <button onclick="closeTestInvoiceModal()" class="text-gray-500 hover:text-gray-700">
-                <i class="fas fa-times text-xl"></i>
-            </button>
-        </div>
-
-        <p class="text-gray-600 mb-6">This will generate a test invoice for the current 2-week period for testing purposes.</p>
-
-        <div class="space-y-4">
+    <!-- Vendor Phone Number Info -->
+    <div class="mt-4 bg-green-50 rounded-xl border border-green-200 p-4">
+        <div class="flex items-center">
+            <i class="fas fa-phone-alt text-green-600 text-lg mr-3"></i>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Period</label>
-                <select id="invoicePeriod" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
-                    <option value="current">Current Period</option>
-                    <option value="previous">Previous Period</option>
-                    <option value="custom">Custom Period</option>
-                </select>
+                <p class="text-sm text-gray-700">
+                    <span class="font-semibold">Vendor Contact:</span> Your phone number from your profile will appear on invoices for payment inquiries.
+                    @if(auth()->user()->profile && auth()->user()->profile->phone_number)
+                        <span class="ml-2 text-green-600">Current: {{ auth()->user()->profile->phone_number }}</span>
+                    @else
+                        <span class="ml-2 text-yellow-600">Please add your phone number in your profile for payment inquiries.</span>
+                    @endif
+                </p>
             </div>
-
-            <div id="customPeriodFields" class="hidden space-y-2">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <input type="date" id="customStartDate"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                    <input type="date" id="customEndDate"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
-                </div>
-            </div>
-        </div>
-
-        <div class="mt-6 flex justify-end space-x-3">
-            <button onclick="closeTestInvoiceModal()" class="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium">
-                Cancel
-            </button>
-            <button onclick="confirmTestInvoice()" class="px-4 py-2 bg-secondary-blue text-white rounded-md hover:bg-blue-600 font-medium">
-                Generate
-            </button>
         </div>
     </div>
 </div>
@@ -205,7 +226,7 @@
                 <div id="invoiceStatusBanner" class="mb-6"></div>
 
                 <!-- Invoice Info -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div>
                         <p class="text-sm text-gray-600">Invoice Number</p>
                         <p class="font-semibold" id="modalInvoiceNumber"></p>
@@ -215,12 +236,35 @@
                         <p class="font-semibold" id="modalInvoiceDate"></p>
                     </div>
                     <div>
+                        <p class="text-sm text-gray-600">Cycle</p>
+                        <p class="font-semibold" id="modalCycle"></p>
+                    </div>
+                    <div>
                         <p class="text-sm text-gray-600">Period</p>
                         <p class="font-semibold" id="modalPeriod"></p>
                     </div>
                     <div>
                         <p class="text-sm text-gray-600">Due Date</p>
                         <p class="font-semibold" id="modalDueDate"></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600">Rate per Meal</p>
+                        <p class="font-semibold text-secondary-blue">Ksh 65.00</p>
+                    </div>
+                </div>
+
+                <!-- Vendor Contact Info -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">Vendor Contact for Payment Inquiries:</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs text-gray-500">Phone</p>
+                            <p class="font-medium" id="modalVendorPhone"></p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Email</p>
+                            <p class="font-medium" id="modalVendorEmail"></p>
+                        </div>
                     </div>
                 </div>
 
@@ -232,6 +276,7 @@
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scans</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
@@ -257,7 +302,7 @@
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-gray-600">Rate per meal:</span>
-                                    <span class="font-semibold">Ksh 70.00</span>
+                                    <span class="font-semibold">Ksh 65.00</span>
                                 </div>
                                 <div class="border-t pt-3 mt-3">
                                     <div class="flex justify-between text-lg">
@@ -276,19 +321,19 @@
                             <div class="space-y-4">
                                 <div>
                                     <p class="text-sm text-gray-600 mb-1">Bank Name</p>
-                                    <p class="font-medium">Cooperative Bank of Kenya</p>
+                                    <p class="font-medium" id="modalBankName">Cooperative Bank of Kenya</p>
                                 </div>
                                 <div>
                                     <p class="text-sm text-gray-600 mb-1">Account Name</p>
-                                    <p class="font-medium">REEDS Africa Talent Gateway</p>
+                                    <p class="font-medium" id="modalAccountName">REEDS Africa Talent Gateway</p>
                                 </div>
                                 <div>
                                     <p class="text-sm text-gray-600 mb-1">Account Number</p>
-                                    <p class="font-medium">011 123 456 78900</p>
+                                    <p class="font-medium" id="modalAccountNumber">011 123 456 78900</p>
                                 </div>
                                 <div>
                                     <p class="text-sm text-gray-600 mb-1">Swift Code</p>
-                                    <p class="font-medium">KCOOKENA</p>
+                                    <p class="font-medium" id="modalSwiftCode">KCOOKENA</p>
                                 </div>
                                 <div class="pt-4 border-t">
                                     <p class="text-sm text-gray-600 mb-1">Payment Reference</p>
@@ -323,41 +368,64 @@
     </div>
 </div>
 
-<!-- Debug Info (remove in production) -->
-<div class="mt-4 p-4 bg-gray-100 rounded-lg hidden" id="debugInfo">
-    <h4 class="font-semibold text-gray-700 mb-2">Debug Info</h4>
-    <pre id="debugContent" class="text-xs bg-white p-2 rounded overflow-auto max-h-40"></pre>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     let currentInvoiceId = null;
+    let currentPage = 1;
+    let lastPage = 1;
+    let currentFilters = {
+        status: 'all',
+        search: ''
+    };
 
     // Initialize on load
     document.addEventListener('DOMContentLoaded', function() {
         console.log('Invoices page loaded');
         loadInvoices();
         calculateNextInvoiceDate();
+        getCurrentCycle();
 
-        // Add event listener for period change
-        document.getElementById('invoicePeriod').addEventListener('change', function() {
-            const customFields = document.getElementById('customPeriodFields');
-            if (this.value === 'custom') {
-                customFields.classList.remove('hidden');
-
-                // Set default dates
-                const today = new Date();
-                const oneMonthAgo = new Date(today);
-                oneMonthAgo.setMonth(today.getMonth() - 1);
-
-                document.getElementById('customStartDate').value = oneMonthAgo.toISOString().split('T')[0];
-                document.getElementById('customEndDate').value = today.toISOString().split('T')[0];
-            } else {
-                customFields.classList.add('hidden');
+        // Add search on enter
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                applyFilters();
             }
         });
     });
+
+    // Get current cycle
+    async function getCurrentCycle() {
+        try {
+            const response = await fetch('/vendor/invoices/periods');
+            const data = await response.json();
+            if (data.current) {
+                document.getElementById('currentCycle').textContent =
+                    `Cycle ${data.current.cycle_number} (${data.current.period_name})`;
+            }
+        } catch (error) {
+            console.error('Error getting cycle:', error);
+        }
+    }
+
+    // Apply filters
+    function applyFilters() {
+        currentFilters.status = document.getElementById('statusFilter').value;
+        currentFilters.search = document.getElementById('searchInput').value;
+        currentPage = 1;
+        loadInvoices();
+    }
+
+    // Change page
+    function changePage(direction) {
+        if (direction === 'prev' && currentPage > 1) {
+            currentPage--;
+            loadInvoices();
+        } else if (direction === 'next' && currentPage < lastPage) {
+            currentPage++;
+            loadInvoices();
+        }
+    }
 
     // Load invoices
     async function loadInvoices() {
@@ -365,89 +433,113 @@
         hideTableContent();
         hideEmptyState();
 
-        console.log('Loading invoices...');
+        console.log('Loading invoices...', currentPage);
 
         try {
-            const response = await fetch('{{ route("vendor.invoices.data") }}');
+            const url = new URL('{{ route("vendor.invoices.data") }}', window.location.origin);
+            url.searchParams.append('page', currentPage);
+            url.searchParams.append('per_page', 10);
+
+            if (currentFilters.status !== 'all') {
+                url.searchParams.append('status', currentFilters.status);
+            }
+
+            if (currentFilters.search) {
+                url.searchParams.append('search', currentFilters.search);
+            }
+
+            const response = await fetch(url);
 
             if (!response.ok) {
-                throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+                throw new Error(`Server responded with ${response.status}`);
             }
 
             const data = await response.json();
             console.log('Invoices API Response:', data);
 
             if (data.success) {
-                // Check if we have invoices array
-                if (data.invoices && Array.isArray(data.invoices)) {
-                    console.log(`Found ${data.invoices.length} invoices`);
+                if (data.invoices && data.invoices.length > 0) {
                     updateInvoiceTable(data.invoices);
                     updateInvoiceStats(data.stats);
-
-                    if (data.invoices.length > 0) {
-                        showTableContent();
-                        document.getElementById('invoiceCount').textContent =
-                            `${data.invoices.length} invoice${data.invoices.length !== 1 ? 's' : ''}`;
-                    } else {
-                        showEmptyState();
-                    }
+                    updatePagination(data.pagination);
+                    showTableContent();
                 } else {
-                    console.warn('No invoices array in response:', data);
                     showEmptyState();
                 }
+
+                document.getElementById('invoiceCount').textContent =
+                    `${data.pagination?.total || 0} invoice${data.pagination?.total !== 1 ? 's' : ''}`;
             } else {
                 throw new Error(data.message || 'Failed to load invoices');
             }
         } catch (error) {
             console.error('Error loading invoices:', error);
-            showError('Error Loading Invoices', error.message || 'Failed to load invoices. Please check your connection.');
+            showError('Error Loading Invoices', error.message || 'Failed to load invoices.');
             showEmptyState();
         } finally {
             showLoading(false);
         }
     }
 
+    // Update pagination
+    function updatePagination(pagination) {
+        if (!pagination) return;
+
+        currentPage = pagination.current_page;
+        lastPage = pagination.last_page;
+
+        document.getElementById('currentPage').textContent = `Page ${currentPage} of ${lastPage}`;
+        document.getElementById('paginationInfo').textContent =
+            `Showing ${(currentPage - 1) * pagination.per_page + 1} to ${Math.min(currentPage * pagination.per_page, pagination.total)} of ${pagination.total} entries`;
+
+        document.getElementById('prevPage').disabled = currentPage <= 1;
+        document.getElementById('nextPage').disabled = currentPage >= lastPage;
+    }
+
     // Update invoice table
     function updateInvoiceTable(invoices) {
         const tbody = document.getElementById('invoicesTableBody');
 
-        if (!invoices || invoices.length === 0) {
-            tbody.innerHTML = '';
-            return;
-        }
-
         tbody.innerHTML = invoices.map((invoice, index) => {
             const amount = parseFloat(invoice.total_amount || 0);
-            const isTest = invoice.is_test || false;
-            const testBadge = isTest ? '<span class="ml-1 px-1 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">TEST</span>' : '';
             const invoiceId = invoice.id;
+            const dueDate = new Date(invoice.due_date);
+            const today = new Date();
+            const isOverdue = invoice.status === 'pending' && dueDate < today;
 
             return `
                 <tr class="hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-medium text-gray-900">${invoice.invoice_number}${testBadge}</div>
+                    <td class="px-6 py-4">
+                        <div class="text-sm font-medium text-gray-900">${invoice.invoice_number}</div>
                         <div class="text-xs text-gray-500">${invoice.period}</div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${invoice.period_start} to ${invoice.period_end}
+                    <td class="px-6 py-4">
+                        <div class="text-sm text-gray-900">${invoice.period_start} to ${invoice.period_end}</div>
+                        ${invoice.cycle ? `<div class="text-xs text-blue-600">Cycle ${invoice.cycle}</div>` : ''}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-6 py-4">
                         <span class="text-sm font-semibold text-gray-900">
                             Ksh ${amount.toLocaleString('en-KE', { minimumFractionDigits: 2 })}
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td class="px-6 py-4">
                         <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
                             ${invoice.total_scans || 0} scans
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        ${getStatusBadge(invoice.status)}
+                    <td class="px-6 py-4">
+                        <span class="text-sm text-gray-600">Ksh 65.00</span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${invoice.invoice_date || invoice.created_at}
+                    <td class="px-6 py-4">
+                        ${getStatusBadge(isOverdue ? 'overdue' : invoice.status)}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td class="px-6 py-4">
+                        <div class="text-sm ${isOverdue ? 'text-red-600 font-semibold' : 'text-gray-500'}">
+                            ${invoice.due_date}
+                            ${isOverdue ? '<span class="ml-1 text-xs">(Overdue)</span>' : ''}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium">
                         <button onclick="viewInvoice(${invoiceId})"
                                 class="text-secondary-blue hover:text-blue-600 mr-3 inline-flex items-center"
                                 title="View Invoice">
@@ -495,10 +587,9 @@
 
     // Display invoice details in modal
     function displayInvoiceDetails(invoice) {
-        // Update modal title
         document.getElementById('invoiceModalTitle').textContent = `Invoice #${invoice.invoice_number}`;
 
-        // Update status banner
+        // Status banner
         const statusBanner = document.getElementById('invoiceStatusBanner');
         if (invoice.status === 'paid') {
             statusBanner.innerHTML = `
@@ -510,64 +601,98 @@
                 </div>
             `;
         } else if (invoice.status === 'pending') {
-            statusBanner.innerHTML = `
-                <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg flex items-center">
-                    <i class="fas fa-clock text-yellow-500 mr-3 text-xl"></i>
-                    <div>
-                        <p class="font-semibold">This invoice is pending payment</p>
-                        <p class="text-sm">Due on ${invoice.due_date}</p>
+            const dueDate = new Date(invoice.due_date);
+            const today = new Date();
+            if (dueDate < today) {
+                statusBanner.innerHTML = `
+                    <div class="bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded-lg flex items-center">
+                        <i class="fas fa-exclamation-triangle text-red-500 mr-3 text-xl"></i>
+                        <div>
+                            <p class="font-semibold">This invoice is OVERDUE</p>
+                            <p class="text-sm">Payment was due on ${invoice.due_date}</p>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                statusBanner.innerHTML = `
+                    <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg flex items-center">
+                        <i class="fas fa-clock text-yellow-500 mr-3 text-xl"></i>
+                        <div>
+                            <p class="font-semibold">This invoice is pending payment</p>
+                            <p class="text-sm">Due on ${invoice.due_date}</p>
+                        </div>
+                    </div>
+                `;
+            }
         } else {
             statusBanner.innerHTML = '';
         }
 
-        // Update basic info
+        // Basic info
         document.getElementById('modalInvoiceNumber').textContent = invoice.invoice_number;
         document.getElementById('modalInvoiceDate').textContent = invoice.invoice_date;
+        document.getElementById('modalCycle').textContent = invoice.cycle ? `Cycle ${invoice.cycle}` : 'N/A';
         document.getElementById('modalPeriod').textContent = `${invoice.period_start} - ${invoice.period_end}`;
         document.getElementById('modalDueDate').textContent = invoice.due_date;
         document.getElementById('modalTotalScans').textContent = invoice.total_scans;
         document.getElementById('modalTotalAmount').textContent = `Ksh ${parseFloat(invoice.total_amount).toLocaleString('en-KE', { minimumFractionDigits: 2 })}`;
         document.getElementById('modalPaymentRef').textContent = invoice.invoice_number;
 
-        // Update download link
+        // Vendor contact
+        document.getElementById('modalVendorPhone').textContent = invoice.vendor_phone || 'Not provided';
+        document.getElementById('modalVendorEmail').textContent = invoice.vendor_email || 'N/A';
+
+        // Bank details (if available from invoice)
+        if (invoice.bank_details) {
+            document.getElementById('modalBankName').textContent = invoice.bank_details.bank_name || 'Cooperative Bank of Kenya';
+            document.getElementById('modalAccountName').textContent = invoice.bank_details.account_name || 'REEDS Africa Talent Gateway';
+            document.getElementById('modalAccountNumber').textContent = invoice.bank_details.account_number || '011 123 456 78900';
+            document.getElementById('modalSwiftCode').textContent = invoice.bank_details.swift_code || 'KCOOKENA';
+        }
+
+        // Download link
         document.getElementById('downloadInvoiceBtn').href = `/vendor/invoices/${currentInvoiceId}/download`;
 
-        // Update invoice items
+        // Invoice items
         const itemsTable = document.getElementById('modalInvoiceItems');
         if (invoice.items && invoice.items.length > 0) {
-            itemsTable.innerHTML = invoice.items.map(item => `
-                <tr>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        ${item.date}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-500">
-                        ${item.description}
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        ${item.scans}
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        Ksh ${parseFloat(item.rate).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        Ksh ${parseFloat(item.amount).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
-                    </td>
-                </tr>
-            `).join('');
+            itemsTable.innerHTML = invoice.items.map(item => {
+                const date = new Date(item.date);
+                const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+                return `
+                    <tr>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            ${item.date}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            ${dayName}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-500">
+                            ${item.description}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            ${item.scans}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            Ksh ${parseFloat(item.rate).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            Ksh ${parseFloat(item.amount).toLocaleString('en-KE', { minimumFractionDigits: 2 })}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         } else {
             itemsTable.innerHTML = `
                 <tr>
-                    <td colspan="5" class="px-4 py-3 text-center text-gray-500">
+                    <td colspan="6" class="px-4 py-3 text-center text-gray-500">
                         No items found
                     </td>
                 </tr>
             `;
         }
 
-        // Update notes
+        // Notes
         const notesSection = document.getElementById('modalNotesSection');
         const notesContent = document.getElementById('modalNotes');
         if (invoice.notes) {
@@ -577,60 +702,58 @@
             notesSection.classList.add('hidden');
         }
 
-        // Show content
         document.getElementById('invoiceModalContent').classList.remove('hidden');
     }
 
     // Get status badge HTML
     function getStatusBadge(status) {
-        const statusMap = {
-            'pending': { color: 'yellow', text: 'Pending' },
-            'paid': { color: 'green', text: 'Paid' },
-            'overdue': { color: 'red', text: 'Overdue' },
-            'draft': { color: 'gray', text: 'Draft' }
+        const statusConfig = {
+            'paid': { bg: 'bg-green-100', text: 'text-green-800', label: 'Paid' },
+            'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pending' },
+            'overdue': { bg: 'bg-red-100', text: 'text-red-800', label: 'Overdue' },
+            'draft': { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Draft' }
         };
 
-        const statusInfo = statusMap[status] || { color: 'gray', text: status };
+        const config = statusConfig[status] || statusConfig.draft;
 
-        return `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-${statusInfo.color}-100 text-${statusInfo.color}-800">
-            ${statusInfo.text}
+        return `<span class="px-2 py-1 text-xs font-semibold rounded-full ${config.bg} ${config.text}">
+            ${config.label}
         </span>`;
     }
 
     // Update invoice stats
     function updateInvoiceStats(stats) {
-        if (!stats) {
-            console.warn('No stats provided');
-            return;
-        }
+        if (!stats) return;
 
         document.getElementById('pendingInvoices').textContent = stats.pending_invoices || 0;
         document.getElementById('paidInvoices').textContent = stats.paid_invoices || 0;
+        document.getElementById('overdueInvoices').textContent = stats.overdue_invoices || 0;
         document.getElementById('totalInvoiceRevenue').textContent =
             'Ksh ' + (parseFloat(stats.total_revenue || 0)).toLocaleString('en-KE', { minimumFractionDigits: 2 });
     }
 
     // Calculate next invoice date
     function calculateNextInvoiceDate() {
+        const startDate = new Date('2026-02-02'); // System start date
         const today = new Date();
-        const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
-        const daysUntilSaturday = (6 - dayOfWeek + 7) % 7 || 7;
 
-        let nextSaturday = new Date(today);
-        nextSaturday.setDate(today.getDate() + daysUntilSaturday);
+        // Calculate days since start
+        const daysSinceStart = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
 
-        // Check if we need to skip to next 2-week period
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const daysSinceMonthStart = Math.floor((today - startOfMonth) / (1000 * 60 * 60 * 24));
-        const weekOfMonth = Math.floor(daysSinceMonthStart / 7) + 1;
+        // Calculate current cycle (14-day cycles)
+        const currentCycle = Math.floor(daysSinceStart / 14) + 1;
 
-        if (weekOfMonth % 2 === 0) {
-            // Already on 2-week schedule, add 2 weeks
-            nextSaturday.setDate(nextSaturday.getDate() + 7);
+        // Calculate next invoice date (Saturday of current/next cycle)
+        const daysToNextSaturday = (6 - today.getDay() + 7) % 7;
+        let nextInvoiceDate = new Date(today);
+        nextInvoiceDate.setDate(today.getDate() + daysToNextSaturday);
+
+        // If we're past Thursday, move to next cycle
+        if (today.getDay() > 4) { // After Thursday
+            nextInvoiceDate.setDate(nextInvoiceDate.getDate() + 7);
         }
 
-        // Set time to 3:00 PM
-        nextSaturday.setHours(15, 0, 0, 0);
+        nextInvoiceDate.setHours(15, 0, 0, 0);
 
         const options = {
             weekday: 'long',
@@ -642,7 +765,7 @@
         };
 
         document.getElementById('nextInvoiceDate').textContent =
-            nextSaturday.toLocaleDateString('en-US', options);
+            nextInvoiceDate.toLocaleDateString('en-US', options);
     }
 
     // Modal functions
@@ -664,83 +787,6 @@
         currentInvoiceId = null;
     }
 
-    // Generate test invoice
-    function generateTestInvoice() {
-        document.getElementById('testInvoiceModal').classList.remove('hidden');
-    }
-
-    function closeTestInvoiceModal() {
-        document.getElementById('testInvoiceModal').classList.add('hidden');
-    }
-
-    async function confirmTestInvoice() {
-        const period = document.getElementById('invoicePeriod').value;
-        let startDate = null;
-        let endDate = null;
-
-        if (period === 'custom') {
-            startDate = document.getElementById('customStartDate').value;
-            endDate = document.getElementById('customEndDate').value;
-
-            if (!startDate || !endDate) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Please select both start and end dates'
-                });
-                return;
-            }
-        }
-
-        try {
-            const response = await fetch('{{ route("vendor.invoices.generate-test") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({
-                    period: period,
-                    start_date: startDate,
-                    end_date: endDate
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success',
-                    text: data.message || 'Test invoice generated successfully',
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#2596be'
-                });
-
-                closeTestInvoiceModal();
-                loadInvoices(); // Refresh the list
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: data.message || 'Failed to generate test invoice',
-                    confirmButtonText: 'OK',
-                    confirmButtonColor: '#2596be'
-                });
-            }
-        } catch (error) {
-            console.error('Error generating test invoice:', error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Failed to generate test invoice. Please try again.',
-                confirmButtonText: 'OK',
-                confirmButtonColor: '#2596be'
-            });
-        }
-    }
-
-    // Refresh invoices
     function refreshInvoices() {
         loadInvoices();
         calculateNextInvoiceDate();
@@ -748,12 +794,7 @@
 
     // UI Helper Functions
     function showLoading(show) {
-        const loadingState = document.getElementById('loadingState');
-        if (show) {
-            loadingState.classList.remove('hidden');
-        } else {
-            loadingState.classList.add('hidden');
-        }
+        document.getElementById('loadingState').classList.toggle('hidden', !show);
     }
 
     function showTableContent() {
@@ -786,7 +827,6 @@
 </script>
 
 <style>
-    /* Additional styles for better UI */
     #loadingState {
         min-height: 200px;
         display: flex;
@@ -812,22 +852,24 @@
         align-items: center;
     }
 
-    /* Modal styles */
     #viewInvoiceModal {
         z-index: 9999;
     }
 
-    /* Status badge colors */
+    button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
     .bg-yellow-100 { background-color: #fef9c3; }
     .text-yellow-800 { color: #854d0e; }
-
     .bg-green-100 { background-color: #dcfce7; }
     .text-green-800 { color: #166534; }
-
     .bg-red-100 { background-color: #fee2e2; }
     .text-red-800 { color: #991b1b; }
-
     .bg-gray-100 { background-color: #f3f4f6; }
     .text-gray-800 { color: #374151; }
+    .bg-blue-100 { background-color: #dbeafe; }
+    .text-blue-800 { color: #1e40af; }
 </style>
 @endsection

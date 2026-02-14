@@ -11,7 +11,7 @@
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -241,7 +241,38 @@
                         </span>
                     </a>
                 </li>
-
+<!-- ADD THESE INVOICE LINKS -->
+<li>
+    <a href="{{ route('admin.invoices.index') }}"
+       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('admin.invoices.*') ? 'active' : '' }}">
+        <i class="fas fa-file-invoice mr-3 w-5 text-center"></i>
+        All Invoices
+        <span class="ml-auto bg-blue-500 text-white text-xs rounded-full px-2 py-1">
+            {{ \App\Models\VendorInvoice::count() }}
+        </span>
+    </a>
+</li>
+{{--
+<li>
+    <a href="{{ route('admin.invoices.pending') }}"
+       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('admin.invoices.pending') ? 'active' : '' }}">
+        <i class="fas fa-clock mr-3 w-5 text-center"></i>
+        Pending Invoices
+        <span class="ml-auto bg-yellow-500 text-white text-xs rounded-full px-2 py-1">
+            {{ \App\Models\VendorInvoice::where('status', 'pending')->count() }}
+        </span>
+    </a>
+</li>
+<li>
+    <a href="{{ route('admin.invoices.overdue') }}"
+       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('admin.invoices.overdue') ? 'active' : '' }}">
+        <i class="fas fa-exclamation-triangle mr-3 w-5 text-center"></i>
+        Overdue Invoices
+        <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1">
+            {{ \App\Models\VendorInvoice::where('status', 'overdue')->count() }}
+        </span>
+    </a>
+</li> --}}
                 <!-- Analytics & Reports -->
                 <li class="mt-4">
                     <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider section-header">Analytics</p>

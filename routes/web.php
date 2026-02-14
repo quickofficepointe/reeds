@@ -253,7 +253,24 @@ Route::post('/vendor/{vendor}/analytics/share', [AdminController::class, 'shareV
 });
 
 
+// Inside your admin group in routes/web.php
 
+// Admin Invoice Management
+Route::prefix('invoices')->name('invoices.')->group(function () {
+    Route::get('/', [AdminController::class, 'invoices'])->name('index');
+    Route::get('/data', [AdminController::class, 'invoicesData'])->name('data');
+    Route::get('/pending', [AdminController::class, 'pendingInvoices'])->name('pending');
+    Route::get('/overdue', [AdminController::class, 'overdueInvoices'])->name('overdue');
+    Route::get('/{id}', [AdminController::class, 'viewInvoice'])->name('view');
+    Route::get('/{id}/download', [AdminController::class, 'downloadInvoice'])->name('download');
+    Route::post('/{id}/mark-paid', [AdminController::class, 'markInvoiceAsPaid'])->name('mark-paid');
+    Route::post('/{id}/send-reminder', [AdminController::class, 'sendInvoiceReminder'])->name('send-reminder');
+    Route::post('/send-bulk-emails', [AdminController::class, 'sendBulkInvoiceEmails'])->name('send-bulk');
+
+    // Email recipients for invoices
+    Route::get('/email-recipients', [AdminController::class, 'getEmailRecipients'])->name('email-recipients');
+    Route::post('/email-recipients/update', [AdminController::class, 'updateEmailRecipients'])->name('update-recipients');
+});
 
 });
 
@@ -280,10 +297,13 @@ Route::middleware(['auth', 'verified', 'vendor', 'profile.complete'])->prefix('v
     Route::get('/invoices/{id}/download', [VendorController::class, 'downloadInvoice'])->name('invoices.download');
     Route::post('/invoices/generate-test', [VendorController::class, 'generateTestInvoice'])->name('invoices.generate-test');
     // Analytics data routes
+    Route::get('/vendor/history/range', [VendorController::class, 'getScanHistoryByRange'])->name('history.range');
 // Performance analytics routes
 Route::get('/performance', [VendorController::class, 'performance'])->name('performance');
 Route::get('/analytics/daily', [VendorController::class, 'dailyAnalytics'])->name('analytics.daily');
 Route::get('/analytics/weekly', [VendorController::class, 'weeklyAnalytics'])->name('analytics.weekly');
 Route::get('/analytics/monthly', [VendorController::class, 'monthlyAnalytics'])->name('analytics.monthly');
 Route::get('/vendor/diagnose-analytics', [VendorController::class, 'diagnoseAnalytics'])->name('vendor.diagnose-analytics');
+Route::get('/invoices/periods', [VendorController::class, 'getPeriods'])->name('invoices.periods');
+
 });

@@ -7,17 +7,22 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-text-black">Performance Analytics</h1>
-                <p class="text-gray-600 mt-2">Track your performance with detailed analytics</p>
+                <p class="text-gray-600 mt-2">Track your performance with detailed analytics and insights</p>
             </div>
 
-            <!-- Date Range Selector -->
+            <!-- Time Range Selector -->
             <div class="mt-4 md:mt-0 flex space-x-3">
-                <select id="timeRange" onchange="loadAnalytics()"
-                        class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
-                    <option value="daily">Daily (Last 30 days)</option>
-                    <option value="weekly" selected>Weekly (Last 12 weeks)</option>
-                    <option value="monthly">Monthly (Last 12 months)</option>
-                </select>
+                <div class="relative">
+                    <select id="timeRange" onchange="loadAnalytics()"
+                            class="appearance-none px-4 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent bg-white">
+                        <option value="daily">Daily (Last 30 Days)</option>
+                        <option value="weekly" selected>Weekly (Last 12 Weeks)</option>
+                        <option value="monthly">Monthly (Last 12 Months)</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <i class="fas fa-chevron-down text-xs"></i>
+                    </div>
+                </div>
                 <button onclick="refreshAnalytics()" class="bg-secondary-blue text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-200 flex items-center">
                     <i class="fas fa-sync-alt mr-2"></i> Refresh
                 </button>
@@ -25,8 +30,8 @@
         </div>
     </div>
 
-    <!-- Key Metrics -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <!-- Key Metrics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex items-center justify-between">
                 <div>
@@ -37,23 +42,29 @@
                     <i class="fas fa-qrcode text-secondary-blue text-xl"></i>
                 </div>
             </div>
-            <div class="mt-4">
-                <span class="text-xs text-gray-500" id="periodLabel">This period</span>
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">vs previous period</span>
+                    <span class="font-semibold" id="scansGrowth">+0%</span>
+                </div>
             </div>
         </div>
 
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-600">Revenue</p>
+                    <p class="text-sm font-medium text-gray-600">Total Revenue</p>
                     <p class="text-2xl font-bold text-text-black mt-2" id="totalRevenue">Ksh 0.00</p>
                 </div>
                 <div class="w-12 h-12 bg-green-500 bg-opacity-10 rounded-full flex items-center justify-center">
                     <i class="fas fa-money-bill-wave text-green-500 text-xl"></i>
                 </div>
             </div>
-            <div class="mt-4">
-                <span class="text-xs text-gray-500" id="revenuePeriodLabel">This period</span>
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">avg per scan</span>
+                    <span class="font-semibold" id="avgPerScan">Ksh 0.00</span>
+                </div>
             </div>
         </div>
 
@@ -67,81 +78,185 @@
                     <i class="fas fa-chart-line text-purple-500 text-xl"></i>
                 </div>
             </div>
-            <div class="mt-4">
-                <span class="text-xs text-gray-500" id="avgPeriodLabel">This period</span>
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500" id="avgPeriodLabel">this period</span>
+                    <span class="font-semibold" id="avgDailyTrend">+0%</span>
+                </div>
             </div>
         </div>
 
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm font-medium text-gray-600">Best Day</p>
-                    <p class="text-2xl font-bold text-text-black mt-2" id="bestDay">N/A</p>
+                    <p class="text-sm font-medium text-gray-600">Peak Performance</p>
+                    <p class="text-lg font-bold text-text-black mt-2" id="bestDay">N/A</p>
                 </div>
                 <div class="w-12 h-12 bg-yellow-500 bg-opacity-10 rounded-full flex items-center justify-center">
                     <i class="fas fa-trophy text-yellow-500 text-xl"></i>
                 </div>
             </div>
-            <div class="mt-4">
-                <span class="text-xs text-gray-500" id="bestDayCount">0 scans</span>
+            <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500" id="bestDayCount">0 scans</span>
+                    <span class="font-semibold" id="bestDayRevenue">Ksh 0</span>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Charts Section -->
+    <!-- Charts Row 1 -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <!-- Daily Scans Chart -->
+        <!-- Scan Trend Chart -->
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-text-black">Scan Trend</h3>
-                <span class="text-sm text-gray-500" id="scanChartLabel">Daily Scans</span>
+                <div>
+                    <h3 class="text-lg font-semibold text-text-black">Scan Trend</h3>
+                    <p class="text-sm text-gray-500" id="scanChartLabel">Daily scan volume over time</p>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="toggleChartType('scans')" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
+                        <i class="fas fa-chart-line"></i>
+                    </button>
+                    <button onclick="toggleChartType('scans', 'bar')" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
+                        <i class="fas fa-chart-bar"></i>
+                    </button>
+                </div>
             </div>
-            <div class="h-64">
+            <div class="h-80 relative">
                 <canvas id="dailyScansChart"></canvas>
+                <div id="scansChartLoading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center hidden">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-secondary-blue"></div>
+                </div>
             </div>
         </div>
 
-        <!-- Revenue Chart -->
+        <!-- Revenue Trend Chart -->
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-text-black">Revenue Trend</h3>
-                <span class="text-sm text-gray-500" id="revenueChartLabel">Daily Revenue</span>
+                <div>
+                    <h3 class="text-lg font-semibold text-text-black">Revenue Trend</h3>
+                    <p class="text-sm text-gray-500" id="revenueChartLabel">Daily revenue over time</p>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="toggleChartType('revenue')" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
+                        <i class="fas fa-chart-line"></i>
+                    </button>
+                    <button onclick="toggleChartType('revenue', 'bar')" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
+                        <i class="fas fa-chart-bar"></i>
+                    </button>
+                </div>
             </div>
-            <div class="h-64">
+            <div class="h-80 relative">
                 <canvas id="revenueChart"></canvas>
+                <div id="revenueChartLoading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center hidden">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-secondary-blue"></div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Department Distribution & Peak Hours -->
+    <!-- Charts Row 2 -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <!-- Department Breakdown -->
+        <!-- Department Distribution -->
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-text-black">Department Distribution</h3>
-                <span class="text-sm text-gray-500">Top Departments</span>
+                <div>
+                    <h3 class="text-lg font-semibold text-text-black">Department Distribution</h3>
+                    <p class="text-sm text-gray-500">Scan distribution by department</p>
+                </div>
             </div>
-            <div class="h-64">
+            <div class="h-80 relative">
                 <canvas id="departmentChart"></canvas>
+                <div id="deptChartLoading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center hidden">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-secondary-blue"></div>
+                </div>
             </div>
         </div>
 
-        <!-- Peak Hours -->
+        <!-- Peak Hours Chart -->
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-text-black">Peak Scanning Hours</h3>
-                <span class="text-sm text-gray-500">6 AM - 6 PM</span>
+                <div>
+                    <h3 class="text-lg font-semibold text-text-black">Peak Scanning Hours</h3>
+                    <p class="text-sm text-gray-500">Scan distribution by hour (6 AM - 6 PM)</p>
+                </div>
             </div>
-            <div class="h-64">
+            <div class="h-80 relative">
                 <canvas id="peakHoursChart"></canvas>
+                <div id="peakChartLoading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center hidden">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-secondary-blue"></div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Top Employees -->
+    <!-- Additional Analytics Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <!-- Weekly Comparison -->
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+            <h3 class="text-lg font-semibold text-text-black mb-4">Weekly Comparison</h3>
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-gray-600">This Week</span>
+                        <span class="font-semibold" id="thisWeek">0</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-secondary-blue h-2 rounded-full" id="thisWeekBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-gray-600">Last Week</span>
+                        <span class="font-semibold" id="lastWeek">0</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-gray-400 h-2 rounded-full" id="lastWeekBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="pt-2 text-center">
+                    <span class="text-sm" id="weeklyChange">+0% vs last week</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Day of Week Pattern -->
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+            <h3 class="text-lg font-semibold text-text-black mb-4">Day of Week Pattern</h3>
+            <div class="h-32">
+                <canvas id="dayOfWeekChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+            <h3 class="text-lg font-semibold text-text-black mb-4">Quick Insights</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Most Active Day</span>
+                    <span class="font-semibold" id="mostActiveDay">Wednesday</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Peak Hour</span>
+                    <span class="font-semibold" id="peakHour">12:00 - 13:00</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Top Department</span>
+                    <span class="font-semibold" id="topDepartment">N/A</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Growth Rate</span>
+                    <span class="font-semibold text-green-600" id="growthRate">+12.5%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Employees Table -->
     <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
         <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-semibold text-text-black">Top Employees</h3>
+            <h3 class="text-lg font-semibold text-text-black">Top Performing Employees</h3>
             <span class="text-sm text-gray-500" id="topEmployeesLabel">Most frequent scans this period</span>
         </div>
 
@@ -157,6 +272,7 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Scans</th>
@@ -181,15 +297,23 @@
 </div>
 
 <!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+    // Chart instances
     let dailyScansChart = null;
     let revenueChart = null;
     let departmentChart = null;
     let peakHoursChart = null;
+    let dayOfWeekChart = null;
+
+    // Current state
     let currentTimeRange = 'weekly';
+    let currentChartTypes = {
+        scans: 'line',
+        revenue: 'bar'
+    };
 
     // Chart colors
     const chartColors = {
@@ -200,29 +324,31 @@
         danger: '#ef4444',
         info: '#3b82f6',
         purple: '#8b5cf6',
-        pink: '#ec4899'
+        pink: '#ec4899',
+        gray: '#6b7280',
+        lightGray: '#e5e7eb'
     };
 
     // Initialize on load
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('Performance analytics page loaded');
+        console.log('Performance analytics page initialized');
         loadAnalytics();
-
-        // Initialize with weekly data
-        currentTimeRange = 'weekly';
-        document.getElementById('timeRange').value = currentTimeRange;
     });
 
     // Load analytics data
     async function loadAnalytics() {
         currentTimeRange = document.getElementById('timeRange').value;
-
         console.log(`Loading ${currentTimeRange} analytics...`);
 
-        showGlobalLoading(true);
+        // Show loading states
+        showChartLoading('scans');
+        showChartLoading('revenue');
+        showChartLoading('dept');
+        showChartLoading('peak');
         showTopEmployeesLoading(true);
 
         try {
+            // Determine endpoint based on time range
             let endpoint;
             switch(currentTimeRange) {
                 case 'daily':
@@ -239,322 +365,414 @@
             }
 
             const response = await fetch(endpoint);
-            const data = await response.json();
 
-            console.log('Analytics response:', data);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('Analytics data received:', data);
 
             if (data.success) {
-                updateMetrics(data.metrics);
-                updateCharts(data.charts);
+                updateMetrics(data.metrics || {});
+                updateCharts(data.charts || {});
                 updateTopEmployees(data.top_employees || []);
-                updateChartLabels(currentTimeRange);
+                updateQuickInsights(data.insights || {});
+                updateWeeklyComparison(data.weekly_comparison || {});
             } else {
                 throw new Error(data.message || 'Failed to load analytics data');
             }
         } catch (error) {
             console.error('Error loading analytics:', error);
-            showError('Error Loading Analytics', error.message || 'Failed to load analytics data. Please try again.');
-            showTopEmployeesEmpty();
+            showError('Failed to Load Analytics', error.message);
+
+            // Initialize empty charts
+            initializeEmptyCharts();
         } finally {
-            showGlobalLoading(false);
+            // Hide loading states
+            hideChartLoading('scans');
+            hideChartLoading('revenue');
+            hideChartLoading('dept');
+            hideChartLoading('peak');
             showTopEmployeesLoading(false);
         }
     }
 
     // Update metrics
     function updateMetrics(metrics) {
-        if (!metrics) {
-            console.warn('No metrics provided');
-            return;
+        document.getElementById('totalScans').textContent = formatNumber(metrics.total_scans || 0);
+        document.getElementById('totalRevenue').textContent = 'Ksh ' + formatCurrency(metrics.total_revenue || 0);
+
+        const avgPerScan = metrics.total_scans > 0
+            ? (metrics.total_revenue / metrics.total_scans)
+            : 0;
+        document.getElementById('avgPerScan').textContent = 'Ksh ' + formatCurrency(avgPerScan);
+
+        document.getElementById('avgDailyScans').textContent = (metrics.average_daily || 0).toFixed(1);
+
+        // Growth indicators
+        document.getElementById('scansGrowth').textContent = formatPercentage(metrics.scans_growth || 0);
+        document.getElementById('scansGrowth').className = (metrics.scans_growth || 0) >= 0
+            ? 'font-semibold text-green-600'
+            : 'font-semibold text-red-600';
+
+        document.getElementById('avgDailyTrend').textContent = formatPercentage(metrics.daily_trend || 0);
+        document.getElementById('avgDailyTrend').className = (metrics.daily_trend || 0) >= 0
+            ? 'font-semibold text-green-600'
+            : 'font-semibold text-red-600';
+
+        // Best day
+        if (metrics.best_day) {
+            document.getElementById('bestDay').textContent = metrics.best_day.date || 'N/A';
+            document.getElementById('bestDayCount').textContent = (metrics.best_day.count || 0) + ' scans';
+            document.getElementById('bestDayRevenue').textContent = 'Ksh ' + formatCurrency(metrics.best_day.revenue || 0);
         }
 
-        document.getElementById('totalScans').textContent = metrics.total_scans.toLocaleString();
-        document.getElementById('totalRevenue').textContent = 'Ksh ' + metrics.total_revenue.toLocaleString('en-KE', { minimumFractionDigits: 2 });
-        document.getElementById('avgDailyScans').textContent = metrics.average_daily.toFixed(1);
-
-        if (metrics.best_day && metrics.best_day.date) {
-            document.getElementById('bestDay').textContent = metrics.best_day.date;
-            document.getElementById('bestDayCount').textContent = metrics.best_day.count + ' scans';
-        } else {
-            document.getElementById('bestDay').textContent = 'N/A';
-            document.getElementById('bestDayCount').textContent = '0 scans';
-        }
-
-        // Update period labels
+        // Update labels based on time range
         updatePeriodLabels();
-    }
-
-    // Update period labels based on time range
-    function updatePeriodLabels() {
-        const periodLabels = {
-            'daily': 'Last 30 days',
-            'weekly': 'Last 12 weeks',
-            'monthly': 'Last 12 months'
-        };
-
-        const label = periodLabels[currentTimeRange] || 'This period';
-        document.getElementById('periodLabel').textContent = label;
-        document.getElementById('revenuePeriodLabel').textContent = label;
-        document.getElementById('avgPeriodLabel').textContent = label;
-    }
-
-    // Update chart labels
-    function updateChartLabels(timeRange) {
-        const labels = {
-            'daily': { scan: 'Daily Scans (Last 30 days)', revenue: 'Daily Revenue (Last 30 days)' },
-            'weekly': { scan: 'Weekly Scans (Last 12 weeks)', revenue: 'Weekly Revenue (Last 12 weeks)' },
-            'monthly': { scan: 'Monthly Scans (Last 12 months)', revenue: 'Monthly Revenue (Last 12 months)' }
-        };
-
-        const currentLabels = labels[timeRange] || labels['weekly'];
-        document.getElementById('scanChartLabel').textContent = currentLabels.scan;
-        document.getElementById('revenueChartLabel').textContent = currentLabels.revenue;
     }
 
     // Update charts
     function updateCharts(charts) {
-        if (!charts) {
-            console.warn('No charts data provided');
-            return;
-        }
-
         // Destroy existing charts
-        if (dailyScansChart) dailyScansChart.destroy();
-        if (revenueChart) revenueChart.destroy();
-        if (departmentChart) departmentChart.destroy();
-        if (peakHoursChart) peakHoursChart.destroy();
+        destroyCharts();
 
-        // Daily Scans Chart
-        const dailyCtx = document.getElementById('dailyScansChart').getContext('2d');
-        dailyScansChart = new Chart(dailyCtx, {
-            type: 'line',
-            data: {
-                labels: charts.daily_scans?.labels || [],
-                datasets: [{
-                    label: 'Scans',
-                    data: charts.daily_scans?.data || [],
-                    borderColor: chartColors.primary,
-                    backgroundColor: 'rgba(37, 150, 190, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: chartColors.primary,
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                        titleColor: '#ffffff',
-                        bodyColor: '#ffffff',
-                        borderColor: chartColors.primary,
-                        borderWidth: 1
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            stepSize: 5,
-                            color: '#6b7280'
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            color: '#6b7280'
-                        }
-                    }
-                },
-                interaction: {
+        // Ensure we have data
+        const scanData = charts.daily_scans || { labels: [], data: [] };
+        const revenueData = charts.revenue || { labels: [], data: [] };
+        const deptData = charts.departments || { labels: [], data: [] };
+        const peakData = charts.peak_hours || { labels: [], data: [] };
+        const dayOfWeekData = charts.day_of_week || { labels: [], data: [] };
+
+        // Initialize charts with data
+        initializeScansChart(scanData);
+        initializeRevenueChart(revenueData);
+        initializeDepartmentChart(deptData);
+        initializePeakHoursChart(peakData);
+        initializeDayOfWeekChart(dayOfWeekData);
+    }
+
+    // Initialize empty charts when no data
+    function initializeEmptyCharts() {
+        destroyCharts();
+        initializeScansChart({ labels: [], data: [] });
+        initializeRevenueChart({ labels: [], data: [] });
+        initializeDepartmentChart({ labels: [], data: [] });
+        initializePeakHoursChart({ labels: [], data: [] });
+        initializeDayOfWeekChart({ labels: [], data: [] });
+    }
+
+    // Destroy all charts
+    function destroyCharts() {
+        if (dailyScansChart) { dailyScansChart.destroy(); dailyScansChart = null; }
+        if (revenueChart) { revenueChart.destroy(); revenueChart = null; }
+        if (departmentChart) { departmentChart.destroy(); departmentChart = null; }
+        if (peakHoursChart) { peakHoursChart.destroy(); peakHoursChart = null; }
+        if (dayOfWeekChart) { dayOfWeekChart.destroy(); dayOfWeekChart = null; }
+    }
+
+    // Initialize scans chart
+    function initializeScansChart(data) {
+        const ctx = document.getElementById('dailyScansChart').getContext('2d');
+
+        const chartData = {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Number of Scans',
+                data: data.data || [],
+                borderColor: chartColors.primary,
+                backgroundColor: currentChartTypes.scans === 'line'
+                    ? 'rgba(37, 150, 190, 0.1)'
+                    : chartColors.primary,
+                borderWidth: 2,
+                fill: currentChartTypes.scans === 'line',
+                tension: 0.4,
+                pointBackgroundColor: chartColors.primary,
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        };
+
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
                     intersect: false,
-                    mode: 'index'
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: chartColors.primary,
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            return `Scans: ${context.raw}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    ticks: {
+                        stepSize: 1,
+                        color: '#6b7280',
+                        callback: function(value) {
+                            return Math.floor(value);
+                        }
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: '#6b7280',
+                        maxRotation: 45,
+                        maxTicksLimit: 10
+                    }
                 }
             }
-        });
+        };
 
-        // Revenue Chart
-        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-        revenueChart = new Chart(revenueCtx, {
-            type: 'bar',
-            data: {
-                labels: charts.revenue?.labels || [],
-                datasets: [{
-                    label: 'Revenue (Ksh)',
-                    data: charts.revenue?.data || [],
-                    backgroundColor: chartColors.success,
+        dailyScansChart = new Chart(ctx, {
+            type: currentChartTypes.scans,
+            data: chartData,
+            options: options
+        });
+    }
+
+    // Initialize revenue chart
+    function initializeRevenueChart(data) {
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+
+        const chartData = {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Revenue (Ksh)',
+                data: data.data || [],
+                borderColor: chartColors.success,
+                backgroundColor: currentChartTypes.revenue === 'line'
+                    ? 'rgba(16, 185, 129, 0.1)'
+                    : chartColors.success,
+                borderWidth: 2,
+                fill: currentChartTypes.revenue === 'line',
+                tension: 0.4,
+                pointBackgroundColor: chartColors.success,
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }]
+        };
+
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
                     borderColor: chartColors.success,
                     borderWidth: 1,
-                    borderRadius: 4,
-                    borderSkipped: false
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return 'Revenue: Ksh ' + context.raw.toLocaleString('en-KE', { minimumFractionDigits: 2 });
-                            }
-                        },
-                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                        titleColor: '#ffffff',
-                        bodyColor: '#ffffff'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            color: '#6b7280',
-                            callback: function(value) {
-                                return 'Ksh ' + value.toLocaleString();
-                            }
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            color: '#6b7280',
-                            maxRotation: 45
+                    callbacks: {
+                        label: function(context) {
+                            return 'Revenue: Ksh ' + formatCurrency(context.raw);
                         }
                     }
                 }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    ticks: {
+                        color: '#6b7280',
+                        callback: function(value) {
+                            return 'Ksh ' + formatCurrency(value);
+                        }
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: '#6b7280',
+                        maxRotation: 45,
+                        maxTicksLimit: 10
+                    }
+                }
             }
-        });
+        };
 
-        // Department Chart
-        const deptCtx = document.getElementById('departmentChart').getContext('2d');
+        revenueChart = new Chart(ctx, {
+            type: currentChartTypes.revenue,
+            data: chartData,
+            options: options
+        });
+    }
+
+    // Initialize department chart
+    function initializeDepartmentChart(data) {
+        const ctx = document.getElementById('departmentChart').getContext('2d');
+
         const departmentColors = [
             chartColors.primary,
-            chartColors.secondary,
             chartColors.success,
             chartColors.warning,
             chartColors.purple,
+            chartColors.secondary,
             chartColors.info,
             chartColors.pink,
             '#f97316'
         ];
 
-        departmentChart = new Chart(deptCtx, {
-            type: 'doughnut',
-            data: {
-                labels: charts.departments?.labels || [],
-                datasets: [{
-                    data: charts.departments?.data || [],
-                    backgroundColor: departmentColors,
-                    borderWidth: 2,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '65%',
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            padding: 20,
-                            usePointStyle: true,
-                            pointStyle: 'circle',
-                            color: '#6b7280'
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = Math.round((context.raw / total) * 100);
-                                return `${context.label}: ${context.raw} scans (${percentage}%)`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        const chartData = {
+            labels: data.labels || ['No Data'],
+            datasets: [{
+                data: data.data || [1],
+                backgroundColor: data.data && data.data.length > 0
+                    ? departmentColors.slice(0, data.data.length)
+                    : ['#e5e7eb'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        };
 
-        // Peak Hours Chart
-        const peakCtx = document.getElementById('peakHoursChart').getContext('2d');
-        peakHoursChart = new Chart(peakCtx, {
-            type: 'bar',
-            data: {
-                labels: charts.peak_hours?.labels || [],
-                datasets: [{
-                    label: 'Scans per Hour',
-                    data: charts.peak_hours?.data || [],
-                    backgroundColor: chartColors.purple,
-                    borderColor: chartColors.purple,
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    borderSkipped: false
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        color: '#6b7280',
+                        boxWidth: 10
                     }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            stepSize: 1,
-                            color: '#6b7280'
-                        },
-                        title: {
-                            display: true,
-                            text: 'Number of Scans',
-                            color: '#6b7280'
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            color: '#6b7280'
-                        },
-                        title: {
-                            display: true,
-                            text: 'Time of Day',
-                            color: '#6b7280'
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? Math.round((context.raw / total) * 100) : 0;
+                            return `${context.label}: ${context.raw} scans (${percentage}%)`;
                         }
                     }
                 }
             }
+        };
+
+        departmentChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: chartData,
+            options: options
+        });
+    }
+
+    // Initialize peak hours chart
+    function initializePeakHoursChart(data) {
+        const ctx = document.getElementById('peakHoursChart').getContext('2d');
+
+        const chartData = {
+            labels: data.labels || [],
+            datasets: [{
+                label: 'Scans per Hour',
+                data: data.data || [],
+                backgroundColor: chartColors.purple,
+                borderColor: chartColors.purple,
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        };
+
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.raw} scans`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    ticks: {
+                        stepSize: 1,
+                        color: '#6b7280'
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: '#6b7280',
+                        maxRotation: 45
+                    }
+                }
+            }
+        };
+
+        peakHoursChart = new Chart(ctx, {
+            type: 'bar',
+            data: chartData,
+            options: options
+        });
+    }
+
+    // Initialize day of week chart
+    function initializeDayOfWeekChart(data) {
+        const ctx = document.getElementById('dayOfWeekChart').getContext('2d');
+
+        const chartData = {
+            labels: data.labels || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                data: data.data || [0, 0, 0, 0, 0, 0, 0],
+                backgroundColor: chartColors.info,
+                borderColor: chartColors.info,
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        };
+
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: true }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    display: false,
+                    grid: { display: false }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#6b7280' }
+                }
+            }
+        };
+
+        dayOfWeekChart = new Chart(ctx, {
+            type: 'bar',
+            data: chartData,
+            options: options
         });
     }
 
@@ -576,49 +794,121 @@
 
         tbody.innerHTML = employees.map((employee, index) => {
             const rankColors = [
-                'bg-yellow-100 text-yellow-800', // 1st
-                'bg-gray-100 text-gray-800',     // 2nd
-                'bg-orange-100 text-orange-800'  // 3rd
+                'bg-yellow-100 text-yellow-800 border-yellow-200', // 1st
+                'bg-gray-100 text-gray-800 border-gray-200',     // 2nd
+                'bg-orange-100 text-orange-800 border-orange-200'  // 3rd
             ];
-            const rankColor = index < 3 ? rankColors[index] : 'bg-blue-100 text-blue-800';
-
-            // Calculate average daily (simplified)
-            const avgDaily = currentTimeRange === 'daily'
-                ? employee.total_scans / 30
-                : currentTimeRange === 'weekly'
-                ? employee.total_scans / 12
-                : employee.total_scans / 12;
+            const rankColor = index < 3 ? rankColors[index] : 'bg-blue-50 text-blue-800 border-blue-200';
 
             return `
                 <tr class="hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full ${rankColor} font-semibold text-sm border">
+                            ${index + 1}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex items-center">
-                            <div class="w-8 h-8 flex items-center justify-center rounded-full ${rankColor} font-semibold mr-3">
-                                ${index + 1}
-                            </div>
                             <div>
-                                <div class="text-sm font-medium text-gray-900">${employee.formal_name}</div>
-                                <div class="text-sm text-gray-500">${employee.employee_code}</div>
+                                <div class="text-sm font-medium text-gray-900">${employee.formal_name || 'N/A'}</div>
+                                <div class="text-sm text-gray-500">${employee.employee_code || 'N/A'}</div>
                             </div>
                         </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${employee.department}
-                    </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                            ${employee.total_scans} scans
+                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                            ${employee.department || 'N/A'}
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${employee.last_scan}
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="font-semibold">${employee.total_scans || 0}</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${avgDaily.toFixed(1)}/day
+                        ${employee.last_scan || 'N/A'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${(employee.avg_daily || 0).toFixed(1)}/day
                     </td>
                 </tr>
             `;
         }).join('');
+    }
+
+    // Update quick insights
+    function updateQuickInsights(insights) {
+        document.getElementById('mostActiveDay').textContent = insights.most_active_day || 'N/A';
+        document.getElementById('peakHour').textContent = insights.peak_hour || 'N/A';
+        document.getElementById('topDepartment').textContent = insights.top_department || 'N/A';
+        document.getElementById('growthRate').textContent = formatPercentage(insights.growth_rate || 0);
+    }
+
+    // Update weekly comparison
+    function updateWeeklyComparison(comparison) {
+        const thisWeek = comparison.this_week || 0;
+        const lastWeek = comparison.last_week || 0;
+        const max = Math.max(thisWeek, lastWeek, 1);
+
+        document.getElementById('thisWeek').textContent = thisWeek;
+        document.getElementById('lastWeek').textContent = lastWeek;
+
+        document.getElementById('thisWeekBar').style.width = (thisWeek / max * 100) + '%';
+        document.getElementById('lastWeekBar').style.width = (lastWeek / max * 100) + '%';
+
+        const change = lastWeek > 0 ? ((thisWeek - lastWeek) / lastWeek * 100) : 0;
+        const changeText = formatPercentage(change) + ' vs last week';
+        const changeElement = document.getElementById('weeklyChange');
+        changeElement.textContent = changeText;
+        changeElement.className = change >= 0 ? 'text-sm text-green-600' : 'text-sm text-red-600';
+    }
+
+    // Toggle chart type
+    function toggleChartType(chart, type = null) {
+        if (type) {
+            currentChartTypes[chart] = type;
+        } else {
+            currentChartTypes[chart] = currentChartTypes[chart] === 'line' ? 'bar' : 'line';
+        }
+
+        // Reload charts with new type
+        loadAnalytics();
+    }
+
+    // Update period labels
+    function updatePeriodLabels() {
+        const labels = {
+            'daily': 'Last 30 days',
+            'weekly': 'Last 12 weeks',
+            'monthly': 'Last 12 months'
+        };
+        const label = labels[currentTimeRange] || 'This period';
+        document.getElementById('avgPeriodLabel').textContent = label;
+        document.getElementById('topEmployeesLabel').textContent = `Most frequent scans (${label})`;
+    }
+
+    // Chart loading states
+    function showChartLoading(chart) {
+        const element = document.getElementById(`${chart}ChartLoading`);
+        if (element) element.classList.remove('hidden');
+    }
+
+    function hideChartLoading(chart) {
+        const element = document.getElementById(`${chart}ChartLoading`);
+        if (element) element.classList.add('hidden');
+    }
+
+    // Top employees loading states
+    function showTopEmployeesLoading(show) {
+        const loading = document.getElementById('topEmployeesLoading');
+        const content = document.getElementById('topEmployeesContent');
+        const empty = document.getElementById('topEmployeesEmpty');
+
+        if (show) {
+            loading.classList.remove('hidden');
+            content.classList.add('hidden');
+            empty.classList.add('hidden');
+        } else {
+            loading.classList.add('hidden');
+        }
     }
 
     // Refresh analytics
@@ -626,36 +916,18 @@
         loadAnalytics();
     }
 
-    // Loading states
-    function showGlobalLoading(show) {
-        // You can add a global loading indicator if needed
-        if (show) {
-            // Show loading state
-        } else {
-            // Hide loading state
-        }
+    // Utility functions
+    function formatNumber(num) {
+        return num?.toLocaleString() || '0';
     }
 
-    function showTopEmployeesLoading(show) {
-        const loading = document.getElementById('topEmployeesLoading');
-        const content = document.getElementById('topEmployeesContent');
-
-        if (show) {
-            loading.classList.remove('hidden');
-            content.classList.add('hidden');
-        } else {
-            loading.classList.add('hidden');
-        }
+    function formatCurrency(num) {
+        return parseFloat(num || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function showTopEmployeesEmpty() {
-        const emptyState = document.getElementById('topEmployeesEmpty');
-        const content = document.getElementById('topEmployeesContent');
-        const loading = document.getElementById('topEmployeesLoading');
-
-        loading.classList.add('hidden');
-        emptyState.classList.remove('hidden');
-        content.classList.add('hidden');
+    function formatPercentage(num) {
+        const value = parseFloat(num || 0);
+        return (value >= 0 ? '+' : '') + value.toFixed(1) + '%';
     }
 
     function showError(title, message) {
@@ -691,8 +963,13 @@
     /* Chart container styles */
     .chart-container {
         position: relative;
-        height: 256px;
+        height: 100%;
         width: 100%;
+    }
+
+    /* Loading overlay */
+    .chart-loading {
+        backdrop-filter: blur(2px);
     }
 
     /* Responsive adjustments */
@@ -701,7 +978,8 @@
             grid-template-columns: repeat(2, 1fr);
         }
 
-        .lg\:grid-cols-2 {
+        .lg\:grid-cols-2,
+        .lg\:grid-cols-3 {
             grid-template-columns: 1fr;
         }
     }
@@ -723,6 +1001,26 @@
 
     .overflow-x-auto::-webkit-scrollbar-thumb:hover {
         background: #a1a1a1;
+    }
+
+    /* Hover effects for metric cards */
+    .bg-white.rounded-xl {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .bg-white.rounded-xl:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Chart tooltips */
+    .chart-tooltip {
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        border: 1px solid #2596be;
     }
 </style>
 @endsection
