@@ -86,7 +86,8 @@ Route::prefix('analytics')->name('analytics.')->group(function () {
     Route::get('/export/units', [AdminController::class, 'exportUnitAnalytics'])->name('export.units');
     Route::get('/export/unit/{unit}', [AdminController::class, 'exportSingleUnit'])->name('export.unit');
 });
-
+// Add this inside your admin group routes
+Route::get('/analytics/trends/30d', [AdminController::class, 'get30DayTrends'])->name('admin.analytics.trends.30d');
     Route::get('/meals/manual-entry', [AdminMealController::class, 'showManualEntryForm'])
         ->name('meals.manual-entry');
 

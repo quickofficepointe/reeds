@@ -13,7 +13,21 @@ return [
     | a conventional file to locate the various service credentials.
     |
     */
+'kcb_buni' => [
+        'base_url' => env('KCB_BUNI_BASE_URL', 'https://api.buni.kcbgroup.com'),
+        'consumer_key' => env('KCB_BUNI_CONSUMER_KEY'),
+        'consumer_secret' => env('KCB_BUNI_CONSUMER_SECRET'),
+        'environment' => env('KCB_BUNI_ENVIRONMENT', 'sandbox'),
+        'till_number' => env('KCB_TILL_NUMBER'),
+        'callback_base_url' => env('APP_URL'),
+    ],
 
+    'advanta' => [
+        'base_url' => env('ADVANTA_BASE_URL', 'https://quicksms.advantasms.com'),
+        'partner_id' => env('ADVANTA_PARTNER_ID'),
+        'api_key' => env('ADVANTA_API_KEY'),
+        'shortcode' => env('ADVANTA_SHORTCODE', 'QuickOffice'),
+    ],
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

@@ -4,6 +4,7 @@
 <script>
     // Pass PHP data to JavaScript
     window.dashboardTrendData = @json($trendData['daily_scans_7d']);
+    window.dashboardTrendData30d = @json($trendData['daily_scans_30d'] ?? []);
 </script>
 <div class="max-w-7xl mx-auto">
     <!-- Header with Stats Summary -->
@@ -23,8 +24,6 @@
             </div>
         </div>
     </div>
-
-
 
     <!-- Executive Summary Cards -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -240,18 +239,17 @@
     </div>
 
     <!-- Charts & Detailed Analysis -->
-<!-- Charts & Detailed Analysis -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
     <!-- Scan Trends Chart -->
     <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold text-text-black">Scan Trends (7 Days)</h2>
+            <h2 class="text-xl font-bold text-text-black">Scan Trends</h2>
            <div class="flex space-x-2" id="chartPeriodButtons">
-    <button class="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-full period-btn" data-period="7d">7D</button>
-    <button class="px-3 py-1 text-xs bg-gray-100 text-gray-800 rounded-full period-btn" data-period="30d">30D</button>
+    <button class="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-full period-btn" data-period="7d" onclick="load7DayChart()">7D</button>
+    <button class="px-3 py-1 text-xs bg-gray-100 text-gray-800 rounded-full period-btn" data-period="30d" onclick="load30DayChart()">30D</button>
 </div>
         </div>
-        <div class="h-64">
+        <div class="h-64" id="chartContainer">
             <canvas id="scanTrendsChart"></canvas>
         </div>
     </div>
@@ -504,28 +502,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadVendorAnalytics(vendorId, vendorName);
         });
     });
-// Add event listeners for chart period buttons
-document.querySelectorAll('.period-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const period = this.dataset.period;
 
-        // Update button styles
-        document.querySelectorAll('.period-btn').forEach(b => {
-            b.classList.remove('bg-blue-100', 'text-blue-800');
-            b.classList.add('bg-gray-100', 'text-gray-800');
-        });
-
-        this.classList.remove('bg-gray-100', 'text-gray-800');
-        this.classList.add('bg-blue-100', 'text-blue-800');
-
-        // Load appropriate chart
-        if (period === '7d') {
-            load7DayChart();
-        } else if (period === '30d') {
-            load30DayChart();
-        }
-    });
-});
     // Close modal
     closeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -549,282 +526,497 @@ document.querySelectorAll('.period-btn').forEach(btn => {
             modalContent.innerHTML = '';
         }
     });
-   window.exportVendorData = function(format) {
-    const vendorId = window.currentVendorData?.vendor?.id;
-    if (!vendorId) {
-        alert('No vendor data available');
+
+    // Initialize dashboard chart with 7-day data
+    initializeDashboardChart();
+
+    // Auto-refresh every 2 minutes for real-time updates
+    setInterval(() => {
+        updateDashboardStats();
+    }, 120000);
+});
+
+// =============================================
+// CHART FUNCTIONS - UPDATED FOR 30 DAYS
+// =============================================
+
+// Initialize main dashboard chart with data from PHP
+function initializeDashboardChart() {
+    const ctx = document.getElementById('scanTrendsChart');
+    if (!ctx) {
+        console.error('Canvas element not found for scan trends');
         return;
     }
 
-    // Show loading
-    const tabContent = document.getElementById('tabContent');
-    if (tabContent) {
-        tabContent.innerHTML = `
-            <div class="flex justify-center items-center h-64">
-                <div class="text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                    <p class="mt-4 text-gray-600">Preparing ${format.toUpperCase()} export...</p>
-                    <p class="text-sm text-gray-400 mt-2">Your download will start shortly</p>
-                </div>
-            </div>
-        `;
+    // Use 7-day data by default
+    if (typeof window.dashboardTrendData === 'undefined' || !Array.isArray(window.dashboardTrendData) || window.dashboardTrendData.length === 0) {
+        console.warn('No valid trend data');
+        showNoChartData();
+        return;
     }
 
-    // Create a temporary link element to trigger download
-    const link = document.createElement('a');
-    link.href = `/admin/vendor/${vendorId}/analytics/export?format=${format}&period=month&_token=${getCsrfToken()}`;
-    link.target = '_blank';
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
+    const trendData = window.dashboardTrendData;
 
-    // Clean up
-    setTimeout(() => {
-        document.body.removeChild(link);
-        // Show success message
-        if (tabContent) {
-            tabContent.innerHTML = `
-                <div class="flex justify-center items-center h-64">
-                    <div class="text-center">
-                        <i class="fas fa-check-circle text-green-500 text-4xl mb-3"></i>
-                        <p class="text-gray-600">${format.toUpperCase()} export completed!</p>
-                        <p class="text-sm text-gray-400 mt-2">Your download should have started automatically</p>
-                        <button onclick="loadExportTab()" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                            Back to Export
-                        </button>
-                    </div>
-                </div>
-            `;
+    // Prepare data
+    const labels = trendData.map(day => day.date || day.day || 'Unknown');
+    const scans = trendData.map(day => day.scans || 0);
+
+    // Update button states
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        if (btn.dataset.period === '7d') {
+            btn.classList.remove('bg-gray-100', 'text-gray-800');
+            btn.classList.add('bg-blue-100', 'text-blue-800');
+        } else {
+            btn.classList.remove('bg-blue-100', 'text-blue-800');
+            btn.classList.add('bg-gray-100', 'text-gray-800');
         }
-    }, 1000);
-};
+    });
 
-// Helper function to get CSRF token
-function getCsrfToken() {
-    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    return token || '';
-}
-    window.shareVendorAnalytics = function() {
-        const vendorId = window.currentVendorData?.vendor?.id;
-        const emailInput = document.getElementById('recipientEmail');
-        const subjectInput = document.getElementById('emailSubject');
-        const messageInput = document.getElementById('emailMessage');
-        const attachmentCheckbox = document.getElementById('includeAttachment');
-        const formatSelect = document.getElementById('reportFormat');
+    // Check if we already have a chart instance and destroy it properly
+    if (window.scanTrendsChart && typeof window.scanTrendsChart.destroy === 'function') {
+        window.scanTrendsChart.destroy();
+    }
 
-        if (!emailInput || !subjectInput) {
-            alert('Form elements not found');
-            return;
-        }
-
-        const email = emailInput.value;
-        const subject = subjectInput.value;
-        const message = messageInput ? messageInput.value : '';
-        const includeAttachment = attachmentCheckbox ? attachmentCheckbox.checked : false;
-        const format = formatSelect ? formatSelect.value : 'summary';
-
-        if (!email) {
-            alert('Please enter recipient email');
-            return;
-        }
-
-        // Show loading
-        const button = document.querySelector('button[onclick*="shareVendorAnalytics"]');
-        if (button) {
-            const originalText = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
-            button.disabled = true;
-
-            // Get CSRF token
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-
-            fetch(`/admin/vendor/${vendorId}/analytics/share`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken || ''
+    try {
+        window.scanTrendsChart = new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Daily Scans',
+                    data: scans,
+                    borderColor: '#2596be',
+                    backgroundColor: 'rgba(37, 150, 190, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#2596be',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Scans: ${context.parsed.y}`;
+                            }
+                        }
+                    }
                 },
-                body: JSON.stringify({
-                    email: email,
-                    subject: subject,
-                    message: message,
-                    include_attachment: includeAttachment,
-                    format: format,
-                    period: 'month'
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            drawBorder: false,
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            stepSize: 1,
+                            callback: function(value) {
+                                if (Math.floor(value) === value) {
+                                    return value;
+                                }
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
                 }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    alert('✓ Email sent successfully!');
-                    // Reset form
-                    emailInput.value = '';
-                    if (messageInput) messageInput.value = '';
-                } else {
-                    alert('✗ Failed to send email: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('✗ Failed to send email. Please try again.');
-            })
-            .finally(() => {
-                button.innerHTML = originalText;
-                button.disabled = false;
-            });
-        }
-    };
-    function loadVendorAnalytics(vendorId, vendorName) {
-        console.log('Loading analytics for vendor:', vendorId, vendorName);
+            }
+        });
 
-        modalTitle.textContent = `${vendorName} - Analytics`;
-        modalContent.innerHTML = `
-            <div class="flex justify-center items-center h-64">
+        console.log('Dashboard chart created successfully');
+    } catch (error) {
+        console.error('Error creating dashboard chart:', error);
+        showNoChartData();
+    }
+}
+
+// Show placeholder when no chart data
+function showNoChartData() {
+    const chartContainer = document.getElementById('chartContainer');
+    if (chartContainer) {
+        chartContainer.innerHTML = `
+            <div class="flex items-center justify-center h-full">
                 <div class="text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-blue mx-auto"></div>
-                    <p class="mt-4 text-gray-600">Loading analytics...</p>
-                    <p class="text-xs text-gray-400 mt-2">Vendor ID: ${vendorId}</p>
+                    <i class="fas fa-chart-bar text-gray-300 text-4xl mb-3"></i>
+                    <p class="text-gray-500">No chart data available</p>
                 </div>
             </div>
         `;
+    }
+}
 
-        modal.classList.remove('hidden');
+// Load 7-day chart
+function load7DayChart() {
+    console.log('Loading 7-day chart...');
 
-        const url = `/admin/vendor/${vendorId}/analytics?period=month&debug=true`;
-
-        console.log('Fetching from URL:', url);
-
-        fetch(url, {
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': csrfToken
-            }
-        })
-            .then(response => {
-                console.log('Response status:', response.status);
-                if (!response.ok) {
-                    return response.json().then(err => {
-                        console.error('Response error:', err);
-                        throw new Error(err.error || `HTTP error! status: ${response.status}`);
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Analytics data received:', data);
-                if (data.success) {
-                    renderVendorAnalytics(data);
-                } else {
-                    console.error('API returned success:false', data);
-                    showError(data.error || 'Failed to load analytics data');
-                }
-            })
-            .catch(error => {
-                console.error('Error loading vendor analytics:', error);
-                showError('Error loading analytics. Please try again.');
-            });
+    // Recreate canvas if it was replaced
+    const chartContainer = document.getElementById('chartContainer');
+    if (!chartContainer.querySelector('canvas')) {
+        chartContainer.innerHTML = '<canvas id="scanTrendsChart"></canvas>';
     }
 
-    function showError(message) {
-        modalContent.innerHTML = `
-            <div class="text-center py-8">
-                <i class="fas fa-exclamation-triangle text-yellow-500 text-3xl mb-3"></i>
-                <p class="text-gray-600">${message}</p>
-                <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-secondary-blue text-white rounded hover:bg-blue-600">
-                    Retry
+    // Update button states
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        if (btn.dataset.period === '7d') {
+            btn.classList.remove('bg-gray-100', 'text-gray-800');
+            btn.classList.add('bg-blue-100', 'text-blue-800');
+        } else {
+            btn.classList.remove('bg-blue-100', 'text-blue-800');
+            btn.classList.add('bg-gray-100', 'text-gray-800');
+        }
+    });
+
+    // Re-initialize the chart with 7-day data
+    if (typeof window.dashboardTrendData !== 'undefined') {
+        initializeDashboardChart();
+    } else {
+        showNoChartData();
+    }
+}
+
+// Load 30-day chart
+function load30DayChart() {
+    console.log('Loading 30-day chart...');
+
+    // Show loading state
+    const chartContainer = document.getElementById('chartContainer');
+    chartContainer.innerHTML = `
+        <div class="flex items-center justify-center h-full">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                <p class="mt-4 text-gray-600">Loading 30-day data...</p>
+                <p class="text-sm text-gray-400 mt-2">Fetching analytics for the last 30 days</p>
+            </div>
+        </div>
+    `;
+
+    // Update button states
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        if (btn.dataset.period === '30d') {
+            btn.classList.remove('bg-gray-100', 'text-gray-800');
+            btn.classList.add('bg-blue-100', 'text-blue-800');
+        } else {
+            btn.classList.remove('bg-blue-100', 'text-blue-800');
+            btn.classList.add('bg-gray-100', 'text-gray-800');
+        }
+    });
+
+    // Check if we already have 30-day data from PHP
+    if (typeof window.dashboardTrendData30d !== 'undefined' &&
+        Array.isArray(window.dashboardTrendData30d) &&
+        window.dashboardTrendData30d.length > 0) {
+
+        // Use existing 30-day data
+        setTimeout(() => {
+            render30DayChart(window.dashboardTrendData30d);
+        }, 500);
+    } else {
+        // Fetch 30-day data from server
+        fetch30DayData();
+    }
+}
+
+// Fetch 30-day data from server
+function fetch30DayData() {
+    fetch('/admin/analytics/trends/30d', {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success && data.trend_data) {
+            render30DayChart(data.trend_data);
+        } else {
+            throw new Error(data.error || 'Failed to load data');
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching 30-day data:', error);
+        show30DayPlaceholder();
+    });
+}
+
+// Render 30-day chart with data
+function render30DayChart(trendData) {
+    const chartContainer = document.getElementById('chartContainer');
+    chartContainer.innerHTML = '<canvas id="scanTrendsChart"></canvas>';
+
+    const ctx = document.getElementById('scanTrendsChart');
+    if (!ctx) return;
+
+    const labels = trendData.map(day => day.date || day.day || 'Unknown');
+    const scans = trendData.map(day => day.scans || 0);
+
+    // Destroy existing chart if it exists
+    if (window.scanTrendsChart && typeof window.scanTrendsChart.destroy === 'function') {
+        window.scanTrendsChart.destroy();
+    }
+
+    try {
+        window.scanTrendsChart = new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Daily Scans (30 Days)',
+                    data: scans,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Scans: ${context.parsed.y}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            drawBorder: false,
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            stepSize: 1,
+                            callback: function(value) {
+                                if (Math.floor(value) === value) {
+                                    return value;
+                                }
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            maxTicksLimit: 15
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error creating 30-day chart:', error);
+        show30DayPlaceholder();
+    }
+}
+
+// Show placeholder for 30-day chart
+function show30DayPlaceholder() {
+    const chartContainer = document.getElementById('chartContainer');
+    chartContainer.innerHTML = `
+        <div class="flex items-center justify-center h-full">
+            <div class="text-center">
+                <i class="fas fa-chart-line text-blue-300 text-4xl mb-3"></i>
+                <p class="text-gray-500">30-day analytics</p>
+                <p class="text-sm text-gray-400 mt-1 mb-4">Unable to load 30-day data</p>
+                <button onclick="load7DayChart()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm transition duration-150">
+                    <i class="fas fa-arrow-left mr-2"></i> Back to 7-day view
                 </button>
             </div>
-        `;
-    }
+        </div>
+    `;
+}
 
-    function renderVendorAnalytics(data) {
-        const vendor = data.vendor;
-        const stats = data.stats;
+// =============================================
+// VENDOR ANALYTICS FUNCTIONS
+// =============================================
 
-        modalContent.innerHTML = `
-            <!-- Analytics Tabs -->
-            <div class="mb-6">
-                <div class="border-b border-gray-200">
-                    <nav class="-mb-px flex space-x-8 overflow-x-auto">
-                        <button class="tab-btn py-2 px-1 border-b-2 border-secondary-blue font-medium text-sm text-secondary-blue whitespace-nowrap"
-                                data-tab="overview">
-                            Overview
-                        </button>
-                        <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
-                                data-tab="daily">
-                            Daily Scans
-                        </button>
-                        <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
-                                data-tab="weekly">
-                            Weekly Activity
-                        </button>
-                        <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
-                                data-tab="charts">
-                            Charts & Trends
-                        </button>
-                        <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
-                                data-tab="export">
-                            Export & Share
-                        </button>
-                    </nav>
-                </div>
+function loadVendorAnalytics(vendorId, vendorName) {
+    console.log('Loading analytics for vendor:', vendorId, vendorName);
+
+    const modal = document.getElementById('vendorAnalyticsModal');
+    const modalTitle = document.getElementById('vendorModalTitle');
+    const modalContent = document.getElementById('vendorAnalyticsContent');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    modalTitle.textContent = `${vendorName} - Analytics`;
+    modalContent.innerHTML = `
+        <div class="flex justify-center items-center h-64">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-blue mx-auto"></div>
+                <p class="mt-4 text-gray-600">Loading analytics...</p>
+                <p class="text-xs text-gray-400 mt-2">Vendor ID: ${vendorId}</p>
             </div>
+        </div>
+    `;
 
-            <!-- Tab Content -->
-            <div id="tabContent">
-                <!-- Overview tab will be loaded by default -->
-            </div>
-        `;
+    modal.classList.remove('hidden');
 
-        // Store data globally for use in tab functions
-        window.currentVendorData = data;
+    const url = `/admin/vendor/${vendorId}/analytics?period=month&debug=true`;
 
-        // Initialize tab switching
-        initializeTabs();
-        // Load overview by default
-        loadOverviewTab();
-    }
+    console.log('Fetching from URL:', url);
 
-    function initializeTabs() {
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                // Update active tab
-                document.querySelectorAll('.tab-btn').forEach(b => {
-                    b.classList.remove('border-secondary-blue', 'text-secondary-blue');
-                    b.classList.add('border-transparent', 'text-gray-500');
+    fetch(url, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken
+        }
+    })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                return response.json().then(err => {
+                    console.error('Response error:', err);
+                    throw new Error(err.error || `HTTP error! status: ${response.status}`);
                 });
-
-                this.classList.remove('border-transparent', 'text-gray-500');
-                this.classList.add('border-secondary-blue', 'text-secondary-blue');
-
-                // Load tab content
-                const tab = this.dataset.tab;
-                switch(tab) {
-                    case 'overview':
-                        loadOverviewTab();
-                        break;
-                    case 'daily':
-                        loadDailyScansTab();
-                        break;
-                    case 'weekly':
-                        loadWeeklyActivityTab();
-                        break;
-                    case 'charts':
-                        loadChartsTab();
-                        break;
-                    case 'export':
-                        loadExportTab();
-                        break;
-                }
-            });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Analytics data received:', data);
+            if (data.success) {
+                renderVendorAnalytics(data);
+            } else {
+                console.error('API returned success:false', data);
+                showError(data.error || 'Failed to load analytics data');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading vendor analytics:', error);
+            showError('Error loading analytics. Please try again.');
         });
-    }
+}
+
+function showError(message) {
+    const modalContent = document.getElementById('vendorAnalyticsContent');
+    modalContent.innerHTML = `
+        <div class="text-center py-8">
+            <i class="fas fa-exclamation-triangle text-yellow-500 text-3xl mb-3"></i>
+            <p class="text-gray-600">${message}</p>
+            <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-secondary-blue text-white rounded hover:bg-blue-600">
+                Retry
+            </button>
+        </div>
+    `;
+}
+
+function renderVendorAnalytics(data) {
+    const vendor = data.vendor;
+    const stats = data.stats;
+    const modalContent = document.getElementById('vendorAnalyticsContent');
+
+    modalContent.innerHTML = `
+        <!-- Analytics Tabs -->
+        <div class="mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8 overflow-x-auto">
+                    <button class="tab-btn py-2 px-1 border-b-2 border-secondary-blue font-medium text-sm text-secondary-blue whitespace-nowrap"
+                            data-tab="overview">
+                        Overview
+                    </button>
+                    <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
+                            data-tab="daily">
+                        Daily Scans
+                    </button>
+                    <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
+                            data-tab="weekly">
+                        Weekly Activity
+                    </button>
+                    <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
+                            data-tab="charts">
+                        Charts & Trends
+                    </button>
+                    <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
+                            data-tab="export">
+                        Export & Share
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="tabContent">
+            <!-- Overview tab will be loaded by default -->
+        </div>
+    `;
+
+    // Store data globally for use in tab functions
+    window.currentVendorData = data;
+
+    // Initialize tab switching
+    initializeTabs();
+    // Load overview by default
+    loadOverviewTab();
+}
+
+function initializeTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Update active tab
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('border-secondary-blue', 'text-secondary-blue');
+                b.classList.add('border-transparent', 'text-gray-500');
+            });
+
+            this.classList.remove('border-transparent', 'text-gray-500');
+            this.classList.add('border-secondary-blue', 'text-secondary-blue');
+
+            // Load tab content
+            const tab = this.dataset.tab;
+            switch(tab) {
+                case 'overview':
+                    loadOverviewTab();
+                    break;
+                case 'daily':
+                    loadDailyScansTab();
+                    break;
+                case 'weekly':
+                    loadWeeklyActivityTab();
+                    break;
+                case 'charts':
+                    loadChartsTab();
+                    break;
+                case 'export':
+                    loadExportTab();
+                    break;
+            }
+        });
+    });
+}
 
 function loadOverviewTab() {
     const data = window.currentVendorData;
@@ -899,7 +1091,6 @@ function loadOverviewTab() {
                 <h4 class="font-semibold mb-3">Top Departments</h4>
                 <div class="space-y-2">
                     ${topDepartments.map(dept => {
-                        // Safely parse revenue and scans
                         const revenue = parseFloat(dept.revenue) || 0;
                         const scans = parseInt(dept.scans) || 0;
                         const departmentName = dept.department || 'Unknown';
@@ -924,7 +1115,6 @@ function loadOverviewTab() {
                 <h4 class="font-semibold mb-3">Top Customers</h4>
                 <div class="space-y-2">
                     ${topCustomers.slice(0, 5).map(customer => {
-                        // Safely parse customer data
                         const visits = parseInt(customer.visits) || 0;
                         const totalSpent = parseFloat(customer.total_spent) || 0;
                         const avgSpent = parseFloat(customer.avg_spent) || 0;
@@ -953,7 +1143,7 @@ function loadOverviewTab() {
     document.getElementById('tabContent').innerHTML = content;
 }
 
-   function loadDailyScansTab() {
+function loadDailyScansTab() {
     const data = window.currentVendorData;
     const dailyScans = data.daily_scans || {};
 
@@ -974,7 +1164,6 @@ function loadOverviewTab() {
     // Daily scans table
     if (Object.keys(dailyScans).length > 0) {
         Object.entries(dailyScans).forEach(([date, transactions]) => {
-            // Safely calculate total amount
             const totalAmount = Array.isArray(transactions)
                 ? transactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
                 : 0;
@@ -1049,71 +1238,70 @@ function loadOverviewTab() {
     document.getElementById('tabContent').innerHTML = content;
 }
 
-    function loadWeeklyActivityTab() {
-        const data = window.currentVendorData;
-        const weeklyActivity = data.weekly_activity || [];
+function loadWeeklyActivityTab() {
+    const data = window.currentVendorData;
+    const weeklyActivity = data.weekly_activity || [];
 
-        const totalScans = weeklyActivity.reduce((sum, day) => sum + (day.scans || 0), 0);
-        const avgScans = weeklyActivity.length > 0 ? totalScans / weeklyActivity.length : 0;
+    const totalScans = weeklyActivity.reduce((sum, day) => sum + (day.scans || 0), 0);
+    const avgScans = weeklyActivity.length > 0 ? totalScans / weeklyActivity.length : 0;
 
-        const content = `
-            <div class="space-y-6">
-                <div class="bg-white p-6 rounded-lg border shadow-sm">
-                    <h4 class="font-semibold mb-4">Weekly Activity</h4>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Day</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scans</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg. per Scan</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200">
-                                ${weeklyActivity.map(day => {
-                                    const performance = (day.scans || 0) > avgScans ? 'Above Average' : 'Below Average';
-                                    const performanceColor = (day.scans || 0) > avgScans ? 'text-green-600 bg-green-50' : 'text-yellow-600 bg-yellow-50';
+    const content = `
+        <div class="space-y-6">
+            <div class="bg-white p-6 rounded-lg border shadow-sm">
+                <h4 class="font-semibold mb-4">Weekly Activity</h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Day</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scans</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg. per Scan</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            ${weeklyActivity.map(day => {
+                                const performance = (day.scans || 0) > avgScans ? 'Above Average' : 'Below Average';
+                                const performanceColor = (day.scans || 0) > avgScans ? 'text-green-600 bg-green-50' : 'text-yellow-600 bg-yellow-50';
 
-                                    return `
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="px-4 py-3">
-                                                <p class="font-medium">${day.day || 'N/A'}</p>
-                                            </td>
-                                            <td class="px-4 py-3">
-                                                <p class="text-lg font-semibold">${day.scans || 0}</p>
-                                            </td>
-                                            <td class="px-4 py-3">
-                                                <p class="text-lg font-semibold text-green-600">KSh ${(day.revenue || 0).toFixed(2)}</p>
-                                            </td>
-                                            <td class="px-4 py-3">
-                                                <p class="text-sm">KSh ${(day.avg_per_scan || 0).toFixed(2)}</p>
-                                            </td>
-                                            <td class="px-4 py-3">
-                                                <span class="px-2 py-1 rounded-full text-xs ${performanceColor}">
-                                                    ${performance}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>
+                                return `
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-3">
+                                            <p class="font-medium">${day.day || 'N/A'}</p>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <p class="text-lg font-semibold">${day.scans || 0}</p>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <p class="text-lg font-semibold text-green-600">KSh ${(day.revenue || 0).toFixed(2)}</p>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <p class="text-sm">KSh ${(day.avg_per_scan || 0).toFixed(2)}</p>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <span class="px-2 py-1 rounded-full text-xs ${performanceColor}">
+                                                ${performance}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        `;
+        </div>
+    `;
 
-        document.getElementById('tabContent').innerHTML = content;
-    }
+    document.getElementById('tabContent').innerHTML = content;
+}
 
-    function loadChartsTab() {
+function loadChartsTab() {
     const data = window.currentVendorData;
 
     const content = `
         <div class="space-y-6">
-            <!-- Chart container -->
             <div class="bg-white p-6 rounded-lg border shadow-sm">
                 <h4 class="font-semibold mb-4">Analytics Charts</h4>
                 <p class="text-gray-500 mb-4">Visual representation of vendor performance data</p>
@@ -1146,7 +1334,7 @@ function loadOverviewTab() {
 
     document.getElementById('tabContent').innerHTML = content;
 
-    // Initialize charts after a short delay to ensure canvas is rendered
+    // Initialize charts after a short delay
     setTimeout(() => {
         if (data.time_series_data && data.time_series_data.length > 0) {
             initializeTimeSeriesChart(data.time_series_data);
@@ -1165,14 +1353,11 @@ function initializeTimeSeriesChart(timeSeriesData) {
         return;
     }
 
-    // Check if we already have a chart instance and destroy it properly
     if (window.timeSeriesChart && typeof window.timeSeriesChart.destroy === 'function') {
         window.timeSeriesChart.destroy();
     }
 
-    // Prepare data
     const labels = timeSeriesData.map(item => {
-        // Format date nicely
         if (item.date) {
             const date = new Date(item.date);
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -1228,8 +1413,6 @@ function initializeTimeSeriesChart(timeSeriesData) {
                 }
             }
         });
-
-        console.log('Time series chart created successfully');
     } catch (error) {
         console.error('Error creating time series chart:', error);
     }
@@ -1239,12 +1422,10 @@ function initializeDepartmentChart(departmentData) {
     const ctx = document.getElementById('departmentChart');
     if (!ctx) return;
 
-    // Destroy existing chart if it exists
     if (window.departmentChart) {
         window.departmentChart.destroy();
     }
 
-    // Sort by scans (descending) and take top 5
     const sortedData = departmentData
         .sort((a, b) => (b.scans || 0) - (a.scans || 0))
         .slice(0, 5);
@@ -1252,7 +1433,6 @@ function initializeDepartmentChart(departmentData) {
     const labels = sortedData.map(dept => dept.department || 'Unknown');
     const scans = sortedData.map(dept => dept.scans || 0);
 
-    // Generate colors
     const colors = [
         '#e92c2a', '#2596be', '#10b981', '#f59e0b', '#8b5cf6',
         '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7'
@@ -1299,206 +1479,13 @@ function initializeDepartmentChart(departmentData) {
         }
     });
 }
-// Initialize main dashboard chart with data from PHP
-function initializeDashboardChart() {
-    const ctx = document.getElementById('scanTrendsChart');
-    if (!ctx) {
-        console.error('Canvas element not found for scan trends');
-        return;
-    }
 
-    // Use data passed from PHP - make sure this variable exists
-    if (typeof window.dashboardTrendData === 'undefined') {
-        console.error('Dashboard trend data not found');
-        // Show placeholder message
-        ctx.style.display = 'none';
-        const parent = ctx.parentElement;
-        parent.innerHTML = `
-            <div class="flex items-center justify-center h-full">
-                <div class="text-center">
-                    <i class="fas fa-chart-bar text-gray-300 text-4xl mb-3"></i>
-                    <p class="text-gray-500">No chart data available</p>
-                </div>
-            </div>
-        `;
-        return;
-    }
-
-    const trendData = window.dashboardTrendData;
-
-    // Check if data is valid
-    if (!Array.isArray(trendData) || trendData.length === 0) {
-        console.warn('No valid trend data');
-        return;
-    }
-
-    // Prepare data
-    const labels = trendData.map(day => day.day || day.date || 'Unknown');
-    const scans = trendData.map(day => day.scans || 0);
-
-    // Check if we already have a chart instance and destroy it properly
-    if (window.scanTrendsChart && typeof window.scanTrendsChart.destroy === 'function') {
-        window.scanTrendsChart.destroy();
-    }
-
-    try {
-        window.scanTrendsChart = new Chart(ctx.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Daily Scans',
-                    data: scans,
-                    backgroundColor: '#2596be',
-                    borderColor: '#1e7a9e',
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    barPercentage: 0.6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `Scans: ${context.parsed.y}`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            drawBorder: false
-                        },
-                        ticks: {
-                            stepSize: 1
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    }
-                }
-            }
-        });
-
-        console.log('Dashboard chart created successfully');
-    } catch (error) {
-        console.error('Error creating dashboard chart:', error);
-    }
-}
-
-// Load 7-day chart
-// Load 7-day chart
-function load7DayChart() {
-    console.log('Loading 7-day chart...');
-
-    // Update button states
-    document.querySelectorAll('#scanTrendsChart').forEach(btn => {
-        const parent = btn.closest('.bg-white');
-        if (parent) {
-            const sevenDayBtn = parent.querySelector('button:nth-child(1)');
-            const thirtyDayBtn = parent.querySelector('button:nth-child(2)');
-
-            if (sevenDayBtn) {
-                sevenDayBtn.classList.remove('bg-gray-100', 'text-gray-800');
-                sevenDayBtn.classList.add('bg-blue-100', 'text-blue-800');
-            }
-            if (thirtyDayBtn) {
-                thirtyDayBtn.classList.remove('bg-blue-100', 'text-blue-800');
-                thirtyDayBtn.classList.add('bg-gray-100', 'text-gray-800');
-            }
-        }
-    });
-
-    // Re-initialize the chart with current data
-    initializeDashboardChart();
-}
-
-// Load 30-day chart
-function load30DayChart() {
-    console.log('Loading 30-day chart...');
-
-    // Update button states
-    document.querySelectorAll('#scanTrendsChart').forEach(btn => {
-        const parent = btn.closest('.bg-white');
-        if (parent) {
-            const sevenDayBtn = parent.querySelector('button:nth-child(1)');
-            const thirtyDayBtn = parent.querySelector('button:nth-child(2)');
-
-            if (sevenDayBtn) {
-                sevenDayBtn.classList.remove('bg-blue-100', 'text-blue-800');
-                sevenDayBtn.classList.add('bg-gray-100', 'text-gray-800');
-            }
-            if (thirtyDayBtn) {
-                thirtyDayBtn.classList.remove('bg-gray-100', 'text-gray-800');
-                thirtyDayBtn.classList.add('bg-blue-100', 'text-blue-800');
-            }
-        }
-    });
-
-    // Show loading state
-    const chartContainer = document.querySelector('#scanTrendsChart');
-    if (chartContainer) {
-        const parent = chartContainer.parentElement;
-        parent.innerHTML = `
-            <div class="flex items-center justify-center h-full">
-                <div class="text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                    <p class="mt-4 text-gray-600">Loading 30-day data...</p>
-                    <p class="text-sm text-gray-400 mt-2">Fetching analytics for the last 30 days</p>
-                </div>
-            </div>
-        `;
-
-        // Simulate API call - in reality, you would fetch from your server
-        setTimeout(() => {
-            // For now, show a message since we don't have 30-day data
-            parent.innerHTML = `
-                <div class="flex items-center justify-center h-full">
-                    <div class="text-center">
-                        <i class="fas fa-chart-line text-blue-300 text-4xl mb-3"></i>
-                        <p class="text-gray-500">30-day analytics</p>
-                        <p class="text-sm text-gray-400 mt-1 mb-4">This feature requires additional backend implementation</p>
-                        <div class="space-y-2">
-                            <p class="text-xs text-gray-500">To implement:</p>
-                            <p class="text-xs text-gray-500">1. Create API endpoint for 30-day data</p>
-                            <p class="text-xs text-gray-500">2. Update getDailyScansTrend() method</p>
-                            <p class="text-xs text-gray-500">3. Add AJAX call here</p>
-                        </div>
-                        <button onclick="load7DayChart()" class="mt-6 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm transition duration-150">
-                            <i class="fas fa-arrow-left mr-2"></i> Back to 7-day view
-                        </button>
-                    </div>
-                </div>
-            `;
-        }, 1500);
-    }
-}
-
-// Load 30-day chart (placeholder)
-// Load 30-day chart (placeholder - you need to implement the backend)
-
-
-// Load 7-day chart (refresh current view)
-function load7DayChart() {
-    initializeDashboardChart();
-}
 function loadExportTab() {
     const data = window.currentVendorData;
     const vendor = data.vendor;
 
     const content = `
         <div class="space-y-6">
-            <!-- Export Options -->
             <div class="bg-white p-6 rounded-lg border shadow-sm">
                 <h4 class="font-semibold mb-4">Export Analytics</h4>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1517,7 +1504,7 @@ function loadExportTab() {
                         </div>
                         <div class="space-y-2">
                             <p class="text-sm text-gray-600">Export vendor analytics to Excel format</p>
-                            <button onclick="window.exportVendorData('excel')"
+                            <button onclick="exportVendorData('excel')"
                                     class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition duration-150">
                                 <i class="fas fa-download mr-2"></i>Export to Excel
                             </button>
@@ -1539,7 +1526,7 @@ function loadExportTab() {
                         </div>
                         <div class="space-y-2">
                             <p class="text-sm text-gray-600">Generate PDF report with charts and insights</p>
-                            <button onclick="window.exportVendorData('pdf')"
+                            <button onclick="exportVendorData('pdf')"
                                     class="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition duration-150">
                                 <i class="fas fa-download mr-2"></i>Export to PDF
                             </button>
@@ -1548,48 +1535,45 @@ function loadExportTab() {
                 </div>
             </div>
 
-            <!-- Share via Email
             <div class="bg-white p-6 rounded-lg border shadow-sm">
                 <h4 class="font-semibold mb-4">Share via Email</h4>
-                <div id="emailForm">
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Recipient Email</label>
-                            <input type="email" id="recipientEmail"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                   placeholder="email@example.com">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                            <input type="text" id="emailSubject"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                   value="${vendor.name} - Analytics Report" placeholder="Report Subject">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Message (Optional)</label>
-                            <textarea id="emailMessage" rows="3"
-                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      placeholder="Add a custom message..."></textarea>
-                        </div>
-                        <div class="flex items-center space-x-4">
-                            <div class="flex items-center">
-                                <input type="checkbox" id="includeAttachment" class="h-4 w-4 text-blue-600">
-                                <label for="includeAttachment" class="ml-2 text-sm text-gray-700">Include report as attachment</label>
-                            </div>
-                            <div>
-                                <select id="reportFormat" class="px-3 py-2 border border-gray-300 rounded-md text-sm">
-                                    <option value="summary">Summary</option>
-                                    <option value="detailed">Detailed</option>
-                                    <option value="pdf">PDF</option>
-                                    <option value="excel">Excel</option>
-                                </select>
-                            </div>
-                        </div>
-                        <button onclick="window.shareVendorAnalytics()"
-                                class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition duration-150">
-                            <i class="fas fa-paper-plane mr-2"></i>Send Email
-                        </button>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Recipient Email</label>
+                        <input type="email" id="recipientEmail"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="email@example.com">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                        <input type="text" id="emailSubject"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               value="${vendor.name} - Analytics Report" placeholder="Report Subject">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Message (Optional)</label>
+                        <textarea id="emailMessage" rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Add a custom message..."></textarea>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="includeAttachment" class="h-4 w-4 text-blue-600">
+                            <label for="includeAttachment" class="ml-2 text-sm text-gray-700">Include report as attachment</label>
+                        </div>
+                        <div>
+                            <select id="reportFormat" class="px-3 py-2 border border-gray-300 rounded-md text-sm">
+                                <option value="summary">Summary</option>
+                                <option value="detailed">Detailed</option>
+                                <option value="pdf">PDF</option>
+                                <option value="excel">Excel</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="shareVendorAnalytics()"
+                            class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition duration-150">
+                        <i class="fas fa-paper-plane mr-2"></i>Send Email
+                    </button>
                 </div>
             </div>
         </div>
@@ -1597,8 +1581,8 @@ function loadExportTab() {
 
     document.getElementById('tabContent').innerHTML = content;
 }
--->
-// Add these helper functions at the end of your script
+
+// Export function for vendor data
 function exportVendorData(format) {
     const vendorId = window.currentVendorData?.vendor?.id;
     if (!vendorId) {
@@ -1607,31 +1591,10 @@ function exportVendorData(format) {
     }
 
     const url = `/admin/vendor/${vendorId}/analytics/export?format=${format}&period=month`;
-
-    // Show loading
-    document.getElementById('tabContent').innerHTML = `
-        <div class="flex justify-center items-center h-64">
-            <div class="text-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                <p class="mt-4 text-gray-600">Preparing ${format.toUpperCase()} export...</p>
-            </div>
-        </div>
-    `;
-
-    // Create a hidden iframe to trigger download
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-
-    // Remove iframe after a delay
-    setTimeout(() => {
-        document.body.removeChild(iframe);
-        // Reload the export tab
-        loadExportTab();
-    }, 2000);
+    window.open(url, '_blank');
 }
 
+// Share function for vendor analytics
 function shareVendorAnalytics() {
     const vendorId = window.currentVendorData?.vendor?.id;
     const email = document.getElementById('recipientEmail').value;
@@ -1639,20 +1602,17 @@ function shareVendorAnalytics() {
     const message = document.getElementById('emailMessage').value;
     const includeAttachment = document.getElementById('includeAttachment').checked;
     const format = document.getElementById('reportFormat').value;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
     if (!email) {
         alert('Please enter recipient email');
         return;
     }
 
-    // Show loading
     const button = document.querySelector('button[onclick="shareVendorAnalytics()"]');
     const originalText = button.innerHTML;
     button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
     button.disabled = true;
-
-    // Get CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
     fetch(`/admin/vendor/${vendorId}/analytics/share`, {
         method: 'POST',
@@ -1673,7 +1633,6 @@ function shareVendorAnalytics() {
     .then(data => {
         if (data.success) {
             alert('Email sent successfully!');
-            // Reset form
             document.getElementById('recipientEmail').value = '';
             document.getElementById('emailMessage').value = '';
         } else {
@@ -1690,34 +1649,27 @@ function shareVendorAnalytics() {
     });
 }
 
-    // Auto-refresh every 2 minutes for real-time updates
-    setInterval(() => {
-        updateDashboardStats();
-    }, 120000);
+// Dashboard stats update function
+async function updateDashboardStats() {
+    try {
+        const response = await fetch('/admin/dashboard/stats');
+        const data = await response.json();
 
-    async function updateDashboardStats() {
-        try {
-            const response = await fetch('/admin/dashboard/stats');
-            const data = await response.json();
-
-            if (data.success) {
-                // Update key metrics
-                updateMetric('today_scans', data.stats.today_scans);
-                updateMetric('total_revenue_today', 'KSh ' + data.stats.total_revenue_today.toLocaleString());
-                updateMetric('employee_participation_rate', data.stats.employee_participation_rate + '%');
-            }
-        } catch (error) {
-            console.error('Failed to update dashboard stats:', error);
+        if (data.success) {
+            updateMetric('today_scans', data.stats.today_scans);
+            updateMetric('total_revenue_today', 'KSh ' + data.stats.total_revenue_today.toLocaleString());
+            updateMetric('employee_participation_rate', data.stats.employee_participation_rate + '%');
         }
+    } catch (error) {
+        console.error('Failed to update dashboard stats:', error);
     }
+}
 
-    function updateMetric(elementId, value) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.textContent = value;
-        }
+function updateMetric(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.textContent = value;
     }
-       initializeDashboardChart();
-});
+}
 </script>
 @endsection

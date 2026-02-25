@@ -107,7 +107,7 @@ class InvoicePeriodService
         $periodStart = $this->systemStartDate->copy()->addDays(($cycleNumber - 1) * 14);
 
         // Calculate period end (Saturday)
-        $periodEnd = $periodStart->copy()->addDays(12); // Add 12 days to get to Saturday
+        $periodEnd = $periodStart->copy()->addDays(13); // Add 12 days to get to Saturday
 
         return [
             'start' => $periodStart,

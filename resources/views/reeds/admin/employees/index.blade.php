@@ -128,7 +128,9 @@
     <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-6">
         <div class="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
             <div class="flex-1">
-                <input type="text" id="searchInput" placeholder="Search by name, code, phone, email..."
+                <input type="text"
+                       id="searchInput"
+                       placeholder="Search by name, code, phone, email, department, unit, next of kin..."
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150">
             </div>
             <div class="flex space-x-3">
@@ -156,6 +158,10 @@
                 </button>
             </div>
         </div>
+        <!-- Search results info -->
+        <div id="searchResultsInfo" class="mt-2 text-sm text-gray-500 hidden">
+            Found <span id="searchResultsCount">0</span> results
+        </div>
     </div>
 
     <!-- Bulk Actions Bar -->
@@ -170,6 +176,21 @@
                             class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition duration-150 flex items-center space-x-2">
                         <i class="fas fa-paper-plane"></i>
                         <span>Send Document Invitation</span>
+                    </button>
+                    <button onclick="bulkDeactivate()"
+                            class="bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 transition duration-150 flex items-center space-x-2">
+                        <i class="fas fa-pause"></i>
+                        <span>Deactivate Selected</span>
+                    </button>
+                    <button onclick="bulkActivate()"
+                            class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition duration-150 flex items-center space-x-2">
+                        <i class="fas fa-play"></i>
+                        <span>Activate Selected</span>
+                    </button>
+                    <button onclick="bulkDelete()"
+                            class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition duration-150 flex items-center space-x-2">
+                        <i class="fas fa-trash"></i>
+                        <span>Delete Selected</span>
                     </button>
                     <button onclick="clearSelection()"
                             class="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm">
@@ -199,7 +220,7 @@
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody id="employeesTableBody" class="divide-y divide-gray-200">
                     @forelse($employees as $employee)
                     @php
                         $hasDocuments = $employee->documents && $employee->documents->hasAllRequiredDocuments();
@@ -369,7 +390,7 @@
 
         <!-- Pagination -->
         @if($employees->hasPages())
-        <div class="px-6 py-4 border-t border-gray-200">
+        <div class="px-6 py-4 border-t border-gray-200" id="paginationContainer">
             {{ $employees->links() }}
         </div>
         @endif
@@ -528,33 +549,23 @@
                     </div>
 
                     <div>
-                        <label for="icard_number" class="block text-sm font-medium text-gray-700 mb-1">ICard Number</label>
-                        <input type="text" id="icard_number" name="icard_number"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black"
-                               placeholder="Enter ICard number">
-                        <div id="icard_number_error" class="text-red-500 text-xs mt-1 hidden"></div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
                         <label for="designation" class="block text-sm font-medium text-gray-700 mb-1">Designation</label>
                         <input type="text" id="designation" name="designation"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black"
                                placeholder="e.g., Mason, Welder">
                     </div>
+                </div>
 
-                    <div>
-                        <label for="category" class="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                        <input type="text" id="category" name="category"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black"
-                               placeholder="e.g., New ham, Omuford">
-                    </div>
+                <div>
+                    <label for="category" class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <input type="text" id="category" name="category"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary-blue focus:border-secondary-blue transition duration-150 text-text-black"
+                           placeholder="e.g., New ham, Omuford">
                 </div>
 
                 <div id="statusField" class="hidden">
                     <label class="flex items-center space-x-2">
-                       <input type="checkbox" id="is_active" name="is_active" value="1" class="rounded border-gray-300 text-secondary-blue focus:ring-secondary-blue">
+                        <input type="checkbox" id="is_active" name="is_active" value="1" class="rounded border-gray-300 text-secondary-blue focus:ring-secondary-blue">
                         <span class="text-sm font-medium text-gray-700">Active Employee</span>
                     </label>
                 </div>
@@ -610,24 +621,232 @@
     </div>
 </div>
 
+<!-- Document View Modal -->
+<div id="documentViewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] hidden">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="documentModalTitle" class="text-xl font-bold text-text-black">View Document</h3>
+                <button onclick="closeDocumentModal()" class="text-gray-400 hover:text-gray-600 transition duration-150">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="documentModalContent" class="space-y-4">
+                <div class="text-center py-8">
+                    <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p class="text-gray-600">Loading document...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="confirmModalTitle" class="text-xl font-bold text-text-black">Confirm Action</h3>
+                <button onclick="closeConfirmModal()" class="text-gray-400 hover:text-gray-600 transition duration-150">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="confirmModalMessage" class="text-gray-600 mb-6">
+                Are you sure you want to perform this action?
+            </div>
+            <div class="flex items-center justify-end space-x-3">
+                <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition duration-150">
+                    Cancel
+                </button>
+                <button id="confirmModalBtn" class="bg-primary-red text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#c22120] transition duration-300 shadow-md">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    // Document Invitation Functions
-    function openDocumentInvitationModal() {
-        const dropdown = document.getElementById('invitationDropdown');
-        dropdown.classList.toggle('hidden');
-    }
+    // =============================================
+    // GLOBAL VARIABLES
+    // =============================================
+    let searchTimeout;
+    let currentAction = null;
+    let currentEmployeeId = null;
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(event) {
-        const dropdown = document.getElementById('invitationDropdown');
-        const button = document.getElementById('documentInvitationBtn');
+    // =============================================
+    // SEARCH AND FILTER FUNCTIONS
+    // =============================================
 
-        if (!button.contains(event.target) && !dropdown.contains(event.target)) {
-            dropdown.classList.add('hidden');
-        }
+    // Search with debounce
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => performSearch(), 500);
     });
 
-    // Update selected count
+    // Filter change events
+    document.getElementById('departmentFilter').addEventListener('change', performSearch);
+    document.getElementById('unitFilter').addEventListener('change', performSearch);
+    document.getElementById('documentFilter').addEventListener('change', performSearch);
+
+    async function performSearch(page = 1) {
+    const searchTerm = document.getElementById('searchInput').value;
+    const departmentId = document.getElementById('departmentFilter').value;
+    const unitId = document.getElementById('unitFilter').value;
+    const documentStatus = document.getElementById('documentFilter').value;
+
+    console.log('Searching with params:', { searchTerm, departmentId, unitId, documentStatus, page });
+
+    // Show loading state
+    const tbody = document.getElementById('employeesTableBody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="9" class="px-6 py-8 text-center text-gray-500">
+                <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                <p class="text-lg">Searching...</p>
+            </td>
+        </tr>
+    `;
+
+    try {
+        const url = new URL('{{ route("admin.employees.search") }}', window.location.origin);
+        url.searchParams.append('search', searchTerm);
+        url.searchParams.append('department_id', departmentId);
+        url.searchParams.append('unit_id', unitId);
+        url.searchParams.append('document_status', documentStatus);
+        url.searchParams.append('page', page);
+
+        console.log('Request URL:', url.toString());
+
+        const response = await fetch(url, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        if (response.status === 403) {
+            showNotification('error', 'Session expired. Please refresh the page.');
+            setTimeout(() => window.location.reload(), 2000);
+            return;
+        }
+
+        const data = await response.json();
+        console.log('Response data:', data);
+
+        if (data.success) {
+            // Update table with new HTML
+            tbody.innerHTML = data.html;
+
+            // Update pagination
+            const paginationDiv = document.getElementById('paginationContainer');
+            if (paginationDiv) {
+                paginationDiv.innerHTML = data.pagination;
+            }
+
+            // Show results count
+            const searchInfo = document.getElementById('searchResultsInfo');
+            const searchCount = document.getElementById('searchResultsCount');
+            if (searchTerm || departmentId || unitId || documentStatus) {
+                searchCount.textContent = data.total_count;
+                searchInfo.classList.remove('hidden');
+            } else {
+                searchInfo.classList.add('hidden');
+            }
+
+            // Re-attach event listeners
+            attachEventListeners();
+
+            // Scroll to top of table for better UX
+            document.querySelector('.overflow-x-auto')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            console.error('Search failed:', data);
+            showNotification('error', data.error || 'Search failed');
+        }
+    } catch (error) {
+        console.error('Search error:', error);
+        showNotification('error', 'Search failed. Please try again.');
+    }
+}
+    function resetFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('departmentFilter').value = '';
+        document.getElementById('unitFilter').value = '';
+        document.getElementById('documentFilter').value = '';
+        performSearch();
+    }
+
+    // =============================================
+    // CHECKBOX AND BULK ACTIONS
+    // =============================================
+
+function attachEventListeners() {
+    console.log('Attaching event listeners...');
+
+    // Select All checkbox
+    const selectAll = document.getElementById('selectAll');
+    if (selectAll) {
+        selectAll.removeEventListener('change', selectAllHandler);
+        selectAll.addEventListener('change', selectAllHandler);
+    }
+
+    // Individual checkboxes
+    document.querySelectorAll('.employee-checkbox').forEach(cb => {
+        cb.removeEventListener('change', updateSelectedCount);
+        cb.addEventListener('change', updateSelectedCount);
+    });
+
+    // Pagination links - catch ALL possible pagination links
+    const paginationLinks = document.querySelectorAll(
+        '.pagination a, ' +
+        '.pagination .page-link, ' +
+        '.pagination .page-item a, ' +
+        '.pagination li a, ' +
+        '#paginationContainer a'
+    );
+
+    console.log('Found pagination links:', paginationLinks.length);
+
+    paginationLinks.forEach(link => {
+        // Remove any existing listeners
+        link.removeEventListener('click', paginationHandler);
+        // Add new listener
+        link.addEventListener('click', paginationHandler);
+
+        // Also set the href to javascript:void(0) to prevent default behavior
+        // But store the original href in a data attribute
+        if (!link.hasAttribute('data-original-href')) {
+            link.setAttribute('data-original-href', link.href);
+        }
+    });
+}
+
+    function selectAllHandler(e) {
+        const checkboxes = document.querySelectorAll('.employee-checkbox:not(:disabled)');
+        checkboxes.forEach(cb => cb.checked = e.target.checked);
+        updateSelectedCount();
+    }
+
+    function paginationHandler(e) {
+    e.preventDefault();
+    e.stopPropagation(); // Add this to prevent event bubbling
+
+    // Get the page number from the href
+    const url = new URL(this.href);
+    const page = url.searchParams.get('page') || 1;
+
+    console.log('Pagination clicked - going to page:', page);
+
+    // Get current filter values
+    const searchTerm = document.getElementById('searchInput').value;
+    const departmentId = document.getElementById('departmentFilter').value;
+    const unitId = document.getElementById('unitFilter').value;
+    const documentStatus = document.getElementById('documentFilter').value;
+
+    // Perform search with page parameter
+    performSearch(page);
+}
+
     function updateSelectedCount() {
         const selected = document.querySelectorAll('.employee-checkbox:checked:not(:disabled)').length;
         document.getElementById('selectedCount').textContent = selected;
@@ -639,118 +858,351 @@
         }
     }
 
-    // Select All Checkbox
-    document.getElementById('selectAll').addEventListener('change', function(e) {
-        const checkboxes = document.querySelectorAll('.employee-checkbox:not(:disabled)');
-        checkboxes.forEach(cb => cb.checked = e.target.checked);
-        updateSelectedCount();
-    });
-
-    // Individual checkbox change
-    document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('employee-checkbox')) {
-            updateSelectedCount();
-        }
-    });
-
     function clearSelection() {
         document.querySelectorAll('.employee-checkbox').forEach(cb => cb.checked = false);
         document.getElementById('selectAll').checked = false;
         updateSelectedCount();
     }
 
-    function sendBulkDocumentInvitations() {
-        const selectedEmployees = Array.from(document.querySelectorAll('.employee-checkbox:checked:not(:disabled)'))
+    function getSelectedIds() {
+        return Array.from(document.querySelectorAll('.employee-checkbox:checked:not(:disabled)'))
             .map(cb => cb.value);
+    }
 
-        if (selectedEmployees.length === 0) {
+    // =============================================
+    // BULK ACTIONS
+    // =============================================
+
+    async function bulkDeactivate() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) {
+            showNotification('error', 'Please select at least one employee.');
+            return;
+        }
+
+        if (await confirmAction(`Deactivate ${ids.length} employee(s)?`)) {
+            try {
+                const response = await fetch('{{ route("admin.employees.bulk-status-update") }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ ids: ids, status: false })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('success', data.success);
+                    clearSelection();
+                    setTimeout(() => performSearch(), 1000);
+                } else {
+                    showNotification('error', data.error || 'Failed to deactivate employees.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('error', 'An error occurred. Please try again.');
+            }
+        }
+    }
+
+    async function bulkActivate() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) {
+            showNotification('error', 'Please select at least one employee.');
+            return;
+        }
+
+        if (await confirmAction(`Activate ${ids.length} employee(s)?`)) {
+            try {
+                const response = await fetch('{{ route("admin.employees.bulk-status-update") }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ ids: ids, status: true })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('success', data.success);
+                    clearSelection();
+                    setTimeout(() => performSearch(), 1000);
+                } else {
+                    showNotification('error', data.error || 'Failed to activate employees.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('error', 'An error occurred. Please try again.');
+            }
+        }
+    }
+
+    async function bulkDelete() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) {
+            showNotification('error', 'Please select at least one employee.');
+            return;
+        }
+
+        if (await confirmAction(`Delete ${ids.length} employee(s)? This action cannot be undone.`)) {
+            try {
+                const response = await fetch('{{ route("admin.employees.bulk-delete") }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ ids: ids })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('success', data.success);
+                    clearSelection();
+                    setTimeout(() => performSearch(), 1000);
+                } else {
+                    showNotification('error', data.error || 'Failed to delete employees.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('error', 'An error occurred. Please try again.');
+            }
+        }
+    }
+
+    // =============================================
+    // INDIVIDUAL EMPLOYEE ACTIONS
+    // =============================================
+
+    function toggleStatus(employeeId) {
+        confirmAction('Are you sure you want to change the status of this employee?').then(confirmed => {
+            if (confirmed) {
+                fetch(`/admin/employees/${employeeId}/toggle-status`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('success', data.success);
+                        setTimeout(() => performSearch(), 1000);
+                    } else {
+                        showNotification('error', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('error', 'An error occurred. Please try again.');
+                });
+            }
+        });
+    }
+
+    function confirmDelete(employeeId, employeeName) {
+        confirmAction(`Are you sure you want to delete "${employeeName}"? This action cannot be undone.`).then(confirmed => {
+            if (confirmed) {
+                fetch(`/admin/employees/${employeeId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('success', data.success);
+                        setTimeout(() => performSearch(), 1000);
+                    } else {
+                        showNotification('error', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('error', 'An error occurred. Please try again.');
+                });
+            }
+        });
+    }
+
+    function generateQrCode(employeeId) {
+        confirmAction('Are you sure you want to generate QR code for this employee?').then(confirmed => {
+            if (confirmed) {
+                fetch(`/admin/employees/${employeeId}/generate-qr`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('success', data.success);
+                        setTimeout(() => performSearch(), 1000);
+                    } else {
+                        showNotification('error', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('error', 'An error occurred. Please try again.');
+                });
+            }
+        });
+    }
+
+    // =============================================
+    // DOCUMENT INVITATION FUNCTIONS
+    // =============================================
+
+    function sendDocumentInvitation(employeeId) {
+        confirmAction('Send document invitation to this employee?').then(confirmed => {
+            if (confirmed) {
+                fetch(`/admin/employees/${employeeId}/documents/send-invitation`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('success', data.success);
+                        setTimeout(() => performSearch(), 1500);
+                    } else {
+                        showNotification('error', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('error', 'An error occurred. Please try again.');
+                });
+            }
+        });
+    }
+
+    function sendDocumentReminder(employeeId) {
+        confirmAction('Send reminder for document upload?').then(confirmed => {
+            if (confirmed) {
+                fetch(`/admin/employees/${employeeId}/documents/send-reminder`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('success', data.success);
+                        setTimeout(() => performSearch(), 1500);
+                    } else {
+                        showNotification('error', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('error', 'An error occurred. Please try again.');
+                });
+            }
+        });
+    }
+
+    function sendBulkDocumentInvitations() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) {
             showNotification('error', 'Please select at least one employee with a phone number.');
             return;
         }
 
-        if (confirm(`Send document invitations to ${selectedEmployees.length} selected employees?`)) {
-            fetch('/admin/employees/bulk-send-document-invitations', {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ ids: selectedEmployees })
-            })
-            .then(response => {
-                if (response.status === 403) {
-                    showNotification('error', 'Session expired. Please refresh the page.');
-                    setTimeout(() => window.location.reload(), 2000);
-                    return;
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showNotification('success', data.success);
-                    clearSelection();
-                    setTimeout(() => window.location.reload(), 2000);
-                } else if (data.error) {
-                    showNotification('error', data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('error', 'An error occurred. Please try again.');
-            });
-        }
+        confirmAction(`Send document invitations to ${ids.length} selected employees?`).then(confirmed => {
+            if (confirmed) {
+                fetch('{{ route("admin.employees.bulk-send-document-invitations") }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ ids: ids })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('success', data.success);
+                        clearSelection();
+                        setTimeout(() => performSearch(), 2000);
+                    } else {
+                        showNotification('error', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('error', 'An error occurred. Please try again.');
+                });
+            }
+        });
     }
 
     async function sendToAllWithoutDocuments() {
         try {
-            const response = await fetch('/admin/employees/stats');
+            const response = await fetch('{{ route("admin.employees.stats") }}');
             const data = await response.json();
 
             if (data.success && data.stats) {
                 const totalEmployees = data.stats.total_employees;
 
-                if (confirm(`This will send document invitations to all ${totalEmployees} employees without complete documents. Are you sure?`)) {
-                    // Get all employee IDs without documents
-                    const allEmployees = Array.from(document.querySelectorAll('.employee-checkbox:not(:disabled)'))
-                        .map(cb => cb.value);
+                confirmAction(`This will send document invitations to all ${totalEmployees} employees without complete documents. Are you sure?`).then(confirmed => {
+                    if (confirmed) {
+                        const allEmployees = Array.from(document.querySelectorAll('.employee-checkbox:not(:disabled)'))
+                            .map(cb => cb.value);
 
-                    if (allEmployees.length === 0) {
-                        showNotification('error', 'No employees found with phone numbers.');
-                        return;
-                    }
-
-                    fetch('/admin/employees/bulk-send-document-invitations', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ ids: allEmployees })
-                    })
-                    .then(response => {
-                        if (response.status === 403) {
-                            showNotification('error', 'Session expired. Please refresh the page.');
-                            setTimeout(() => window.location.reload(), 2000);
+                        if (allEmployees.length === 0) {
+                            showNotification('error', 'No employees found with phone numbers.');
                             return;
                         }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            showNotification('success', data.success);
-                            clearSelection();
-                            setTimeout(() => window.location.reload(), 2000);
-                        } else if (data.error) {
-                            showNotification('error', data.error);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        showNotification('error', 'An error occurred. Please try again.');
-                    });
-                }
+
+                        fetch('{{ route("admin.employees.bulk-send-document-invitations") }}', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ ids: allEmployees })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                showNotification('success', data.success);
+                                clearSelection();
+                                setTimeout(() => performSearch(), 2000);
+                            } else {
+                                showNotification('error', data.error);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            showNotification('error', 'An error occurred. Please try again.');
+                        });
+                    }
+                });
             }
         } catch (error) {
             console.error('Error:', error);
@@ -758,82 +1210,11 @@
         }
     }
 
-    function sendDocumentInvitation(employeeId) {
-        if (confirm('Send document invitation to this employee?')) {
-            fetch(`/admin/employees/${employeeId}/documents/send-invitation`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json',
-                }
-            })
-            .then(response => {
-                if (response.status === 403) {
-                    showNotification('error', 'Session expired. Please refresh the page.');
-                    setTimeout(() => window.location.reload(), 2000);
-                    return;
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showNotification('success', data.success);
-                    setTimeout(() => window.location.reload(), 1500);
-                } else if (data.error) {
-                    showNotification('error', data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('error', 'An error occurred. Please try again.');
-            });
-        }
-    }
-
-    function sendDocumentReminder(employeeId) {
-        if (confirm('Send reminder for document upload?')) {
-            fetch(`/admin/employees/${employeeId}/documents/send-reminder`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json',
-                }
-            })
-            .then(response => {
-                if (response.status === 403) {
-                    showNotification('error', 'Session expired. Please refresh the page.');
-                    setTimeout(() => window.location.reload(), 2000);
-                    return;
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showNotification('success', data.success);
-                    setTimeout(() => window.location.reload(), 1500);
-                } else if (data.error) {
-                    showNotification('error', data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('error', 'An error occurred. Please try again.');
-            });
-        }
-    }
-
     async function viewInvitationStatus() {
         document.getElementById('invitationStatusModal').classList.remove('hidden');
 
         try {
-            const response = await fetch('/admin/employees/stats');
-            if (response.status === 403) {
-                showNotification('error', 'Session expired. Please refresh the page.');
-                closeInvitationStatusModal();
-                setTimeout(() => window.location.reload(), 2000);
-                return;
-            }
-
+            const response = await fetch('{{ route("admin.employees.stats") }}');
             const data = await response.json();
 
             if (data.success) {
@@ -939,38 +1320,10 @@
         document.getElementById('invitationStatusModal').classList.add('hidden');
     }
 
-    // Filter table by document status
-    document.getElementById('documentFilter').addEventListener('change', function(e) {
-        filterTable();
-    });
+    // =============================================
+    // MODAL FUNCTIONS
+    // =============================================
 
-    function filterTable() {
-        const deptId = document.getElementById('departmentFilter').value;
-        const unitId = document.getElementById('unitFilter').value;
-        const docStatus = document.getElementById('documentFilter').value;
-        const rows = document.querySelectorAll('tbody tr');
-
-        rows.forEach(row => {
-            const rowDeptId = row.getAttribute('data-dept-id');
-            const rowUnitId = row.getAttribute('data-unit-id');
-            const rowDocStatus = row.getAttribute('data-doc-status');
-            let show = true;
-
-            if (deptId && rowDeptId !== deptId) {
-                show = false;
-            }
-            if (unitId && rowUnitId !== unitId) {
-                show = false;
-            }
-            if (docStatus && rowDocStatus !== docStatus) {
-                show = false;
-            }
-
-            row.style.display = show ? '' : 'none';
-        });
-    }
-
-    // Rest of your existing functions
     function openCreateModal() {
         document.getElementById('modalTitle').textContent = 'Add Employee';
         document.getElementById('employeeForm').reset();
@@ -985,12 +1338,6 @@
     async function openEditModal(employeeId) {
         try {
             const response = await fetch(`/admin/employees/${employeeId}/edit`);
-            if (response.status === 403) {
-                showNotification('error', 'Session expired. Please refresh the page.');
-                setTimeout(() => window.location.reload(), 2000);
-                return;
-            }
-
             const data = await response.json();
 
             if (data.employee) {
@@ -1014,7 +1361,6 @@
                 document.getElementById('gender').value = employee.gender || '';
                 document.getElementById('designation').value = employee.designation || '';
                 document.getElementById('category').value = employee.category || '';
-                document.getElementById('icard_number').value = employee.icard_number || '';
                 document.getElementById('is_active').checked = employee.is_active;
                 document.getElementById('statusField').classList.remove('hidden');
                 document.getElementById('employeeModal').classList.remove('hidden');
@@ -1028,368 +1374,101 @@
     }
 
     async function viewEmployee(employeeId) {
-    try {
-        const response = await fetch(`/admin/employees/${employeeId}`);
-        if (response.status === 403) {
-            showNotification('error', 'Session expired. Please refresh the page.');
-            setTimeout(() => window.location.reload(), 2000);
-            return;
-        }
+        try {
+            const response = await fetch(`/admin/employees/${employeeId}`);
+            const data = await response.json();
 
-        const data = await response.json();
+            if (data.success && data.employee) {
+                const employee = data.employee;
 
-        if (data.success && data.employee) {
-            const employee = data.employee;
-            const dateOfJoining = employee.date_of_joining ? new Date(employee.date_of_joining).toLocaleDateString() : 'N/A';
+                // Format the content for the view modal
+                let content = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Basic Information</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Employee Code:</span>
+                                    <span class="text-sm text-gray-900">${employee.employee_code}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Full Name:</span>
+                                    <span class="text-sm text-gray-900">${employee.formal_name}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Gender:</span>
+                                    <span class="text-sm text-gray-900">${employee.gender || 'N/A'}</span>
+                                </div>
+                            </div>
+                        </div>
 
-            // Get document status - FIXED: Check document fields directly
-            let docStatus = 'No documents uploaded';
-            let docStatusClass = 'bg-red-100 text-red-800';
+                        <div class="space-y-4">
+                            <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Contact Information</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Email:</span>
+                                    <span class="text-sm text-gray-900">${employee.email || 'N/A'}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Phone:</span>
+                                    <span class="text-sm text-gray-900">${employee.phone || 'N/A'}</span>
+                                </div>
+                            </div>
+                        </div>
 
-            // Check if all required documents are present
-            const hasAllRequiredDocuments = employee.documents &&
-                employee.documents.national_id_photo &&
-                employee.documents.passport_size_photo &&
-                employee.documents.nssf_card_photo &&
-                employee.documents.sha_card_photo &&
-                employee.documents.kra_certificate_photo;
+                        <div class="space-y-4">
+                            <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Department & Unit</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Department:</span>
+                                    <span class="text-sm text-gray-900">${employee.department?.name || 'N/A'}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Sub-Department:</span>
+                                    <span class="text-sm text-gray-900">${employee.sub_department?.name || 'N/A'}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Unit:</span>
+                                    <span class="text-sm text-gray-900">${employee.unit?.name || 'N/A'}</span>
+                                </div>
+                            </div>
+                        </div>
 
-            if (hasAllRequiredDocuments) {
-                docStatus = 'All documents uploaded and verified';
-                docStatusClass = 'bg-green-100 text-green-800';
-            } else if (employee.document_invitation) {
-                const inv = employee.document_invitation;
-                if (inv.status === 'sent') {
-                    docStatus = `Invitation sent on ${new Date(inv.sent_at).toLocaleDateString()}`;
-                    docStatusClass = 'bg-blue-100 text-blue-800';
-                } else if (inv.status === 'opened') {
-                    docStatus = `Link opened on ${new Date(inv.opened_at).toLocaleDateString()}`;
-                    docStatusClass = 'bg-yellow-100 text-yellow-800';
-                } else if (inv.status === 'completed') {
-                    docStatus = `Documents uploaded on ${new Date(inv.completed_at).toLocaleDateString()}`;
-                    docStatusClass = 'bg-green-100 text-green-800';
-                }
+                        <div class="space-y-4">
+                            <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Employment Details</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Designation:</span>
+                                    <span class="text-sm text-gray-900">${employee.designation || 'N/A'}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Category:</span>
+                                    <span class="text-sm text-gray-900">${employee.category || 'N/A'}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Employment Type:</span>
+                                    <span class="text-sm text-gray-900">${employee.employment_type || 'N/A'}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm font-medium text-gray-600">Status:</span>
+                                    <span class="text-sm ${employee.is_active ? 'text-green-600' : 'text-red-600'} font-medium">
+                                        ${employee.is_active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('viewModalTitle').textContent = `Employee: ${employee.employee_code}`;
+                document.getElementById('viewModalContent').innerHTML = content;
+                document.getElementById('viewModal').classList.remove('hidden');
             }
-
-            // Rest of your code remains the same...
-            const content = `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Basic Information -->
-                    <div class="space-y-4">
-                        <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Basic Information</h4>
-                        <div class="space-y-2">
-                            <div class="flex justify-between">
-                                <span class="text-sm font-medium text-gray-600">Employee Code:</span>
-                                <span class="text-sm text-gray-900">${employee.employee_code}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-sm font-medium text-gray-600">Full Name:</span>
-                                <span class="text-sm text-gray-900">${employee.formal_name}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-sm font-medium text-gray-600">Gender:</span>
-                                <span class="text-sm text-gray-900">${employee.gender || 'N/A'}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-sm font-medium text-gray-600">Date of Joining:</span>
-                                <span class="text-sm text-gray-900">${dateOfJoining}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Contact Information -->
-                    <div class="space-y-4">
-                        <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Contact Information</h4>
-                        <div class="space-y-2">
-                            <div class="flex justify-between">
-                                <span class="text-sm font-medium text-gray-600">Email:</span>
-                                <span class="text-sm text-gray-900">${employee.email || 'N/A'}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-sm font-medium text-gray-600">Phone:</span>
-                                <span class="text-sm text-gray-900">${employee.phone || 'N/A'}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-sm font-medium text-gray-600">ICard Number:</span>
-                                <span class="text-sm text-gray-900">${employee.icard_number || 'N/A'}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Document Status -->
-                    <div class="space-y-4">
-                        <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Document Status</h4>
-                        <div class="space-y-2">
-                            <div class="flex justify-between">
-                                <span class="text-sm font-medium text-gray-600">Overall Status:</span>
-                                <span class="text-sm ${docStatusClass} px-2 py-1 rounded-full">${docStatus}</span>
-                            </div>
-
-                            ${employee.documents ? `
-                                <!-- Next of Kin Information -->
-                                <div class="mt-3 pt-3 border-t border-gray-200">
-                                    <h5 class="text-sm font-medium text-gray-700 mb-2">Next of Kin</h5>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                        <div class="flex justify-between">
-                                            <span class="text-xs text-gray-600">Name:</span>
-                                            <span class="text-xs font-medium text-gray-900">${employee.documents.next_of_kin_name || 'N/A'}</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-xs text-gray-600">Relationship:</span>
-                                            <span class="text-xs font-medium text-gray-900">${employee.documents.next_of_kin_relationship || 'N/A'}</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-xs text-gray-600">Phone:</span>
-                                            <span class="text-xs font-medium text-gray-900">${employee.documents.next_of_kin_phone || 'N/A'}</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-xs text-gray-600">Email:</span>
-                                            <span class="text-xs font-medium text-gray-900">${employee.documents.next_of_kin_email || 'N/A'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                               <!-- Document Upload Status -->
-<div class="mt-3 pt-3 border-t border-gray-200">
-    <h5 class="text-sm font-medium text-gray-700 mb-2">Uploaded Documents</h5>
-    <div class="space-y-1">
-        ${employee.documents.national_id_photo ? `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">National ID:</span>
-                <div class="flex items-center space-x-2">
-                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
-                    <button onclick="downloadDocument(${employee.id}, 'national_id_photo')"
-                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
-                            title="Download National ID">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button onclick="viewDocument(${employee.id}, 'national_id_photo')"
-                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
-                            title="View National ID">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-            </div>
-        ` : `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">National ID:</span>
-                <span class="text-xs text-red-600 font-medium">Missing</span>
-            </div>
-        `}
-
-        ${employee.documents.passport_photo ? `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">Passport Photo:</span>
-                <div class="flex items-center space-x-2">
-                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
-                    <button onclick="downloadDocument(${employee.id}, 'passport_photo')"
-                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
-                            title="Download Passport Photo">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button onclick="viewDocument(${employee.id}, 'passport_photo')"
-                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
-                            title="View Passport Photo">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-            </div>
-        ` : `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">Passport Photo:</span>
-                <span class="text-xs text-red-600 font-medium">Missing</span>
-            </div>
-        `}
-
-        ${employee.documents.passport_size_photo ? `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">Passport Size:</span>
-                <div class="flex items-center space-x-2">
-                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
-                    <button onclick="downloadDocument(${employee.id}, 'passport_size_photo')"
-                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
-                            title="Download Passport Size Photo">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button onclick="viewDocument(${employee.id}, 'passport_size_photo')"
-                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
-                            title="View Passport Size Photo">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-            </div>
-        ` : `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">Passport Size:</span>
-                <span class="text-xs text-red-600 font-medium">Missing</span>
-            </div>
-        `}
-
-        ${employee.documents.nssf_card_photo ? `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">NSSF Card:</span>
-                <div class="flex items-center space-x-2">
-                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
-                    <button onclick="downloadDocument(${employee.id}, 'nssf_card_photo')"
-                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
-                            title="Download NSSF Card">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button onclick="viewDocument(${employee.id}, 'nssf_card_photo')"
-                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
-                            title="View NSSF Card">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-            </div>
-        ` : `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">NSSF Card:</span>
-                <span class="text-xs text-red-600 font-medium">Missing</span>
-            </div>
-        `}
-
-        ${employee.documents.sha_card_photo ? `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">SHA Card:</span>
-                <div class="flex items-center space-x-2">
-                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
-                    <button onclick="downloadDocument(${employee.id}, 'sha_card_photo')"
-                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
-                            title="Download SHA Card">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button onclick="viewDocument(${employee.id}, 'sha_card_photo')"
-                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
-                            title="View SHA Card">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-            </div>
-        ` : `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">SHA Card:</span>
-                <span class="text-xs text-red-600 font-medium">Missing</span>
-            </div>
-        `}
-
-        ${employee.documents.kra_certificate_photo ? `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">KRA Certificate:</span>
-                <div class="flex items-center space-x-2">
-                    <span class="text-xs text-green-600 font-medium">Uploaded</span>
-                    <button onclick="downloadDocument(${employee.id}, 'kra_certificate_photo')"
-                            class="text-xs text-blue-600 hover:text-blue-800 transition duration-150"
-                            title="Download KRA Certificate">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button onclick="viewDocument(${employee.id}, 'kra_certificate_photo')"
-                            class="text-xs text-purple-600 hover:text-purple-800 transition duration-150"
-                            title="View KRA Certificate">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-            </div>
-        ` : `
-            <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-600">KRA Certificate:</span>
-                <span class="text-xs text-red-600 font-medium">Missing</span>
-            </div>
-        `}
-    </div>
-</div>
-
-                                <!-- Verification Status -->
-                                <div class="mt-3 pt-3 border-t border-gray-200">
-                                    <h5 class="text-sm font-medium text-gray-700 mb-2">Verification</h5>
-                                    <div class="space-y-2">
-                                        <div class="flex justify-between">
-                                            <span class="text-xs text-gray-600">Verified:</span>
-                                            <span class="text-xs ${employee.documents.is_verified ? 'text-green-600' : 'text-yellow-600'} font-medium">
-                                                ${employee.documents.is_verified ? 'Yes' : 'No'}
-                                            </span>
-                                        </div>
-                                        ${employee.documents.verified_at ? `
-                                            <div class="flex justify-between">
-                                                <span class="text-xs text-gray-600">Verified At:</span>
-                                                <span class="text-xs text-gray-900">${new Date(employee.documents.verified_at).toLocaleDateString()}</span>
-                                            </div>
-                                        ` : ''}
-                                        ${employee.documents.verification_notes ? `
-                                            <div>
-                                                <span class="text-xs text-gray-600 block mb-1">Notes:</span>
-                                                <p class="text-xs text-gray-700 bg-gray-50 p-2 rounded">${employee.documents.verification_notes}</p>
-                                            </div>
-                                        ` : ''}
-                                    </div>
-                                </div>
-                            ` : `
-                                <div class="text-center py-4">
-                                    <i class="fas fa-file-alt text-3xl text-gray-300 mb-2"></i>
-                                    <p class="text-sm text-gray-600">No document information available</p>
-                                    ${employee.phone ? `
-                                        <button onclick="sendDocumentInvitation(${employee.id})"
-                                                class="mt-2 bg-purple-600 text-white px-3 py-1 rounded text-xs hover:bg-purple-700 transition duration-150">
-                                            Send Document Invitation
-                                        </button>
-                                    ` : ''}
-                                </div>
-                            `}
-
-                            <!-- Invitation Status -->
-                            ${employee.document_invitation ? `
-                                <div class="mt-3 pt-3 border-t border-gray-200">
-                                    <h5 class="text-sm font-medium text-gray-700 mb-2">Invitation Details</h5>
-                                    <div class="space-y-1">
-                                        <div class="flex justify-between">
-                                            <span class="text-xs text-gray-600">Invitation Sent:</span>
-                                            <span class="text-xs text-gray-900">${new Date(employee.document_invitation.sent_at).toLocaleDateString()}</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-xs text-gray-600">Status:</span>
-                                            <span class="text-xs ${employee.document_invitation.status === 'completed' ? 'text-green-600' : employee.document_invitation.status === 'opened' ? 'text-yellow-600' : 'text-blue-600'} font-medium">
-                                                ${employee.document_invitation.status.charAt(0).toUpperCase() + employee.document_invitation.status.slice(1)}
-                                            </span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-xs text-gray-600">Reminders Sent:</span>
-                                            <span class="text-xs text-gray-900">${employee.document_invitation.reminder_count}</span>
-                                        </div>
-                                        ${employee.document_invitation.opened_at ? `
-                                            <div class="flex justify-between">
-                                                <span class="text-xs text-gray-600">Link Opened:</span>
-                                                <span class="text-xs text-gray-900">${new Date(employee.document_invitation.opened_at).toLocaleDateString()}</span>
-                                            </div>
-                                        ` : ''}
-                                        ${employee.document_invitation.completed_at ? `
-                                            <div class="flex justify-between">
-                                                <span class="text-xs text-gray-600">Completed:</span>
-                                                <span class="text-xs text-gray-900">${new Date(employee.document_invitation.completed_at).toLocaleDateString()}</span>
-                                            </div>
-                                        ` : ''}
-                                    </div>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-
-                    <!-- Rest of your HTML content... -->
-                    <!-- ... keep the rest of your HTML content as it was ... -->
-
-                </div>
-            `;
-
-            document.getElementById('viewModalTitle').textContent = `Employee: ${employee.employee_code}`;
-            document.getElementById('viewModalContent').innerHTML = content;
-            document.getElementById('viewModal').classList.remove('hidden');
-        } else {
+        } catch (error) {
+            console.error('Error:', error);
             showNotification('error', 'Failed to load employee details');
         }
-    } catch (error) {
-        console.error('Error:', error);
-        showNotification('error', 'Failed to load employee details');
     }
-}
 
     function closeModal() {
         document.getElementById('employeeModal').classList.add('hidden');
@@ -1398,6 +1477,10 @@
 
     function closeViewModal() {
         document.getElementById('viewModal').classList.add('hidden');
+    }
+
+    function closeDocumentModal() {
+        document.getElementById('documentViewModal').classList.add('hidden');
     }
 
     function clearErrors() {
@@ -1427,30 +1510,10 @@
 
     document.getElementById('department_id').addEventListener('change', filterSubDepartments);
 
-    // Search functionality
-    document.getElementById('searchInput').addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase();
-        const rows = document.querySelectorAll('tbody tr');
-        rows.forEach(row => {
-            row.style.display = row.textContent.toLowerCase().includes(searchTerm) ? '' : 'none';
-        });
-    });
+    // =============================================
+    // FORM SUBMISSION
+    // =============================================
 
-    // Filter by department
-    document.getElementById('departmentFilter').addEventListener('change', filterTable);
-
-    // Filter by unit
-    document.getElementById('unitFilter').addEventListener('change', filterTable);
-
-    function resetFilters() {
-        document.getElementById('searchInput').value = '';
-        document.getElementById('departmentFilter').value = '';
-        document.getElementById('unitFilter').value = '';
-        document.getElementById('documentFilter').value = '';
-        document.querySelectorAll('tbody tr').forEach(row => row.style.display = '');
-    }
-
-    // FIXED: Handle form submission properly
     document.getElementById('employeeForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
@@ -1463,7 +1526,6 @@
         const formData = new FormData(form);
         const employeeId = document.getElementById('employee_id').value;
 
-        // Use standard form submission with proper method spoofing
         const action = employeeId ? `/admin/employees/${employeeId}` : '/admin/employees';
 
         try {
@@ -1477,16 +1539,8 @@
                 credentials: 'same-origin'
             });
 
-            // Handle session expiration
-            if (response.status === 403) {
-                showNotification('error', 'Session expired. Please refresh the page and log in again.');
-                setTimeout(() => window.location.reload(), 3000);
-                return;
-            }
-
             const data = await response.json();
 
-            // Handle validation errors
             if (response.status === 422) {
                 if (data.errors) {
                     displayValidationErrors(data.errors);
@@ -1496,17 +1550,15 @@
                 return;
             }
 
-            // Handle success
             if (response.ok) {
                 if (data.success) {
                     closeModal();
                     showNotification('success', data.success);
-                    setTimeout(() => window.location.reload(), 1000);
+                    setTimeout(() => performSearch(), 1000);
                 } else if (data.error) {
                     showNotification('error', data.error);
                 }
             } else {
-                // Handle other errors
                 showNotification('error', data.error || 'An error occurred. Please try again.');
             }
         } catch (error) {
@@ -1517,87 +1569,7 @@
             submitBtn.innerHTML = originalText;
         }
     });
-// Download document
-function downloadDocument(employeeId, documentType) {
-    const url = `/admin/employees/${employeeId}/documents/${documentType}/download`;
-    window.open(url, '_blank');
-}
 
-// View document in modal
-function viewDocument(employeeId, documentType) {
-    const url = `/admin/employees/${employeeId}/documents/${documentType}/view`;
-
-    // Create modal for viewing document
-    const modalId = 'documentViewModal';
-    let modal = document.getElementById(modalId);
-
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = modalId;
-        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] hidden';
-        modal.innerHTML = `
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
-                <div class="p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 id="documentModalTitle" class="text-xl font-bold text-text-black">View Document</h3>
-                        <button onclick="closeDocumentModal()" class="text-gray-400 hover:text-gray-600 transition duration-150">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
-                    <div id="documentModalContent" class="space-y-4">
-                        <div class="text-center py-8">
-                            <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-                            <p class="text-gray-600">Loading document...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-
-        // Close modal when clicking outside
-        modal.addEventListener('click', function(e) {
-            if (e.target.id === modalId) closeDocumentModal();
-        });
-    }
-
-    // Set title based on document type
-    const documentTitles = {
-        'national_id_photo': 'National ID',
-        'passport_photo': 'Passport Photo',
-        'passport_size_photo': 'Passport Size Photo',
-        'nssf_card_photo': 'NSSF Card',
-        'sha_card_photo': 'SHA Card',
-        'kra_certificate_photo': 'KRA Certificate'
-    };
-
-    document.getElementById('documentModalTitle').textContent = `View ${documentTitles[documentType] || 'Document'}`;
-    modal.classList.remove('hidden');
-
-    // Load the document
-    fetch(url)
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('documentModalContent').innerHTML = html;
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('documentModalContent').innerHTML = `
-                <div class="text-center py-8 text-red-600">
-                    <i class="fas fa-exclamation-triangle text-3xl mb-3"></i>
-                    <p>Failed to load document</p>
-                </div>
-            `;
-        });
-}
-
-// Close document modal
-function closeDocumentModal() {
-    const modal = document.getElementById('documentViewModal');
-    if (modal) {
-        modal.classList.add('hidden');
-    }
-}
     function displayValidationErrors(errors) {
         clearErrors();
         Object.keys(errors).forEach(field => {
@@ -1611,111 +1583,95 @@ function closeDocumentModal() {
         });
     }
 
-    function generateQrCode(employeeId) {
-        if (confirm('Are you sure you want to generate QR code for this employee?')) {
-            fetch(`/admin/employees/${employeeId}/generate-qr`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => {
-                if (response.status === 403) {
-                    showNotification('error', 'Session expired. Please refresh the page.');
-                    setTimeout(() => window.location.reload(), 2000);
-                    return;
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showNotification('success', data.success);
-                    setTimeout(() => window.location.reload(), 1000);
-                } else if (data.error) {
-                    showNotification('error', data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('error', 'An error occurred. Please try again.');
-            });
-        }
+    // =============================================
+    // DOCUMENT FUNCTIONS
+    // =============================================
+
+    function downloadDocument(employeeId, documentType) {
+        const url = `/admin/employees/${employeeId}/documents/${documentType}/download`;
+        window.open(url, '_blank');
     }
 
-    function toggleStatus(employeeId) {
-        if (confirm('Are you sure you want to change the status of this employee?')) {
-            fetch(`/admin/employees/${employeeId}/toggle-status`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => {
-                if (response.status === 403) {
-                    showNotification('error', 'Session expired. Please refresh the page.');
-                    setTimeout(() => window.location.reload(), 2000);
-                    return;
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showNotification('success', data.success);
-                    setTimeout(() => window.location.reload(), 1000);
-                } else if (data.error) {
-                    showNotification('error', data.error);
-                }
+    function viewDocument(employeeId, documentType) {
+        const url = `/admin/employees/${employeeId}/documents/${documentType}/view`;
+
+        const modal = document.getElementById('documentViewModal');
+        const documentTitles = {
+            'national_id_photo': 'National ID',
+            'passport_photo': 'Passport Photo',
+            'passport_size_photo': 'Passport Size Photo',
+            'nssf_card_photo': 'NSSF Card',
+            'sha_card_photo': 'SHA Card',
+            'kra_certificate_photo': 'KRA Certificate'
+        };
+
+        document.getElementById('documentModalTitle').textContent = `View ${documentTitles[documentType] || 'Document'}`;
+        modal.classList.remove('hidden');
+
+        fetch(url)
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('documentModalContent').innerHTML = html;
             })
             .catch(error => {
                 console.error('Error:', error);
-                showNotification('error', 'An error occurred. Please try again.');
+                document.getElementById('documentModalContent').innerHTML = `
+                    <div class="text-center py-8 text-red-600">
+                        <i class="fas fa-exclamation-triangle text-3xl mb-3"></i>
+                        <p>Failed to load document</p>
+                    </div>
+                `;
             });
-        }
     }
 
-    function confirmDelete(employeeId, employeeName) {
-        if (confirm(`Are you sure you want to delete "${employeeName}"? This action cannot be undone.`)) {
-            fetch(`/admin/employees/${employeeId}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
+    // =============================================
+    // CONFIRMATION MODAL
+    // =============================================
+
+    function confirmAction(message) {
+        return new Promise((resolve) => {
+            document.getElementById('confirmModalMessage').textContent = message;
+            document.getElementById('confirmModal').classList.remove('hidden');
+
+            const confirmBtn = document.getElementById('confirmModalBtn');
+
+            // Remove any existing listeners
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+            newConfirmBtn.onclick = function() {
+                closeConfirmModal();
+                resolve(true);
+            };
+
+            // Handle cancel - remove any existing listeners first
+            const closeModal = document.getElementById('confirmModal');
+            const cancelHandler = function(e) {
+                if (e.target.id === 'confirmModal' || e.target.closest('button')?.textContent === 'Cancel') {
+                    closeConfirmModal();
+                    resolve(false);
                 }
-            })
-            .then(response => {
-                if (response.status === 403) {
-                    showNotification('error', 'Session expired. Please refresh the page.');
-                    setTimeout(() => window.location.reload(), 2000);
-                    return;
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showNotification('success', data.success);
-                    setTimeout(() => window.location.reload(), 1000);
-                } else if (data.error) {
-                    showNotification('error', data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('error', 'An error occurred. Please try again.');
-            });
-        }
+            };
+
+            closeModal.removeEventListener('click', cancelHandler);
+            closeModal.addEventListener('click', cancelHandler, { once: true });
+        });
     }
+
+    function closeConfirmModal() {
+        document.getElementById('confirmModal').classList.add('hidden');
+    }
+
+    // =============================================
+    // NOTIFICATION FUNCTION
+    // =============================================
 
     function showNotification(type, message) {
         // Remove existing notifications
         document.querySelectorAll('.notification').forEach(n => n.remove());
 
         const notification = document.createElement('div');
-        notification.className = `notification fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+        notification.className = `notification fixed top-4 right-4 p-4 rounded-lg shadow-lg z-[1000] ${
             type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`;
         notification.innerHTML = `
@@ -1728,17 +1684,47 @@ function closeDocumentModal() {
         setTimeout(() => notification.remove(), 5000);
     }
 
-    // Close modal when clicking outside
-    document.getElementById('employeeModal').addEventListener('click', function(e) {
-        if (e.target.id === 'employeeModal') closeModal();
-    });
+    // =============================================
+    // INITIALIZATION
+    // =============================================
 
-    document.getElementById('viewModal').addEventListener('click', function(e) {
-        if (e.target.id === 'viewModal') closeViewModal();
-    });
+    document.addEventListener('DOMContentLoaded', function() {
+        attachEventListeners();
 
-    document.getElementById('invitationStatusModal').addEventListener('click', function(e) {
-        if (e.target.id === 'invitationStatusModal') closeInvitationStatusModal();
+        // Close modals when clicking outside
+        document.getElementById('employeeModal')?.addEventListener('click', function(e) {
+            if (e.target.id === 'employeeModal') closeModal();
+        });
+
+        document.getElementById('viewModal')?.addEventListener('click', function(e) {
+            if (e.target.id === 'viewModal') closeViewModal();
+        });
+
+        document.getElementById('invitationStatusModal')?.addEventListener('click', function(e) {
+            if (e.target.id === 'invitationStatusModal') closeInvitationStatusModal();
+        });
+
+        document.getElementById('documentViewModal')?.addEventListener('click', function(e) {
+            if (e.target.id === 'documentViewModal') closeDocumentModal();
+        });
+
+        // Document Invitation dropdown
+        document.getElementById('documentInvitationBtn')?.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('invitationDropdown');
+            dropdown.classList.toggle('hidden');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('invitationDropdown');
+            const button = document.getElementById('documentInvitationBtn');
+
+            if (button && dropdown && !button.contains(event.target) && !dropdown.contains(event.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
     });
 </script>
+
 @endsection

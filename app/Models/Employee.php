@@ -329,47 +329,44 @@ class Employee extends Model
     /**
      * Check if employee can be fed now (business rules)
      */
-    public function canBeFedNow(): array
-    {
-        // Check if employee is active
-        if (!$this->is_active) {
-            return [
-                'can_be_fed' => false,
-                'reason' => 'Employee is not active'
-            ];
-        }
-
-        // Check if already ate today
-        if ($this->hasEatenToday()) {
-            $todayMeal = $this->getTodayMealTransaction();
-            return [
-                'can_be_fed' => false,
-                'reason' => "Already had a meal today. Scanned by {$todayMeal->vendor->name} at {$todayMeal->meal_time}"
-            ];
-        }
-
-        // Optional: Check if documents are verified
-        if ($this->documents && !$this->documents->is_verified) {
-            return [
-                'can_be_fed' => false,
-                'reason' => 'Employee documents are not verified'
-            ];
-        }
-
-        // Check if it's within feeding hours (optional business rule)
-        $currentHour = now()->hour;
-        if ($currentHour < 6 || $currentHour > 22) {
-            return [
-                'can_be_fed' => false,
-                'reason' => 'Outside of feeding hours (6:00 AM - 10:00 PM)'
-            ];
-        }
-
+   /**
+ * Check if employee can be fed now (business rules)
+ */
+public function canBeFedNow(): array
+{
+    // Check if employee is active
+    if (!$this->is_active) {
         return [
-            'can_be_fed' => true,
-            'reason' => 'OK to feed'
+            'can_be_fed' => false,
+            'reason' => 'Employee is not active'
         ];
     }
+
+    // Check if already ate today
+    if ($this->hasEatenToday()) {
+        $todayMeal = $this->getTodayMealTransaction();
+        return [
+            'can_be_fed' => false,
+            'reason' => "Already had a meal today. Scanned by {$todayMeal->vendor->name} at {$todayMeal->meal_time}"
+        ];
+    }
+
+    // DOCUMENT VERIFICATION CHECK REMOVED - Meals now allowed even if documents aren't verified
+
+    // Check if it's within feeding hours (optional business rule)
+    $currentHour = now()->hour;
+    if ($currentHour < 6 || $currentHour > 22) {
+        return [
+            'can_be_fed' => false,
+            'reason' => 'Outside of feeding hours (6:00 AM - 10:00 PM)'
+        ];
+    }
+
+    return [
+        'can_be_fed' => true,
+        'reason' => 'OK to feed'
+    ];
+}
 
     /**
      * Record a meal transaction

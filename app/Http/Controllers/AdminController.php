@@ -350,7 +350,26 @@ class AdminController extends Controller
             'forecast'
         ));
     }
+/**
+ * Get 30-day trends data for AJAX requests
+ */
+public function get30DayTrends(Request $request)
+{
+    try {
+        $trendData = $this->getDailyScansTrend(30);
 
+        return response()->json([
+            'success' => true,
+            'trend_data' => $trendData
+        ]);
+    } catch (\Exception $e) {
+        Log::error('30-day trends error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'error' => 'Failed to load 30-day trends'
+        ], 500);
+    }
+}
     /**
      * Calculate growth rate
      */
