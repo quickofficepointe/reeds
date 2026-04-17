@@ -7,13 +7,44 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
                 <h1 class="text-3xl font-bold text-text-black">Manual Meal Entry</h1>
-                <p class="text-gray-600 mt-2">For Monday, February 2nd, 2026 only</p>
+                <p class="text-gray-600 mt-2">For selected dates in February 2026</p>
             </div>
             <div class="mt-4 md:mt-0">
                 <span class="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
-                    <i class="fas fa-calendar-day mr-1"></i> Special Entry
+                    <i class="fas fa-calendar-day mr-1"></i> Special Entry Period
                 </span>
             </div>
+        </div>
+    </div>
+
+    <!-- Date Selection Tabs -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-4 mb-6">
+        <div class="flex items-center mb-3">
+            <i class="fas fa-calendar-alt text-secondary-blue mr-2"></i>
+            <h3 class="font-medium text-text-black">Select Date for Manual Entry:</h3>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            @foreach($allowedDates as $date)
+                @php
+                    $carbonDate = \Carbon\Carbon::parse($date);
+                    $isSelected = $date === $selectedDate;
+                    $dayOfWeek = $carbonDate->format('D');
+                    $day = $carbonDate->format('d');
+                    $formatted = $carbonDate->format('M d, Y');
+                    $stats = $dateStats[$date] ?? ['total' => 0, 'manual' => 0];
+                @endphp
+                <a href="{{ route('admin.meals.manual-entry', ['date' => $date]) }}"
+                   class="relative flex flex-col items-center px-4 py-2 rounded-lg transition duration-150
+                          {{ $isSelected ? 'bg-secondary-blue text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                    <span class="text-xs font-medium">{{ $dayOfWeek }}</span>
+                    <span class="text-lg font-bold">{{ $day }}</span>
+                    @if($stats['total'] > 0)
+                        <span class="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                            {{ $stats['total'] }}
+                        </span>
+                    @endif
+                </a>
+            @endforeach
         </div>
     </div>
 
@@ -48,7 +79,7 @@
                         <div>
                             <p class="text-sm text-blue-800">
                                 This form is only for recording meals for employees who did not have meal cards
-                                on <strong class="font-semibold">Monday, February 2nd, 2026</strong>.
+                                on <strong class="font-semibold">{{ \Carbon\Carbon::parse($selectedDate)->format('l, F jS, Y') }}</strong>.
                                 These entries will count towards vendor totals for that day.
                             </p>
                         </div>
@@ -57,7 +88,7 @@
 
                 <form id="manualEntryForm">
                     @csrf
-                    <input type="hidden" name="meal_date" value="2026-02-02">
+                    <input type="hidden" name="meal_date" value="{{ $selectedDate }}">
 
                     <!-- Employee & Vendor Selection -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -138,7 +169,7 @@
                         <button type="button" onclick="submitManualEntry()" id="submitBtn"
                                 class="px-6 py-3 bg-secondary-blue text-white rounded-lg hover:bg-blue-600 transition duration-150 font-medium flex items-center">
                             <i class="fas fa-save mr-2"></i>
-                            Record Meal for Feb 2nd, 2026
+                            Record Meal for {{ \Carbon\Carbon::parse($selectedDate)->format('M d, Y') }}
                         </button>
                         <button type="button" onclick="resetForm()" id="resetBtn"
                                 class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-150 font-medium">
@@ -159,6 +190,8 @@
 
                 <form id="bulkEntryForm">
                     @csrf
+                    <input type="hidden" name="meal_date" value="{{ $selectedDate }}">
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <!-- Employee Selection -->
                         <div>
@@ -210,7 +243,7 @@
                             <button type="button" onclick="submitBulkEntry()" id="bulkSubmitBtn"
                                     class="w-full px-6 py-3 bg-yellow-100 text-yellow-800 rounded-lg hover:bg-yellow-200 transition duration-150 font-medium flex items-center justify-center">
                                 <i class="fas fa-users mr-2"></i>
-                                Record Bulk Meals
+                                Record Bulk Meals for {{ \Carbon\Carbon::parse($selectedDate)->format('M d') }}
                             </button>
                         </div>
                     </div>
@@ -222,7 +255,7 @@
         <div class="space-y-8">
             <!-- Stats Card -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-                <h3 class="text-lg font-bold text-text-black mb-6">February 2nd, 2026 Stats</h3>
+                <h3 class="text-lg font-bold text-text-black mb-6">{{ \Carbon\Carbon::parse($selectedDate)->format('F jS, Y') }} Stats</h3>
 
                 <div class="grid grid-cols-2 gap-4 mb-6">
                     <!-- Total Meals -->
@@ -238,21 +271,34 @@
                     </div>
                 </div>
 
+                <!-- Date Summary -->
+                <div class="mb-6">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2">All Dates Summary:</h4>
+                    <div class="space-y-2 max-h-40 overflow-y-auto">
+                        @foreach($dateStats as $date => $stats)
+                            <div class="flex justify-between items-center text-sm {{ $date === $selectedDate ? 'bg-blue-50 p-1 rounded' : '' }}">
+                                <span>{{ $stats['formatted'] }}</span>
+                                <span class="font-medium">{{ $stats['total'] }} meals</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
                 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
                     <div class="flex items-start">
                         <i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5 mr-2"></i>
                         <div>
                             <p class="text-sm text-yellow-800">
-                                <strong class="font-semibold">Reminder:</strong> This tool is only for recording meals that should have been scanned on Monday, February 2nd, 2026. All entries will be logged with your admin ID.
+                                <strong class="font-semibold">Reminder:</strong> This tool is only for recording meals for the allowed dates. All entries will be logged with your admin ID.
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <a href="{{ route('admin.meals.feb2-report') }}"
+                <a href="{{ route('admin.meals.feb2-report', ['date' => $selectedDate]) }}"
                    class="w-full px-4 py-3 bg-secondary-blue text-white rounded-lg hover:bg-blue-600 transition duration-150 flex items-center justify-center font-medium">
                     <i class="fas fa-chart-bar mr-2"></i>
-                    View Full Report
+                    View Full Report for {{ \Carbon\Carbon::parse($selectedDate)->format('M d') }}
                 </a>
             </div>
 
@@ -264,20 +310,20 @@
                     <button onclick="showUnfedEmployees()"
                             class="w-full px-4 py-3 border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50 transition duration-150 flex items-center justify-center font-medium">
                         <i class="fas fa-search mr-2"></i>
-                        Show Unfed Employees
+                        Show Unfed Employees for {{ \Carbon\Carbon::parse($selectedDate)->format('M d') }}
                     </button>
 
-                    <a href="/vendor/dashboard?date=2026-02-02" target="_blank"
+                    <a href="/vendor/dashboard?date={{ $selectedDate }}" target="_blank"
                        class="block w-full px-4 py-3 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition duration-150 flex items-center justify-center font-medium">
                         <i class="fas fa-store mr-2"></i>
-                        View Vendor Dashboard
+                        View Vendor Dashboard for {{ \Carbon\Carbon::parse($selectedDate)->format('M d') }}
                     </a>
                 </div>
             </div>
 
             <!-- Recent Manual Entries -->
             <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-                <h3 class="text-lg font-bold text-text-black mb-4">Recent Manual Entries</h3>
+                <h3 class="text-lg font-bold text-text-black mb-4">Recent Manual Entries for {{ \Carbon\Carbon::parse($selectedDate)->format('M d') }}</h3>
                 <div id="recentEntries" class="text-center py-8 text-gray-500">
                     <i class="fas fa-history text-2xl mb-2"></i>
                     <p class="text-sm">Loading recent entries...</p>
@@ -331,7 +377,7 @@ if (typeof jQuery === 'undefined') {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded');
 
-    // Load recent entries
+    // Load recent entries for selected date
     loadRecentEntries();
 
     // Employee selection info
@@ -378,16 +424,9 @@ function submitManualEntry() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
 
     // Collect form data
-    const formData = new FormData();
-    formData.append('_token', document.querySelector('input[name="_token"]').value);
-    formData.append('meal_date', '2026-02-02');
-    formData.append('employee_id', employeeId);
-    formData.append('vendor_id', vendorId);
-    formData.append('meal_time', document.getElementById('mealTime').value);
-    formData.append('amount', document.getElementById('amountInput').value);
-    formData.append('note', document.getElementById('noteInput').value);
+    const formData = new FormData(document.getElementById('manualEntryForm'));
 
-    console.log('Submitting form data...');
+    console.log('Submitting form data for date:', formData.get('meal_date'));
 
     fetch("{{ route('admin.meals.manual-entry.process') }}", {
         method: 'POST',
@@ -434,7 +473,10 @@ function submitBulkEntry() {
         return;
     }
 
-    if (!confirm(`Are you sure you want to record meals for ${selectedCount} employees?`)) {
+    const mealDate = document.querySelector('input[name="meal_date"]').value;
+    const formattedDate = new Date(mealDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    if (!confirm(`Are you sure you want to record meals for ${selectedCount} employees on ${formattedDate}?`)) {
         return;
     }
 
@@ -444,18 +486,9 @@ function submitBulkEntry() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
 
     // Collect form data
-    const formData = new FormData();
-    formData.append('_token', document.querySelector('input[name="_token"]').value);
+    const formData = new FormData(document.getElementById('bulkEntryForm'));
 
-    // Add selected employee IDs
-    for (let option of selectedOptions) {
-        formData.append('employee_ids[]', option.value);
-    }
-
-    formData.append('vendor_id', document.getElementById('bulkVendorSelect').value);
-    formData.append('meal_time', document.getElementById('bulkMealTime').value);
-
-    console.log('Submitting bulk form data...');
+    console.log('Submitting bulk form data for date:', formData.get('meal_date'));
 
     fetch("{{ route('admin.meals.bulk-manual-entry') }}", {
         method: 'POST',
@@ -494,7 +527,10 @@ function resetForm() {
 }
 
 function loadRecentEntries() {
-    fetch("{{ route('admin.meals.recent-entries') }}?date=2026-02-02")
+    const urlParams = new URLSearchParams(window.location.search);
+    const date = urlParams.get('date') || '{{ $selectedDate }}';
+
+    fetch("{{ route('admin.meals.recent-entries') }}?date=" + date)
         .then(response => response.json())
         .then(data => {
             console.log('Recent entries:', data);
@@ -520,6 +556,7 @@ function loadRecentEntries() {
                             </div>
                         </div>
                         ${entry.note ? `<p class="text-xs text-gray-600 mt-2 italic">"${entry.note}"</p>` : ''}
+                        <p class="text-xs text-gray-400 mt-1">${entry.meal_date}</p>
                     </div>`;
                 });
                 container.innerHTML = html;
@@ -527,7 +564,7 @@ function loadRecentEntries() {
                 container.innerHTML = `
                     <div class="text-center py-8 text-gray-500">
                         <i class="fas fa-history text-2xl mb-2"></i>
-                        <p class="text-sm">No recent manual entries</p>
+                        <p class="text-sm">No recent manual entries for this date</p>
                     </div>
                 `;
             }
@@ -589,6 +626,7 @@ function showResultModal(response) {
             `;
         } else {
             // Single entry response
+            const dateDisplay = response.transaction?.formatted_date || response.transaction?.meal_date || '';
             content.innerHTML = `
                 <div class="rounded-lg border border-green-200 bg-green-50 p-4">
                     <div class="flex items-start">
@@ -604,6 +642,10 @@ function showResultModal(response) {
                                 <div class="flex justify-between">
                                     <span class="text-gray-600">Employee:</span>
                                     <span class="font-medium">${response.transaction.employee_name}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Date:</span>
+                                    <span class="font-medium">${dateDisplay}</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-gray-600">Time:</span>
@@ -648,7 +690,10 @@ function closeResultModal() {
 }
 
 function showUnfedEmployees() {
-    fetch("{{ route('admin.meals.unfed-employees') }}?date=2026-02-02")
+    const urlParams = new URLSearchParams(window.location.search);
+    const date = urlParams.get('date') || '{{ $selectedDate }}';
+
+    fetch("{{ route('admin.meals.unfed-employees') }}?date=" + date)
         .then(response => response.json())
         .then(response => {
             if (response.success) {
@@ -657,9 +702,9 @@ function showUnfedEmployees() {
                         `• ${e.formal_name} (${e.employee_code}) - ${e.department}`
                     ).join('\n');
 
-                    alert(`Unfed employees for Feb 2nd, 2026: ${response.count}\n\n${employeeList}`);
+                    alert(`Unfed employees for ${date}: ${response.count}\n\n${employeeList}`);
                 } else {
-                    alert('All employees have been fed for Feb 2nd, 2026!');
+                    alert('All employees have been fed for this date!');
                 }
             } else {
                 alert('Failed to load unfed employees.');
@@ -670,6 +715,5 @@ function showUnfedEmployees() {
         });
 }
 </script>
-
 
 @endsection

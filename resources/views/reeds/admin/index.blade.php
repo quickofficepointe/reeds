@@ -239,53 +239,53 @@
     </div>
 
     <!-- Charts & Detailed Analysis -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-    <!-- Scan Trends Chart -->
-    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold text-text-black">Scan Trends</h2>
-           <div class="flex space-x-2" id="chartPeriodButtons">
-    <button class="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-full period-btn" data-period="7d" onclick="load7DayChart()">7D</button>
-    <button class="px-3 py-1 text-xs bg-gray-100 text-gray-800 rounded-full period-btn" data-period="30d" onclick="load30DayChart()">30D</button>
-</div>
-        </div>
-        <div class="h-64" id="chartContainer">
-            <canvas id="scanTrendsChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Unit Performance -->
-    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-bold text-text-black">Unit Performance</h2>
-            <a href="{{ route('admin.analytics') }}" class="text-sm text-secondary-blue hover:text-blue-600">
-                View Details →
-            </a>
-        </div>
-        <div class="space-y-4">
-            @foreach($unitStats->take(3) as $unit)
-            <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-lg flex items-center justify-center
-                                {{ $unit['scan_growth'] >= 0 ? 'bg-green-100' : 'bg-red-100' }}">
-                        <i class="{{ $unit['scan_growth'] >= 0 ? 'fas fa-arrow-up text-green-600' : 'fas fa-arrow-down text-red-600' }}"></i>
-                    </div>
-                    <div>
-                        <p class="font-medium text-text-black">{{ $unit['name'] }}</p>
-                        <p class="text-xs text-gray-500">{{ $unit['location'] }}</p>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <p class="font-semibold">{{ $unit['today_scans'] }} scans</p>
-                    <p class="text-xs {{ $unit['scan_growth'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                        {{ $unit['scan_growth'] }}% growth
-                    </p>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Scan Trends Chart -->
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-text-black">Scan Trends</h2>
+                <div class="flex space-x-2" id="chartPeriodButtons">
+                    <button class="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-full period-btn" data-period="7d" onclick="load7DayChart()">7D</button>
+                    <button class="px-3 py-1 text-xs bg-gray-100 text-gray-800 rounded-full period-btn" data-period="30d" onclick="load30DayChart()">30D</button>
                 </div>
             </div>
-            @endforeach
+            <div class="h-64" id="chartContainer">
+                <canvas id="scanTrendsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Unit Performance -->
+        <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-text-black">Unit Performance</h2>
+                <a href="{{ route('admin.analytics') }}" class="text-sm text-secondary-blue hover:text-blue-600">
+                    View Details →
+                </a>
+            </div>
+            <div class="space-y-4">
+                @foreach($unitStats->take(3) as $unit)
+                <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center
+                                    {{ $unit['scan_growth'] >= 0 ? 'bg-green-100' : 'bg-red-100' }}">
+                            <i class="{{ $unit['scan_growth'] >= 0 ? 'fas fa-arrow-up text-green-600' : 'fas fa-arrow-down text-red-600' }}"></i>
+                        </div>
+                        <div>
+                            <p class="font-medium text-text-black">{{ $unit['name'] }}</p>
+                            <p class="text-xs text-gray-500">{{ $unit['location'] }}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-semibold">{{ $unit['today_scans'] }} scans</p>
+                        <p class="text-xs {{ $unit['scan_growth'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                            {{ $unit['scan_growth'] }}% growth
+                        </p>
+                    </div>
+                </div>
+                @endforeach
+            </div>
         </div>
     </div>
-</div>
 
     <!-- Detailed Tables Section -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1480,14 +1480,51 @@ function initializeDepartmentChart(departmentData) {
     });
 }
 
+// ENHANCED EXPORT TAB WITH MONTH SELECTOR
 function loadExportTab() {
     const data = window.currentVendorData;
     const vendor = data.vendor;
+
+    // Generate month options for the last 12 months
+    const monthOptions = [];
+    for (let i = 0; i < 12; i++) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        const value = `${year}-${month}`;
+        monthOptions.push({ value, name: monthName });
+    }
 
     const content = `
         <div class="space-y-6">
             <div class="bg-white p-6 rounded-lg border shadow-sm">
                 <h4 class="font-semibold mb-4">Export Analytics</h4>
+
+                <!-- Month Selection -->
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Month for Export</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <select id="exportMonth" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select Month</option>
+                                ${monthOptions.map(option => `
+                                    <option value="${option.value}">${option.name}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="loadCustomMonthData()"
+                                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-150">
+                                <i class="fas fa-sync-alt mr-2"></i>Load Month Data
+                            </button>
+                            <span class="text-xs text-gray-500" id="monthDataStatus"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Options -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Excel Export -->
                     <div class="border rounded-lg p-4 hover:border-secondary-blue transition duration-150">
@@ -1502,8 +1539,15 @@ function loadExportTab() {
                                 </div>
                             </div>
                         </div>
-                        <div class="space-y-2">
-                            <p class="text-sm text-gray-600">Export vendor analytics to Excel format</p>
+                        <div class="space-y-3">
+                            <div class="flex items-center space-x-2">
+                                <input type="radio" name="excelPeriod" id="excelCurrentMonth" value="current" checked class="h-4 w-4 text-blue-600">
+                                <label for="excelCurrentMonth" class="text-sm text-gray-700">Current Month</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="radio" name="excelPeriod" id="excelSelectedMonth" value="selected" class="h-4 w-4 text-blue-600">
+                                <label for="excelSelectedMonth" class="text-sm text-gray-700">Selected Month</label>
+                            </div>
                             <button onclick="exportVendorData('excel')"
                                     class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition duration-150">
                                 <i class="fas fa-download mr-2"></i>Export to Excel
@@ -1524,8 +1568,15 @@ function loadExportTab() {
                                 </div>
                             </div>
                         </div>
-                        <div class="space-y-2">
-                            <p class="text-sm text-gray-600">Generate PDF report with charts and insights</p>
+                        <div class="space-y-3">
+                            <div class="flex items-center space-x-2">
+                                <input type="radio" name="pdfPeriod" id="pdfCurrentMonth" value="current" checked class="h-4 w-4 text-blue-600">
+                                <label for="pdfCurrentMonth" class="text-sm text-gray-700">Current Month</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="radio" name="pdfPeriod" id="pdfSelectedMonth" value="selected" class="h-4 w-4 text-blue-600">
+                                <label for="pdfSelectedMonth" class="text-sm text-gray-700">Selected Month</label>
+                            </div>
                             <button onclick="exportVendorData('pdf')"
                                     class="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition duration-150">
                                 <i class="fas fa-download mr-2"></i>Export to PDF
@@ -1582,7 +1633,123 @@ function loadExportTab() {
     document.getElementById('tabContent').innerHTML = content;
 }
 
-// Export function for vendor data
+// Function to load data for selected month
+// Function to load data for selected month - FIXED VERSION
+function loadCustomMonthData() {
+    const monthSelect = document.getElementById('exportMonth');
+    const statusEl = document.getElementById('monthDataStatus');
+
+    if (!monthSelect) {
+        console.error('Month select element not found');
+        return;
+    }
+
+    if (!monthSelect.value) {
+        alert('Please select a month first');
+        return;
+    }
+
+    const [year, month] = monthSelect.value.split('-');
+    const monthName = monthSelect.options[monthSelect.selectedIndex].text;
+
+    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading...';
+
+    // Get the vendor ID from current data
+    const vendorId = window.currentVendorData?.vendor?.id;
+    if (!vendorId) {
+        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Vendor ID not found</span>';
+        return;
+    }
+
+    // Fetch data for the selected month
+    fetch(`/admin/vendor/${vendorId}/analytics/month/${year}/${month}`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            statusEl.innerHTML = '<span class="text-green-600"><i class="fas fa-check mr-1"></i>' + monthName + ' data loaded</span>';
+
+            // Store the month data for later use
+            window.selectedMonthData = data.data;
+
+            // Store in a data attribute on the month select instead
+            monthSelect.dataset.selectedMonth = monthSelect.value;
+            monthSelect.dataset.selectedMonthName = monthName;
+
+            // Show summary in a small preview
+            showMonthDataPreview(data.data);
+        } else {
+            throw new Error(data.error || 'Failed to load data');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading month data:', error);
+        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Failed to load data</span>';
+    });
+}
+
+// Function to show month data preview
+// Function to show month data preview - FIXED VERSION
+function showMonthDataPreview(data) {
+    // Check if preview container exists, if not create it
+    let previewEl = document.getElementById('monthDataPreview');
+
+    // Find the export tab content container
+    const tabContent = document.getElementById('tabContent');
+
+    if (!previewEl) {
+        previewEl = document.createElement('div');
+        previewEl.id = 'monthDataPreview';
+        previewEl.className = 'mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200';
+
+        // Append to tabContent instead of exportTab
+        if (tabContent) {
+            tabContent.appendChild(previewEl);
+        }
+    }
+
+    // Format numbers
+    const totalRevenue = new Intl.NumberFormat('en-KE', {
+        style: 'currency',
+        currency: 'KES',
+        minimumFractionDigits: 2
+    }).format(data.summary.total_revenue);
+
+    previewEl.innerHTML = `
+        <h5 class="font-medium text-blue-800 mb-2">${data.month} - Summary</h5>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div>
+                <span class="text-blue-600 block">Total Scans</span>
+                <span class="font-bold">${data.summary.total_scans}</span>
+            </div>
+            <div>
+                <span class="text-blue-600 block">Total Revenue</span>
+                <span class="font-bold">${totalRevenue}</span>
+            </div>
+            <div>
+                <span class="text-blue-600 block">Avg per Scan</span>
+                <span class="font-bold">KES ${data.summary.avg_transaction}</span>
+            </div>
+            <div>
+                <span class="text-blue-600 block">Days in Month</span>
+                <span class="font-bold">${data.summary.days_in_month}</span>
+            </div>
+        </div>
+    `;
+}
+
+// Updated export function with month selection
+// Updated export function with month selection - FIXED VERSION
 function exportVendorData(format) {
     const vendorId = window.currentVendorData?.vendor?.id;
     if (!vendorId) {
@@ -1590,10 +1757,47 @@ function exportVendorData(format) {
         return;
     }
 
-    const url = `/admin/vendor/${vendorId}/analytics/export?format=${format}&period=month`;
+    // Determine which period to use
+    let period = 'month'; // default
+    let selectedMonth = '';
+
+    if (format === 'excel') {
+        const excelPeriod = document.querySelector('input[name="excelPeriod"]:checked')?.value;
+        if (excelPeriod === 'selected') {
+            const monthSelect = document.getElementById('exportMonth');
+            selectedMonth = monthSelect ? monthSelect.value : '';
+            if (!selectedMonth) {
+                alert('Please select a month first');
+                return;
+            }
+        }
+    } else if (format === 'pdf') {
+        const pdfPeriod = document.querySelector('input[name="pdfPeriod"]:checked')?.value;
+        if (pdfPeriod === 'selected') {
+            const monthSelect = document.getElementById('exportMonth');
+            selectedMonth = monthSelect ? monthSelect.value : '';
+            if (!selectedMonth) {
+                alert('Please select a month first');
+                return;
+            }
+        }
+    }
+
+    // Build URL with parameters
+    let url = `/admin/vendor/${vendorId}/analytics/export?format=${format}`;
+
+    if (selectedMonth) {
+        const [year, month] = selectedMonth.split('-');
+        const startDate = `${year}-${month}-01`;
+        const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // Last day of month
+
+        url += `&start_date=${startDate}&end_date=${endDate}&period=custom`;
+    } else {
+        url += '&period=month';
+    }
+
     window.open(url, '_blank');
 }
-
 // Share function for vendor analytics
 function shareVendorAnalytics() {
     const vendorId = window.currentVendorData?.vendor?.id;

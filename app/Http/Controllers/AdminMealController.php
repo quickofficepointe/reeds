@@ -16,17 +16,35 @@ use Illuminate\Support\Carbon;
 class AdminMealController extends Controller
 {
     /**
-     * Show manual meal entry form for Monday Feb 2nd, 2026
+     * Show manual meal entry form for allowed dates
      */
     public function showManualEntryForm()
     {
-        // Use today's date or a fixed date for manual entry
-        $targetDate = '2026-02-02';
+        // Define allowed dates for manual entry
+        $allowedDates = [
+            '2026-02-02',
+            '2026-02-03',
+            '2026-02-16',
+            '2026-02-24',
+            '2026-02-25',
+            '2026-02-26',
+            '2026-02-27',
+            '2026-02-28'
+        ];
+
+        // Get selected date from query parameter or default to first allowed date
+        $selectedDate = request()->get('date', $allowedDates[0]);
+
+        // Validate selected date is in allowed list
+        if (!in_array($selectedDate, $allowedDates)) {
+            $selectedDate = $allowedDates[0];
+        }
 
         Log::info('AdminMealController: Loading manual entry form', [
             'admin_id' => Auth::id(),
             'admin_name' => Auth::user()->name,
-            'target_date' => $targetDate
+            'selected_date' => $selectedDate,
+            'allowed_dates' => $allowedDates
         ]);
 
         // Get all active employees
@@ -40,40 +58,66 @@ class AdminMealController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Get already scanned employees for this date
-        $scannedEmployees = MealTransaction::whereDate('meal_date', $targetDate)
+        // Get already scanned employees for selected date
+        $scannedEmployees = MealTransaction::whereDate('meal_date', $selectedDate)
             ->pluck('employee_id')
             ->toArray();
 
-        // Get total counts for the day
-        $totalScans = MealTransaction::whereDate('meal_date', $targetDate)->count();
-        $totalManual = MealTransaction::whereDate('meal_date', $targetDate)
+        // Get total counts for the selected date
+        $totalScans = MealTransaction::whereDate('meal_date', $selectedDate)->count();
+        $totalManual = MealTransaction::whereDate('meal_date', $selectedDate)
             ->where('qr_code_scanned', 'LIKE', 'MANUAL_ENTRY_ADMIN_%')
             ->count();
+
+        // Get counts for each allowed date for stats
+        $dateStats = [];
+        foreach ($allowedDates as $date) {
+            $dateStats[$date] = [
+                'total' => MealTransaction::whereDate('meal_date', $date)->count(),
+                'manual' => MealTransaction::whereDate('meal_date', $date)
+                    ->where('qr_code_scanned', 'LIKE', 'MANUAL_ENTRY_ADMIN_%')
+                    ->count(),
+                'formatted' => Carbon::parse($date)->format('l, F jS, Y')
+            ];
+        }
 
         Log::info('AdminMealController: Form data loaded', [
             'employees_count' => $employees->count(),
             'vendors_count' => $vendors->count(),
             'scanned_employees_count' => count($scannedEmployees),
             'total_scans' => $totalScans,
-            'total_manual' => $totalManual
+            'total_manual' => $totalManual,
+            'selected_date' => $selectedDate
         ]);
 
         return view('reeds.admin.meals.manual-entry', compact(
             'employees',
             'vendors',
-            'targetDate',
+            'allowedDates',
+            'selectedDate',
             'scannedEmployees',
             'totalScans',
-            'totalManual'
+            'totalManual',
+            'dateStats'
         ));
     }
 
     /**
-     * Process manual meal entry for Feb 2nd, 2026
+     * Process manual meal entry for selected date
      */
     public function processManualEntry(Request $request)
     {
+        $allowedDates = [
+            '2026-02-02',
+            '2026-02-03',
+            '2026-02-16',
+            '2026-02-24',
+            '2026-02-25',
+            '2026-02-26',
+            '2026-02-27',
+            '2026-02-28'
+        ];
+
         Log::info('AdminMealController: Processing manual entry request', [
             'admin_id' => Auth::id(),
             'admin_name' => Auth::user()->name,
@@ -83,6 +127,7 @@ class AdminMealController extends Controller
         $validator = Validator::make($request->all(), [
             'employee_id' => 'required|exists:employees,id',
             'vendor_id' => 'required|exists:users,id',
+            'meal_date' => 'required|date|in:' . implode(',', $allowedDates),
             'meal_time' => 'required|date_format:H:i',
             'amount' => 'nullable|numeric|min:65|max:65',
             'note' => 'nullable|string|max:255'
@@ -100,9 +145,9 @@ class AdminMealController extends Controller
             ], 422);
         }
 
-        // Fixed date: Monday, February 2nd, 2026
-        $targetDate = '2026-02-02';
+        $targetDate = $request->meal_date;
         $dateObj = Carbon::parse($targetDate);
+        $formattedDate = $dateObj->format('l, F jS, Y');
 
         // Check if employee already has meal for this date
         $existingMeal = MealTransaction::where('employee_id', $request->employee_id)
@@ -118,7 +163,7 @@ class AdminMealController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'This employee already has a meal recorded for ' . $targetDate
+                'message' => 'This employee already has a meal recorded for ' . $formattedDate
             ], 409);
         }
 
@@ -141,6 +186,7 @@ class AdminMealController extends Controller
                 'vendor_name' => $vendor->name,
                 'transaction_code' => $transactionCode,
                 'amount' => $amount,
+                'meal_date' => $targetDate,
                 'meal_time' => $request->meal_time,
                 'note' => $request->note
             ]);
@@ -160,9 +206,9 @@ class AdminMealController extends Controller
                     'admin_name' => Auth::user()->name,
                     'entry_time' => now()->toDateTimeString(),
                     'entry_date' => $targetDate,
-                    'reason' => 'Employee did not have meal card on Feb 2nd, 2026',
+                    'formatted_date' => $formattedDate,
+                    'reason' => 'Employee did not have meal card',
                     'manual_time' => $request->meal_time,
-                    'original_date' => '2026-02-02',
                     'note' => $request->note ?? null,
                     'amount_set' => $amount
                 ])
@@ -177,12 +223,13 @@ class AdminMealController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Meal for Feb 2nd, 2026 manually recorded successfully!',
+                'message' => 'Meal for ' . $formattedDate . ' manually recorded successfully!',
                 'transaction' => [
                     'code' => $transaction->transaction_code,
                     'employee_name' => $employee->formal_name,
                     'employee_code' => $employee->employee_code,
                     'meal_date' => $transaction->meal_date,
+                    'formatted_date' => $formattedDate,
                     'meal_time' => $transaction->meal_time,
                     'amount' => $transaction->amount,
                     'vendor' => $vendor->name
@@ -208,10 +255,22 @@ class AdminMealController extends Controller
      */
     public function bulkManualEntry(Request $request)
     {
+        $allowedDates = [
+            '2026-02-02',
+            '2026-02-03',
+            '2026-02-16',
+            '2026-02-24',
+            '2026-02-25',
+            '2026-02-26',
+            '2026-02-27',
+            '2026-02-28'
+        ];
+
         Log::info('AdminMealController: Processing bulk manual entry', [
             'admin_id' => Auth::id(),
             'employee_ids_count' => count($request->employee_ids ?? []),
             'vendor_id' => $request->vendor_id,
+            'meal_date' => $request->meal_date,
             'meal_time' => $request->meal_time
         ]);
 
@@ -219,6 +278,7 @@ class AdminMealController extends Controller
             'employee_ids' => 'required|array',
             'employee_ids.*' => 'exists:employees,id',
             'vendor_id' => 'required|exists:users,id',
+            'meal_date' => 'required|date|in:' . implode(',', $allowedDates),
             'meal_time' => 'required|date_format:H:i'
         ]);
 
@@ -234,7 +294,8 @@ class AdminMealController extends Controller
             ], 422);
         }
 
-        $targetDate = '2026-02-02';
+        $targetDate = $request->meal_date;
+        $formattedDate = Carbon::parse($targetDate)->format('l, F jS, Y');
         $successCount = 0;
         $failedCount = 0;
         $errors = [];
@@ -251,7 +312,7 @@ class AdminMealController extends Controller
 
                     if ($existing) {
                         $failedCount++;
-                        $errors[] = "Employee ID {$employeeId} already has meal recorded";
+                        $errors[] = "Employee ID {$employeeId} already has meal recorded for " . $formattedDate;
                         continue;
                     }
 
@@ -272,6 +333,8 @@ class AdminMealController extends Controller
                             'admin_id' => Auth::id(),
                             'admin_name' => Auth::user()->name,
                             'batch_time' => now()->toDateTimeString(),
+                            'meal_date' => $targetDate,
+                            'formatted_date' => $formattedDate,
                             'meal_time' => $request->meal_time,
                             'vendor_name' => $vendor->name
                         ])
@@ -307,7 +370,7 @@ class AdminMealController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "Bulk entry completed. Success: {$successCount}, Failed: {$failedCount}",
+                'message' => "Bulk entry for {$formattedDate} completed. Success: {$successCount}, Failed: {$failedCount}",
                 'success_count' => $successCount,
                 'failed_count' => $failedCount,
                 'errors' => $errors
@@ -327,41 +390,75 @@ class AdminMealController extends Controller
             ], 500);
         }
     }
-public function getRecentEntries(Request $request)
-{
-    $targetDate = $request->get('date', '2026-02-02');
 
-    $entries = MealTransaction::with(['employee', 'vendor'])
-        ->whereDate('meal_date', $targetDate)
-        ->where('qr_code_scanned', 'LIKE', 'MANUAL_ENTRY_ADMIN_%')
-        ->orderBy('created_at', 'desc')
-        ->limit(10)
-        ->get()
-        ->map(function($transaction) {
-            $scanData = json_decode($transaction->scan_data, true);
-            return [
-                'employee_name' => $transaction->employee->formal_name ?? 'Unknown',
-                'employee_code' => $transaction->employee->employee_code ?? 'N/A',
-                'vendor' => $transaction->vendor->name ?? 'Unknown',
-                'amount' => $transaction->amount,
-                'meal_time' => $transaction->meal_time,
-                'note' => $scanData['note'] ?? null
-            ];
-        });
-
-    return response()->json([
-        'success' => true,
-        'entries' => $entries
-    ]);
-}
-    /**
-     * Get comprehensive report for Monday Feb 2nd, 2026
-     */
-    public function getFeb2Report()
+    public function getRecentEntries(Request $request)
     {
-        $targetDate = '2026-02-02';
+        $targetDate = $request->get('date', '2026-02-02');
 
-        Log::info('AdminMealController: Generating Feb 2 report', [
+        $entries = MealTransaction::with(['employee', 'vendor'])
+            ->whereDate('meal_date', $targetDate)
+            ->where('qr_code_scanned', 'LIKE', 'MANUAL_ENTRY_ADMIN_%')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get()
+            ->map(function($transaction) {
+                $scanData = json_decode($transaction->scan_data, true);
+                return [
+                    'employee_name' => $transaction->employee->formal_name ?? 'Unknown',
+                    'employee_code' => $transaction->employee->employee_code ?? 'N/A',
+                    'vendor' => $transaction->vendor->name ?? 'Unknown',
+                    'amount' => $transaction->amount,
+                    'meal_time' => $transaction->meal_time,
+                    'meal_date' => Carbon::parse($transaction->meal_date)->format('M d, Y'),
+                    'note' => $scanData['note'] ?? null
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'entries' => $entries
+        ]);
+    }
+
+    /**
+     * Get unfed employees for a specific date
+     */
+    public function getUnfedEmployees(Request $request)
+    {
+        $targetDate = $request->get('date', '2026-02-02');
+
+        $fedEmployeeIds = MealTransaction::whereDate('meal_date', $targetDate)
+            ->pluck('employee_id')
+            ->toArray();
+
+        $unfedEmployees = Employee::where('is_active', true)
+            ->whereNotIn('id', $fedEmployeeIds)
+            ->with('department')
+            ->get()
+            ->map(function($employee) {
+                return [
+                    'id' => $employee->id,
+                    'formal_name' => $employee->formal_name,
+                    'employee_code' => $employee->employee_code,
+                    'department' => $employee->department->name ?? 'N/A'
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'count' => $unfedEmployees->count(),
+            'employees' => $unfedEmployees
+        ]);
+    }
+
+    /**
+     * Get comprehensive report for selected date
+     */
+    public function getFeb2Report(Request $request)
+    {
+        $targetDate = $request->get('date', '2026-02-02');
+
+        Log::info('AdminMealController: Generating date report', [
             'target_date' => $targetDate
         ]);
 
@@ -428,6 +525,7 @@ public function getRecentEntries(Request $request)
         return response()->json([
             'success' => true,
             'report_date' => $targetDate,
+            'formatted_date' => Carbon::parse($targetDate)->format('l, F jS, Y'),
             'summary' => [
                 'total_meals' => $totalMeals,
                 'total_amount' => $totalAmount,

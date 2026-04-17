@@ -70,7 +70,74 @@ class AdminController extends Controller
 
     return view('reeds.admin.users.index', compact('users', 'units', 'stats'));
 }
+/**
+ * Get vendor data for a specific month
+ */
+public function getVendorMonthData(Request $request, $vendorId, $year, $month)
+{
+    try {
+        $vendor = User::findOrFail($vendorId);
 
+        // Create start and end dates for the selected month
+        $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+        $endDate = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+
+        // Get summary data for this month
+        $totalScans = MealTransaction::where('vendor_id', $vendorId)
+            ->whereBetween('meal_date', [$startDate, $endDate])
+            ->count();
+
+        $totalRevenue = MealTransaction::where('vendor_id', $vendorId)
+            ->whereBetween('meal_date', [$startDate, $endDate])
+            ->sum('amount');
+
+        $avgTransaction = $totalScans > 0 ? round($totalRevenue / $totalScans, 2) : 0;
+
+        // Get daily breakdown
+        $dailyData = MealTransaction::where('vendor_id', $vendorId)
+            ->whereBetween('meal_date', [$startDate, $endDate])
+            ->select(
+                DB::raw('DATE(meal_date) as date'),
+                DB::raw('COUNT(*) as scans'),
+                DB::raw('SUM(amount) as revenue')
+            )
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        // Get top departments for this month
+        $topDepartments = $this->getVendorTopDepartments($vendor, $startDate, $endDate);
+
+        // Get top customers for this month
+        $topCustomers = $this->getVendorTopCustomers($vendor, $startDate, $endDate);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'summary' => [
+                    'total_scans' => $totalScans,
+                    'total_revenue' => $totalRevenue,
+                    'avg_transaction' => $avgTransaction,
+                    'days_in_month' => $startDate->daysInMonth,
+                    'avg_daily_scans' => $totalScans / $startDate->daysInMonth,
+                ],
+                'daily_data' => $dailyData,
+                'top_departments' => $topDepartments,
+                'top_customers' => $topCustomers,
+                'month' => $startDate->format('F Y'),
+                'start_date' => $startDate->format('Y-m-d'),
+                'end_date' => $endDate->format('Y-m-d'),
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Get vendor month data error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'error' => 'Failed to load month data: ' . $e->getMessage()
+        ], 500);
+    }
+}
     /**
      * Store a new user
      */

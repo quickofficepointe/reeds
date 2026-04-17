@@ -226,7 +226,8 @@ Route::post('/vendor/{vendor}/analytics/share', [AdminController::class, 'shareV
         ->name('employees.toggle-status');
     Route::get('employees/{employee}/qr-data', [EmployeeController::class, 'getQrData'])
         ->name('employees.qr-data');
-
+Route::get('/vendor/{vendor}/analytics/month/{year}/{month}', [AdminController::class, 'getVendorMonthData'])
+    ->name('vendor.analytics.month.data');
     // Resource routes LAST
     Route::resource('employees', EmployeeController::class)
         ->only(['index', 'store', 'update', 'destroy']);

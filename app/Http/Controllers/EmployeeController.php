@@ -270,7 +270,7 @@ public function qrCodes(Request $request)
         $query->where('unit_id', $request->unit_id);
     }
 
-    $employees = $query->latest()->paginate(500)->withQueryString();
+    $employees = $query->latest()->paginate(2000)->withQueryString();
 
     // Get departments and units for filters
     $departments = Department::active()->get();
