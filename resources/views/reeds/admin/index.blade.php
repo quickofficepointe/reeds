@@ -138,7 +138,68 @@
             </div>
         </div>
     </div>
+<!-- Security Rewards Section -->
+<div class="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold text-text-black">Security Rewards</h2>
+        <a href="{{ route('admin.rewards.index') }}" class="text-sm text-secondary-blue hover:text-blue-600">
+            Manage Rewards →
+        </a>
+    </div>
 
+    @php
+        $todayReward = \App\Models\Reward::getTodayReward();
+        $weekRewards = \App\Models\Reward::where('reward_date', '>=', now()->startOfWeek())->count();
+        $claimedRewards = \App\Models\Reward::where('status', 'claimed')->where('reward_date', '>=', now()->startOfMonth())->count();
+        $totalRewards = \App\Models\Reward::where('reward_date', '>=', now()->startOfMonth())->count();
+    @endphp
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Today's Reward -->
+        <div class="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg p-4">
+            <div class="text-yellow-100 text-sm uppercase tracking-wide">Today's Security Reward</div>
+            @if($todayReward)
+                <div class="text-white text-2xl font-bold mt-2">{{ $todayReward->employee->formal_name }}</div>
+                <div class="text-yellow-100 text-sm">{{ $todayReward->employee->employee_code }}</div>
+                <div class="mt-3 flex space-x-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-yellow-800">
+                        {{ ucfirst($todayReward->status) }}
+                    </span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-orange-800">
+                        200 KES
+                    </span>
+                </div>
+            @else
+                <div class="text-white text-xl mt-2">No reward assigned for today</div>
+            @endif
+        </div>
+
+        <!-- Reward Stats -->
+        <div class="grid grid-cols-2 gap-4">
+            <div class="text-center p-3 bg-yellow-50 rounded-lg">
+                <p class="text-2xl font-bold text-yellow-600">{{ $weekRewards }}</p>
+                <p class="text-xs text-gray-600">This Week</p>
+            </div>
+            <div class="text-center p-3 bg-green-50 rounded-lg">
+                <p class="text-2xl font-bold text-green-600">{{ $claimedRewards }}/{{ $totalRewards }}</p>
+                <p class="text-xs text-gray-600">Claimed This Month</p>
+            </div>
+        </div>
+    </div>
+</div><!-- Card for Scan Data Export -->
+<a href="{{ route('admin.employees.scan-data.export') }}"
+   class="block bg-white rounded-xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition duration-150">
+    <div class="flex items-center justify-between">
+        <div>
+            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                <i class="fas fa-file-export text-blue-600 text-xl"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900">Employee Scan Data Export</h3>
+            <p class="text-sm text-gray-500 mt-1">Export detailed scan reports with date range</p>
+        </div>
+        <i class="fas fa-chevron-right text-gray-400"></i>
+    </div>
+</a>
     <!-- Main Metrics Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Total Employees -->
@@ -1481,6 +1542,7 @@ function initializeDepartmentChart(departmentData) {
 }
 
 // ENHANCED EXPORT TAB WITH MONTH SELECTOR
+// ENHANCED EXPORT TAB WITH CUSTOM DATE RANGE
 function loadExportTab() {
     const data = window.currentVendorData;
     const vendor = data.vendor;
@@ -1502,9 +1564,36 @@ function loadExportTab() {
             <div class="bg-white p-6 rounded-lg border shadow-sm">
                 <h4 class="font-semibold mb-4">Export Analytics</h4>
 
-                <!-- Month Selection -->
+                <!-- Custom Date Range Selection -->
                 <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Month for Export</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Custom Date Range</label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Start Date</label>
+                            <input type="date" id="customStartDate"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">End Date</label>
+                            <input type="date" id="customEndDate"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="loadCustomRangeData()"
+                                    class="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-150">
+                                <i class="fas fa-calendar-alt mr-2"></i>Load Range Data
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-xs text-gray-500">
+                        Example: 2026-03-01 to 2026-03-14
+                    </div>
+                    <div class="mt-2 text-sm" id="customRangeStatus"></div>
+                </div>
+
+                <!-- Month Selection (Alternative) -->
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg border-t">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Or Select Month</label>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <select id="exportMonth" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -1548,6 +1637,10 @@ function loadExportTab() {
                                 <input type="radio" name="excelPeriod" id="excelSelectedMonth" value="selected" class="h-4 w-4 text-blue-600">
                                 <label for="excelSelectedMonth" class="text-sm text-gray-700">Selected Month</label>
                             </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="radio" name="excelPeriod" id="excelCustomRange" value="custom" class="h-4 w-4 text-blue-600">
+                                <label for="excelCustomRange" class="text-sm text-gray-700">Custom Date Range</label>
+                            </div>
                             <button onclick="exportVendorData('excel')"
                                     class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition duration-150">
                                 <i class="fas fa-download mr-2"></i>Export to Excel
@@ -1577,6 +1670,10 @@ function loadExportTab() {
                                 <input type="radio" name="pdfPeriod" id="pdfSelectedMonth" value="selected" class="h-4 w-4 text-blue-600">
                                 <label for="pdfSelectedMonth" class="text-sm text-gray-700">Selected Month</label>
                             </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="radio" name="pdfPeriod" id="pdfCustomRange" value="custom" class="h-4 w-4 text-blue-600">
+                                <label for="pdfCustomRange" class="text-sm text-gray-700">Custom Date Range</label>
+                            </div>
                             <button onclick="exportVendorData('pdf')"
                                     class="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition duration-150">
                                 <i class="fas fa-download mr-2"></i>Export to PDF
@@ -1584,6 +1681,12 @@ function loadExportTab() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Data Preview Section -->
+            <div id="dataPreviewSection" class="bg-white p-6 rounded-lg border shadow-sm hidden">
+                <h4 class="font-semibold mb-4">Data Preview</h4>
+                <div id="dataPreviewContent"></div>
             </div>
 
             <div class="bg-white p-6 rounded-lg border shadow-sm">
@@ -1631,6 +1734,192 @@ function loadExportTab() {
     `;
 
     document.getElementById('tabContent').innerHTML = content;
+}
+
+// NEW FUNCTION: Load custom date range data
+function loadCustomRangeData() {
+    const startDate = document.getElementById('customStartDate').value;
+    const endDate = document.getElementById('customEndDate').value;
+    const statusEl = document.getElementById('customRangeStatus');
+    const previewSection = document.getElementById('dataPreviewSection');
+    const previewContent = document.getElementById('dataPreviewContent');
+
+    if (!startDate || !endDate) {
+        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Please select both start and end dates</span>';
+        return;
+    }
+
+    if (startDate > endDate) {
+        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Start date cannot be after end date</span>';
+        return;
+    }
+
+    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading data...';
+
+    const vendorId = window.currentVendorData?.vendor?.id;
+    if (!vendorId) {
+        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Vendor ID not found</span>';
+        return;
+    }
+
+    // Format dates for display
+    const startDisplay = new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const endDisplay = new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    // Fetch data for the custom range
+    fetch(`/admin/vendor/${vendorId}/analytics/export?format=summary&start_date=${startDate}&end_date=${endDate}&period=custom`, {
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            statusEl.innerHTML = '<span class="text-green-600"><i class="fas fa-check mr-1"></i>Data loaded for ' + startDisplay + ' to ' + endDisplay + '</span>';
+
+            // Store the range data
+            window.selectedRangeData = data.data || data;
+            window.selectedRange = { start: startDate, end: endDate, startDisplay: startDisplay, endDisplay: endDisplay };
+
+            // Store in select elements as data attributes
+            const monthSelect = document.getElementById('exportMonth');
+            if (monthSelect) {
+                monthSelect.dataset.selectedRange = startDate + '_to_' + endDate;
+                monthSelect.dataset.selectedRangeName = startDisplay + ' to ' + endDisplay;
+            }
+
+            // Show preview
+            showRangeDataPreview(data.data || data, startDisplay, endDisplay);
+            previewSection.classList.remove('hidden');
+        } else {
+            throw new Error(data.error || 'Failed to load data');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading range data:', error);
+        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Failed to load data: ' + error.message + '</span>';
+        previewSection.classList.add('hidden');
+    });
+}
+
+// NEW FUNCTION: Show custom range data preview
+function showRangeDataPreview(data, startDisplay, endDisplay) {
+    const previewContent = document.getElementById('dataPreviewContent');
+
+    // Check if data has summary
+    const summary = data.summary || data;
+
+    const totalRevenue = new Intl.NumberFormat('en-KE', {
+        style: 'currency',
+        currency: 'KES',
+        minimumFractionDigits: 2
+    }).format(summary.total_revenue || 0);
+
+    previewContent.innerHTML = `
+        <div class="bg-blue-50 rounded-lg p-4">
+            <h5 class="font-medium text-blue-800 mb-2">${startDisplay} to ${endDisplay} - Summary</h5>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                    <span class="text-blue-600 block">Total Scans</span>
+                    <span class="font-bold">${summary.total_scans || 0}</span>
+                </div>
+                <div>
+                    <span class="text-blue-600 block">Total Revenue</span>
+                    <span class="font-bold">${totalRevenue}</span>
+                </div>
+                <div>
+                    <span class="text-blue-600 block">Avg per Scan</span>
+                    <span class="font-bold">KES ${summary.avg_transaction || 0}</span>
+                </div>
+                <div>
+                    <span class="text-blue-600 block">Days in Range</span>
+                    <span class="font-bold">${summary.days_in_range || 'N/A'}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Updated export function with custom range support
+function exportVendorData(format) {
+    const vendorId = window.currentVendorData?.vendor?.id;
+    if (!vendorId) {
+        alert('No vendor data available');
+        return;
+    }
+
+    let period = 'month';
+    let selectedMonth = '';
+    let startDate = '';
+    let endDate = '';
+
+    if (format === 'excel') {
+        const excelPeriod = document.querySelector('input[name="excelPeriod"]:checked')?.value;
+        if (excelPeriod === 'selected') {
+            const monthSelect = document.getElementById('exportMonth');
+            selectedMonth = monthSelect ? monthSelect.value : '';
+            if (!selectedMonth) {
+                alert('Please select a month first');
+                return;
+            }
+        } else if (excelPeriod === 'custom') {
+            startDate = document.getElementById('customStartDate')?.value;
+            endDate = document.getElementById('customEndDate')?.value;
+            if (!startDate || !endDate) {
+                alert('Please select a custom date range first');
+                return;
+            }
+            if (startDate > endDate) {
+                alert('Start date cannot be after end date');
+                return;
+            }
+            period = 'custom';
+        }
+    } else if (format === 'pdf') {
+        const pdfPeriod = document.querySelector('input[name="pdfPeriod"]:checked')?.value;
+        if (pdfPeriod === 'selected') {
+            const monthSelect = document.getElementById('exportMonth');
+            selectedMonth = monthSelect ? monthSelect.value : '';
+            if (!selectedMonth) {
+                alert('Please select a month first');
+                return;
+            }
+        } else if (pdfPeriod === 'custom') {
+            startDate = document.getElementById('customStartDate')?.value;
+            endDate = document.getElementById('customEndDate')?.value;
+            if (!startDate || !endDate) {
+                alert('Please select a custom date range first');
+                return;
+            }
+            if (startDate > endDate) {
+                alert('Start date cannot be after end date');
+                return;
+            }
+            period = 'custom';
+        }
+    }
+
+    let url = `/admin/vendor/${vendorId}/analytics/export?format=${format}`;
+
+    if (selectedMonth) {
+        const [year, month] = selectedMonth.split('-');
+        const startDateUrl = `${year}-${month}-01`;
+        const endDateUrl = new Date(year, month, 0).toISOString().split('T')[0];
+        url += `&start_date=${startDateUrl}&end_date=${endDateUrl}&period=custom`;
+    } else if (period === 'custom' && startDate && endDate) {
+        url += `&start_date=${startDate}&end_date=${endDate}&period=custom`;
+    } else {
+        url += '&period=month';
+    }
+
+    window.open(url, '_blank');
 }
 
 // Function to load data for selected month

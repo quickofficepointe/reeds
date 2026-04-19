@@ -86,6 +86,21 @@ Route::prefix('analytics')->name('analytics.')->group(function () {
     Route::get('/export/units', [AdminController::class, 'exportUnitAnalytics'])->name('export.units');
     Route::get('/export/unit/{unit}', [AdminController::class, 'exportSingleUnit'])->name('export.unit');
 });
+        Route::get('/rewards', [AdminController::class, 'rewardsIndex'])->name('rewards.index');
+        Route::post('/rewards/reward-today', [AdminController::class, 'rewardToday'])->name('rewards.reward-today');
+Route::post('/rewards/schedule-tomorrow', [AdminController::class, 'scheduleTomorrowReward'])->name('rewards.schedule-tomorrow');
+        // Generate reward for tomorrow (AJAX)
+        Route::post('/rewards/generate', [AdminController::class, 'generateTomorrowReward'])->name('rewards.generate');
+// Inside your admin group, add this route:
+// Employee Scan Data Export - Show the form
+Route::get('/employees/scan-data/export', [EmployeeController::class, 'exportScanData'])->name('employees.scan-data.export');
+
+// Employee Scan Data - Download the report
+Route::get('/employees/scan-data/download', [EmployeeController::class, 'generateScanDataReport'])->name('employees.scan-data.download');   // Export rewards report
+        Route::get('/rewards/export', [AdminController::class, 'exportRewardsReport'])->name('rewards.export');
+
+        // Get reward stats for dashboard widget (AJAX)
+        Route::get('/rewards/stats', [AdminController::class, 'getRewardStats'])->name('rewards.stats');
 // Add this inside your admin group routes
 Route::get('/analytics/trends/30d', [AdminController::class, 'get30DayTrends'])->name('admin.analytics.trends.30d');
     Route::get('/meals/manual-entry', [AdminMealController::class, 'showManualEntryForm'])

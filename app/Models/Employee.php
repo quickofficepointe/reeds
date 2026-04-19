@@ -576,4 +576,24 @@ public function documentInvitation()
             'meal_stats' => $this->getFeedingStats(),
         ];
     }
+    public function rewards()
+{
+    return $this->hasMany(Reward::class);
+}
+
+public function getTodayRewardAttribute()
+{
+    return $this->rewards()
+        ->whereDate('reward_date', today())
+        ->where('status', 'pending')
+        ->first();
+}
+
+public function hasRewardToday()
+{
+    return $this->rewards()
+        ->whereDate('reward_date', today())
+        ->where('status', 'pending')
+        ->exists();
+}
 }

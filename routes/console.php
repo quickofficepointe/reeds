@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
+use App\Models\Reward;
 
 // ============================================
 // INSPIRATION COMMAND
@@ -16,9 +17,8 @@ Artisan::command('inspire', function () {
 // ============================================
 
 // Generate bi-weekly invoices every Saturday at 3:00 PM Nairobi Time
-// Saturday = 6 (Sunday = 0, Monday = 1, ..., Friday = 5, Saturday = 6)
 Schedule::command('invoices:generate-biweekly')
-    ->weeklyOn(6, '15:00') // Saturday at 3:00 PM
+    ->weeklyOn(6, '15:00')
     ->timezone('Africa/Nairobi')
     ->appendOutputTo(storage_path('logs/invoices/biweekly-generation.log'))
     ->description('Generate bi-weekly vendor invoices');
@@ -29,6 +29,26 @@ Schedule::command('invoices:send-reminders')
     ->timezone('Africa/Nairobi')
     ->appendOutputTo(storage_path('logs/invoices/reminders.log'))
     ->description('Send invoice payment reminders');
+
+// ============================================
+// SECURITY REWARDS SCHEDULES
+// ============================================
+
+// Generate next day's security reward at 10:00 PM daily
+Schedule::command('rewards:generate-daily')
+    ->dailyAt('22:00')
+    ->timezone('Africa/Nairobi')
+    ->appendOutputTo(storage_path('logs/rewards/generation.log'))
+    ->description('Generate daily 200 KES security reward for tomorrow');
+
+// Expire unclaimed rewards at 12:05 AM daily
+Schedule::call(function () {
+    Reward::where('status', 'pending')
+        ->where('reward_date', '<', today())
+        ->update(['status' => 'expired']);
+})->dailyAt('00:05')
+  ->timezone('Africa/Nairobi')
+  ->description('Expire unclaimed security rewards');
 
 // ============================================
 // TESTING SCHEDULES (Comment out in production)
@@ -56,7 +76,6 @@ Schedule::command('telescope:prune --hours=48')
     ->description('Prune old Telescope entries');
 
 // Clear application cache every Sunday at 2:00 AM
-// Sunday = 0
 Schedule::command('cache:clear')
     ->weeklyOn(0, '02:00')
     ->description('Clear application cache weekly');
@@ -91,13 +110,11 @@ Schedule::command('reports:generate-daily')
 // Command to manually trigger invoice generation
 Artisan::command('vendor:generate-invoice {vendor_id} {--period=current}', function ($vendorId, $period) {
     $this->info("Generating invoice for vendor {$vendorId} for {$period} period...");
-    // Call your invoice generation logic here
 })->purpose('Manually generate invoice for a specific vendor');
 
 // Command to test email sending
 Artisan::command('test:invoice-email {email}', function ($email) {
     $this->info("Sending test invoice email to {$email}...");
-    // Test email logic here
 })->purpose('Test invoice email sending to a specific address');
 
 // ============================================
@@ -106,42 +123,38 @@ Artisan::command('test:invoice-email {email}', function ($email) {
 
 // Check system health
 Artisan::command('system:health', function () {
-    $this->info('🔍 Checking system health...');
+    $this->info('Checking system health...');
 
-    // Check database connection
     try {
         \DB::connection()->getPdo();
-        $this->info('✅ Database connection: OK');
+        $this->info('[OK] Database connection');
     } catch (\Exception $e) {
-        $this->error('❌ Database connection: FAILED');
+        $this->error('[FAILED] Database connection');
     }
 
-    // Check storage permissions
     $storagePath = storage_path();
     if (is_writable($storagePath)) {
-        $this->info('✅ Storage permissions: OK');
+        $this->info('[OK] Storage permissions');
     } else {
-        $this->error('❌ Storage permissions: FAILED');
+        $this->error('[FAILED] Storage permissions');
     }
 
-    // Check if commands are registered
-    $commands = ['invoices:generate-biweekly', 'invoices:send-reminders'];
+    $commands = ['invoices:generate-biweekly', 'invoices:send-reminders', 'rewards:generate-daily'];
     foreach ($commands as $command) {
         if (\Artisan::has($command)) {
-            $this->info("✅ Command '{$command}': REGISTERED");
+            $this->info("[OK] Command '{$command}': REGISTERED");
         } else {
-            $this->error("❌ Command '{$command}': NOT REGISTERED");
+            $this->error("[FAILED] Command '{$command}': NOT REGISTERED");
         }
     }
 
-    // Check next scheduled run
     $schedule = app()->make(\Illuminate\Console\Scheduling\Schedule::class);
     $events = $schedule->events();
 
-    $this->info("\n📅 Next scheduled runs:");
+    $this->info("\nNext scheduled runs:");
     foreach ($events as $event) {
         $nextRun = $event->nextRunDate()->format('Y-m-d H:i:s');
-        $this->info("  • {$event->description}: {$nextRun}");
+        $this->info("  - {$event->description}: {$nextRun}");
     }
 
 })->purpose('Check system health and scheduled tasks');

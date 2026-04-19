@@ -9,11 +9,12 @@ use App\Models\Department;
 use App\Models\VendorInvoice;
 use App\Models\SubDepartment;
 use App\Models\Profile;
+use App\Models\Reward;
 use App\Models\Vendor;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\Unit;
 use Illuminate\Validation\Rule;
-
+use App\Services\AdvantaSMSService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -69,6 +70,96 @@ class AdminController extends Controller
     ];
 
     return view('reeds.admin.users.index', compact('users', 'units', 'stats'));
+}
+/**
+ * Manually reward an employee for today
+ */
+public function rewardToday(Request $request)
+{
+    $request->validate([
+        'employee_id' => 'required|exists:employees,id'
+    ]);
+
+    try {
+        $employee = Employee::findOrFail($request->employee_id);
+
+        // Check if there's already a reward for today
+        $existingToday = Reward::whereDate('reward_date', today())->first();
+        if ($existingToday) {
+            return response()->json([
+                'success' => false,
+                'message' => 'There is already a reward for today. Only one reward per day is allowed.'
+            ], 422);
+        }
+
+        // Create reward for today
+        $reward = Reward::create([
+            'employee_id' => $employee->id,
+            'unit_id' => $employee->unit_id,
+            'reward_date' => today(),
+            'amount' => 200.00,
+            'reason' => 'Manual reward by admin',
+            'status' => 'pending',
+            'sent_by' => auth()->id()
+        ]);
+
+        // Send SMS immediately
+        $this->sendRewardSms($reward);
+
+        return response()->json([
+            'success' => true,
+            'message' => $employee->formal_name . ' has been awarded 200 KES for today! SMS sent.'
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Manual reward failed: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Failed to award reward: ' . $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Schedule reward for tomorrow (optional)
+ */
+public function scheduleTomorrowReward(Request $request)
+{
+    try {
+        $employeeId = $request->employee_id;
+        $employee = null;
+
+        if ($employeeId) {
+            $employee = Employee::findOrFail($employeeId);
+        }
+
+        // Delete any existing tomorrow reward
+        Reward::whereDate('reward_date', now()->addDay())->delete();
+
+        if ($employee) {
+            // Create scheduled reward for tomorrow
+            $reward = Reward::create([
+                'employee_id' => $employee->id,
+                'unit_id' => $employee->unit_id,
+                'reward_date' => now()->addDay(),
+                'amount' => 200.00,
+                'reason' => 'Scheduled by admin',
+                'status' => 'pending',
+                'sent_by' => auth()->id()
+            ]);
+
+            // Schedule SMS for 10 PM tonight
+            // SMS will be sent by the scheduled command at 10 PM
+            $message = 'Reward scheduled for ' . $employee->formal_name . ' tomorrow. SMS will be sent at 10 PM tonight.';
+        } else {
+            $message = 'No reward scheduled for tomorrow.';
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $message
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'Failed to schedule: ' . $e->getMessage()], 500);
+    }
 }
 /**
  * Get vendor data for a specific month
@@ -3157,5 +3248,268 @@ public function updateEmailRecipients(Request $request)
         ], 500);
     }
 }
+public function rewardsIndex()
+{
+    $todayReward = Reward::getTodayReward();
+    $tomorrowReward = Reward::whereDate('reward_date', now()->addDay())->first();
 
+    $rewards = Reward::with(['employee', 'employee.department', 'employee.unit', 'mealTransaction'])
+        ->orderBy('reward_date', 'desc')
+        ->paginate(20);
+
+    $stats = [
+        'total_rewards_issued' => Reward::count(),
+        'total_rewards_claimed' => Reward::where('status', 'claimed')->count(),
+        'total_rewards_pending' => Reward::where('status', 'pending')->count(),
+        'total_rewards_expired' => Reward::where('status', 'expired')->count(),
+        'total_amount_distributed' => Reward::where('status', 'claimed')->sum('amount'),
+        'unique_employees_rewarded' => Reward::distinct('employee_id')->count('employee_id')
+    ];
+
+    $availableEmployees = Reward::getAvailableEmployeesForReward();
+
+    return view('reeds.admin.rewards.index', compact(
+        'todayReward', 'tomorrowReward', 'rewards', 'stats', 'availableEmployees'
+    ));
+}
+
+/**
+ * Get today's reward (AJAX)
+ */
+public function getTodayReward()
+{
+    $reward = Reward::getTodayReward();
+
+    if (!$reward) {
+        return response()->json(['success' => false, 'message' => 'No reward assigned for today']);
+    }
+
+    return response()->json([
+        'success' => true,
+        'reward' => [
+            'id' => $reward->id,
+            'employee_name' => $reward->employee->formal_name,
+            'employee_code' => $reward->employee->employee_code,
+            'department' => $reward->employee->department->name ?? 'N/A',
+            'unit' => $reward->employee->unit->name ?? 'N/A',
+            'amount' => $reward->formatted_amount,
+            'status' => $reward->status,
+            'date' => $reward->reward_date->format('F j, Y')
+        ]
+    ]);
+}
+
+/**
+ * Generate reward for tomorrow
+ */
+public function generateTomorrowReward(Request $request)
+{
+    $request->validate([
+        'employee_id' => 'nullable|exists:employees,id'
+    ]);
+
+    try {
+        $employee = null;
+        if ($request->filled('employee_id')) {
+            $employee = Employee::findOrFail($request->employee_id);
+        }
+
+        $reward = Reward::createTomorrowReward($employee);
+        $this->sendRewardSms($reward);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Reward for ' . now()->addDay()->format('F j, Y') . ' created successfully. SMS sent to employee.',
+            'reward' => [
+                'employee_name' => $reward->employee->formal_name,
+                'employee_code' => $reward->employee->employee_code,
+                'unit' => $reward->employee->unit->name ?? 'N/A',
+                'department' => $reward->employee->department->name ?? 'N/A',
+                'amount' => $reward->formatted_amount,
+                'date' => $reward->reward_date->format('F j, Y')
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Failed to generate reward: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Failed to generate reward: ' . $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Send reward SMS notification
+ */
+private function sendRewardSms(Reward $reward)
+{
+    try {
+        $employee = $reward->employee;
+
+        if (!$employee->phone) {
+            Log::warning('Cannot send reward SMS - no phone number', ['employee_id' => $employee->id]);
+            return;
+        }
+
+        $smsService = new AdvantaSMSService();
+        $formattedDate = $reward->reward_date->format('l, F jS, Y');
+
+        $message = "SECURITY REWARD ALERT\n\n" .
+                   "Hello {$employee->first_name},\n\n" .
+                   "You have been awarded 200 KES.\n" .
+                   "Your meal card will be worth 200 KES today ({$formattedDate}).\n\n" .
+                   "Present your card at the canteen as usual.\n" .
+                   "Valid only TODAY.\n\n" .
+                   "- Reeds Africa Management";
+
+        $response = $smsService->sendSMS($employee->phone, $message, $reward->id);
+
+        if (isset($response['responses'][0]['respose-code']) && $response['responses'][0]['respose-code'] == 200) {
+            $reward->update([
+                'sms_sent' => true,
+                'sms_sent_at' => now(),
+                'sms_message_id' => $response['responses'][0]['messageid'] ?? null,
+                'sms_status' => 'sent'
+            ]);
+            Log::info('Reward SMS sent successfully', ['reward_id' => $reward->id]);
+        } else {
+            $error = $response['responses'][0]['response-description'] ?? 'Unknown error';
+            $reward->update([
+                'sms_sent' => false,
+                'sms_status' => 'failed',
+                'sms_error' => $error
+            ]);
+            Log::error('Reward SMS failed', ['reward_id' => $reward->id, 'error' => $error]);
+        }
+
+    } catch (\Exception $e) {
+        Log::error('Failed to send reward SMS: ' . $e->getMessage());
+        $reward->update(['sms_sent' => false, 'sms_status' => 'failed', 'sms_error' => $e->getMessage()]);
+    }
+}
+
+/**
+ * Resend reward SMS
+ */
+public function resendRewardSms(Reward $reward)
+{
+    try {
+        $this->sendRewardSms($reward);
+        return response()->json(['success' => true, 'message' => 'SMS resent successfully']);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'Failed to resend SMS: ' . $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Cancel a reward
+ */
+public function cancelReward(Reward $reward)
+{
+    try {
+        if ($reward->status === 'claimed') {
+            return response()->json(['success' => false, 'message' => 'Cannot cancel a reward that has already been claimed'], 422);
+        }
+        $reward->update(['status' => 'expired']);
+        return response()->json(['success' => true, 'message' => 'Reward cancelled successfully']);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'Failed to cancel reward: ' . $e->getMessage()], 500);
+    }
+}
+
+/**
+ * Get reward statistics for dashboard widget
+ */
+public function getRewardStats()
+{
+    $todayReward = Reward::getTodayReward();
+    $weekRewards = Reward::where('reward_date', '>=', now()->startOfWeek())->get();
+    $monthRewards = Reward::where('reward_date', '>=', now()->startOfMonth())->get();
+
+    return response()->json([
+        'success' => true,
+        'today' => $todayReward ? [
+            'employee_name' => $todayReward->employee->formal_name,
+            'employee_code' => $todayReward->employee->employee_code,
+            'status' => $todayReward->status,
+            'amount' => $todayReward->formatted_amount
+        ] : null,
+        'week_stats' => [
+            'total_rewards' => $weekRewards->count(),
+            'claimed' => $weekRewards->where('status', 'claimed')->count(),
+            'pending' => $weekRewards->where('status', 'pending')->count(),
+            'total_amount' => 'KSh ' . number_format($weekRewards->sum('amount'), 2)
+        ],
+        'month_stats' => [
+            'total_rewards' => $monthRewards->count(),
+            'claimed' => $monthRewards->where('status', 'claimed')->count(),
+            'total_amount' => 'KSh ' . number_format($monthRewards->sum('amount'), 2)
+        ]
+    ]);
+}
+
+/**
+ * Export rewards report
+ */
+public function exportRewardsReport(Request $request)
+{
+    $startDate = $request->get('start_date', now()->startOfMonth());
+    $endDate = $request->get('end_date', now());
+
+    $rewards = Reward::with(['employee', 'employee.department', 'employee.unit'])
+        ->whereBetween('reward_date', [$startDate, $endDate])
+        ->orderBy('reward_date', 'desc')
+        ->get();
+
+    $filename = 'security_rewards_' . now()->format('Y-m-d') . '.csv';
+
+    $headers = [
+        'Content-Type' => 'text/csv',
+        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+    ];
+
+    $callback = function() use ($rewards) {
+        $file = fopen('php://output', 'w');
+        fwrite($file, "\xEF\xBB\xBF");
+
+        fputcsv($file, ['Date', 'Employee Name', 'Employee Code', 'Department', 'Unit', 'Amount', 'Status', 'Claimed Date', 'SMS Sent', 'Reason']);
+
+        foreach ($rewards as $reward) {
+            fputcsv($file, [
+                $reward->reward_date->format('Y-m-d'),
+                $reward->employee->formal_name,
+                $reward->employee->employee_code,
+                $reward->employee->department->name ?? 'N/A',
+                $reward->employee->unit->name ?? 'N/A',
+                $reward->formatted_amount,
+                ucfirst($reward->status),
+                $reward->mealTransaction?->created_at?->format('Y-m-d H:i:s') ?? 'Not claimed',
+                $reward->sms_sent ? 'Yes' : 'No',
+                $reward->reason ?? 'Security vigilance reward'
+            ]);
+        }
+        fclose($file);
+    };
+
+    return response()->stream($callback, 200, $headers);
+}
+
+/**
+ * Get available employees for reward selection
+ */
+public function getAvailableEmployeesForReward()
+{
+    $employees = Reward::getAvailableEmployeesForReward();
+
+    return response()->json([
+        'success' => true,
+        'employees' => $employees->map(function($employee) {
+            return [
+                'id' => $employee->id,
+                'name' => $employee->formal_name,
+                'code' => $employee->employee_code,
+                'unit' => $employee->unit->name ?? 'N/A',
+                'department' => $employee->department->name ?? 'N/A'
+            ];
+        })
+    ]);
+}
 }

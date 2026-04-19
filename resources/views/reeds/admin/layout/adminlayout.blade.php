@@ -284,7 +284,17 @@
                         Analytics Dashboard
                     </a>
                 </li>
-
+<!-- ADD THIS: Security Rewards Link -->
+<li>
+    <a href="{{ route('admin.rewards.index') }}"
+       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('admin.rewards.*') ? 'active' : '' }}">
+        <i class="fas fa-trophy mr-3 w-5 text-center"></i>
+        Security Rewards
+        <span class="ml-auto bg-yellow-500 text-white text-xs rounded-full px-2 py-1">
+            {{ \App\Models\Reward::where('status', 'pending')->whereDate('reward_date', today())->count() }}
+        </span>
+    </a>
+</li>
                 <!-- ADD THIS: Manual Meal Entry for Feb 2nd, 2026 -->
                 <li>
                     <a href="{{ route('admin.meals.manual-entry') }}"
@@ -364,75 +374,76 @@
         });
 
         // Set active navigation link with parent-child relationship
-        function setActiveNavLinks() {
-            const currentPath = window.location.pathname;
-            const currentRoute = "{{ Route::currentRouteName() }}";
+      // Set active navigation link with parent-child relationship
+function setActiveNavLinks() {
+    const currentPath = window.location.pathname;
+    const currentRoute = "{{ Route::currentRouteName() }}";
 
-            // Remove all active classes first
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.classList.remove('active', 'parent-active');
-            });
+    // Remove all active classes first
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active', 'parent-active');
+    });
 
-            // Define parent-child relationships
-            const parentChildMap = {
-                'admin.employees.index': ['admin.employees.import', 'admin.employees.qr-codes'],
-                'admin.analytics': ['admin.analytics.*', 'admin.meals.*'] // Added meals routes
-            };
+    // Define parent-child relationships
+    const parentChildMap = {
+        'admin.employees.index': ['admin.employees.import', 'admin.employees.qr-codes'],
+        'admin.analytics': ['admin.analytics.*', 'admin.meals.*', 'admin.rewards.*']
+    };
 
-            // First, mark exact matches as active
-            document.querySelectorAll('.nav-link').forEach(link => {
-                const linkHref = link.getAttribute('href');
-                const linkRoute = link.getAttribute('data-route') || '';
+    // First, mark exact matches as active
+    document.querySelectorAll('.nav-link').forEach(link => {
+        const linkHref = link.getAttribute('href');
+        const linkRoute = link.getAttribute('data-route') || '';
 
-                // Check for exact route match
-                if (linkRoute === currentRoute) {
-                    link.classList.add('active');
-                    return;
-                }
-
-                // Check for route pattern match (for wildcard routes)
-                if (linkRoute.endsWith('.*') && currentRoute.startsWith(linkRoute.replace('.*', ''))) {
-                    link.classList.add('active');
-                    return;
-                }
-
-                // Check for URL path match
-                if (linkHref && currentPath.startsWith(linkHref.replace(window.location.origin, ''))) {
-                    // If it's not the exact current page but a parent page
-                    if (currentPath !== linkHref.replace(window.location.origin, '')) {
-                        // Check if this is a parent page of the current page
-                        const parentRoutes = Object.keys(parentChildMap);
-                        for (const parentRoute of parentRoutes) {
-                            if (linkRoute === parentRoute && parentChildMap[parentRoute].some(child =>
-                                currentRoute === child || currentRoute.startsWith(child.replace('.*', '')))) {
-                                link.classList.add('parent-active');
-                                return;
-                            }
-                        }
-                    } else {
-                        link.classList.add('active');
-                    }
-                }
-            });
-
-            // If no exact match found, look for parent relationships
-            document.querySelectorAll('.nav-link').forEach(link => {
-                const linkRoute = link.getAttribute('data-route') || '';
-
-                // Check if current route is a child of this link's route
-                for (const [parentRoute, childRoutes] of Object.entries(parentChildMap)) {
-                    if (linkRoute === parentRoute) {
-                        for (const childRoute of childRoutes) {
-                            if (currentRoute === childRoute ||
-                                (childRoute.endsWith('.*') && currentRoute.startsWith(childRoute.replace('.*', '')))) {
-                                link.classList.add('parent-active');
-                                return;
-                            }
-                        }
-                    }
-                }
-            });
+        // Check for exact route match
+        if (linkRoute === currentRoute) {
+            link.classList.add('active');
+            return;
         }
+
+        // Check for route pattern match (for wildcard routes)
+        if (linkRoute.endsWith('.*') && currentRoute.startsWith(linkRoute.replace('.*', ''))) {
+            link.classList.add('active');
+            return;
+        }
+
+        // Check for URL path match
+        if (linkHref && currentPath.startsWith(linkHref.replace(window.location.origin, ''))) {
+            // If it's not the exact current page but a parent page
+            if (currentPath !== linkHref.replace(window.location.origin, '')) {
+                // Check if this is a parent page of the current page
+                const parentRoutes = Object.keys(parentChildMap);
+                for (const parentRoute of parentRoutes) {
+                    if (linkRoute === parentRoute && parentChildMap[parentRoute].some(child =>
+                        currentRoute === child || currentRoute.startsWith(child.replace('.*', '')))) {
+                        link.classList.add('parent-active');
+                        return;
+                    }
+                }
+            } else {
+                link.classList.add('active');
+            }
+        }
+    });
+
+    // If no exact match found, look for parent relationships
+    document.querySelectorAll('.nav-link').forEach(link => {
+        const linkRoute = link.getAttribute('data-route') || '';
+
+        // Check if current route is a child of this link's route
+        for (const [parentRoute, childRoutes] of Object.entries(parentChildMap)) {
+            if (linkRoute === parentRoute) {
+                for (const childRoute of childRoutes) {
+                    if (currentRoute === childRoute ||
+                        (childRoute.endsWith('.*') && currentRoute.startsWith(childRoute.replace('.*', '')))) {
+                        link.classList.add('parent-active');
+                        return;
+                    }
+                }
+            }
+        }
+    });
+}
 
         // Initialize active nav links
         setActiveNavLinks();

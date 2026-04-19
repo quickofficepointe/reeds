@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\MealTransaction;
 use App\Models\VendorInvoice;
+use App\Models\Reward;
 use App\Services\InvoiceGenerationService;
 use App\Services\InvoicePeriodService;
 use Illuminate\Http\Request;
@@ -30,16 +31,12 @@ class VendorController extends Controller
         $this->periodService = $periodService;
     }
 
-    /**
-     * Display vendor dashboard
-     */
     public function index()
     {
         try {
             $vendor = Auth::user();
             $today = now()->format('Y-m-d');
 
-            // Get today's stats
             $todayStats = MealTransaction::where('vendor_id', $vendor->id)
                 ->whereDate('meal_date', $today)
                 ->select(
@@ -48,7 +45,6 @@ class VendorController extends Controller
                 )
                 ->first();
 
-            // Get total stats
             $totalStats = MealTransaction::where('vendor_id', $vendor->id)
                 ->select(
                     DB::raw('COUNT(*) as total_meals'),
@@ -56,7 +52,6 @@ class VendorController extends Controller
                 )
                 ->first();
 
-            // Recent transactions
             $recentTransactions = MealTransaction::with('employee.department')
                 ->where('vendor_id', $vendor->id)
                 ->whereDate('meal_date', $today)
@@ -72,21 +67,16 @@ class VendorController extends Controller
         }
     }
 
-    /**
-     * Show QR scanning page
-     */
     public function scan()
     {
         try {
             $vendor = Auth::user();
 
-            // Check if vendor is assigned to a unit
             if (!$vendor->unit_id) {
                 return redirect()->route('vendor.dashboard')
                     ->with('error', 'You are not assigned to any unit. Please contact administrator.');
             }
 
-            // Get recent scans for this vendor
             $recentScans = MealTransaction::with(['employee.department', 'employee.unit'])
                 ->where('vendor_id', $vendor->id)
                 ->whereDate('meal_date', today())
@@ -102,17 +92,12 @@ class VendorController extends Controller
         }
     }
 
-    /**
-     * Process QR scan
-     */
     public function processScan(Request $request)
     {
         Log::info('QR Scan Request Received', [
             'vendor_id' => Auth::id(),
             'qr_code_length' => strlen($request->qr_code),
-            'qr_code_preview' => substr($request->qr_code, 0, 100),
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent()
+            'qr_code_preview' => substr($request->qr_code, 0, 100)
         ]);
 
         if ($request->has('test')) {
@@ -128,11 +113,6 @@ class VendorController extends Controller
         ]);
 
         if ($validator->fails()) {
-            Log::warning('QR code validation failed', [
-                'errors' => $validator->errors()->toArray(),
-                'qr_code_length' => strlen($request->qr_code)
-            ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid QR code format. Please scan a valid QR code.',
@@ -145,16 +125,9 @@ class VendorController extends Controller
 
         DB::beginTransaction();
         try {
-            Log::info('Processing QR scan', [
-                'qr_code_length' => strlen($qrCode),
-                'qr_code_preview' => substr($qrCode, 0, 50),
-                'vendor_id' => $vendor->id
-            ]);
-
             $employee = null;
             $extractionMethod = 'unknown';
 
-            // METHOD 1: Direct employee code match
             $employee = Employee::where('employee_code', $qrCode)
                 ->where('is_active', true)
                 ->with('department')
@@ -162,13 +135,8 @@ class VendorController extends Controller
 
             if ($employee) {
                 $extractionMethod = 'direct_employee_code';
-                Log::info('Found employee using direct employee code match', [
-                    'employee_id' => $employee->id,
-                    'employee_name' => $employee->formal_name
-                ]);
             }
 
-            // METHOD 2: Try QR code field match
             if (!$employee) {
                 $employee = Employee::where('qr_code', $qrCode)
                     ->where('is_active', true)
@@ -176,43 +144,23 @@ class VendorController extends Controller
                     ->first();
                 if ($employee) {
                     $extractionMethod = 'qr_code_match';
-                    Log::info('Found employee using QR code field match', [
-                        'employee_id' => $employee->id,
-                        'employee_name' => $employee->formal_name
-                    ]);
                 }
             }
 
-            // METHOD 3: Extract from text QR
             if (!$employee && strpos($qrCode, 'REEDS AFRICA CONSULT') !== false) {
-                Log::info('Detected text QR code, extracting employee code...');
                 $employeeCode = $this->extractEmployeeCodeFromText($qrCode);
-
                 if ($employeeCode) {
-                    Log::info('Extracted employee code from QR text:', ['employee_code' => $employeeCode]);
-
                     $employee = Employee::where('employee_code', $employeeCode)
                         ->where('is_active', true)
                         ->with('department')
                         ->first();
-
                     if ($employee) {
                         $extractionMethod = 'text_extraction';
-                        Log::info('Found employee using extracted code', [
-                            'employee_id' => $employee->id,
-                            'employee_name' => $employee->formal_name
-                        ]);
                     }
                 }
             }
 
             if (!$employee) {
-                Log::warning('No employee found for QR code', [
-                    'qr_code_length' => strlen($qrCode),
-                    'qr_code_preview' => substr($qrCode, 0, 30),
-                    'method' => $extractionMethod
-                ]);
-
                 return response()->json([
                     'success' => false,
                     'message' => 'Employee not found. Please ensure you\'re scanning a valid employee QR code.',
@@ -220,13 +168,16 @@ class VendorController extends Controller
                 ], 200);
             }
 
+            // Check for reward
+            $reward = Reward::where('employee_id', $employee->id)
+                ->whereDate('reward_date', today())
+                ->where('status', 'pending')
+                ->first();
+
+            $hasReward = $reward && !$reward->is_expired;
+
             $canFeed = $employee->canBeFedNow();
             if (!$canFeed['can_be_fed']) {
-                Log::warning('Employee cannot be fed', [
-                    'employee_id' => $employee->id,
-                    'reason' => $canFeed['reason']
-                ]);
-
                 return response()->json([
                     'success' => false,
                     'message' => $canFeed['reason'],
@@ -236,12 +187,6 @@ class VendorController extends Controller
 
             $existingMeal = $employee->getTodayMealTransaction();
             if ($existingMeal) {
-                Log::warning('Duplicate meal attempt', [
-                    'employee_id' => $employee->id,
-                    'existing_transaction' => $existingMeal->transaction_code,
-                    'existing_time' => $existingMeal->created_at
-                ]);
-
                 return response()->json([
                     'success' => false,
                     'message' => 'Employee has already been fed today at ' . $existingMeal->meal_time,
@@ -249,40 +194,61 @@ class VendorController extends Controller
                 ], 200);
             }
 
-            $transaction = $employee->recordMeal($vendor->id, $qrCode);
+            // Create transaction based on reward
+            if ($hasReward) {
+                $transaction = MealTransaction::create([
+                    'vendor_id' => $vendor->id,
+                    'employee_id' => $employee->id,
+                    'amount' => 200.00,
+                    'meal_date' => today(),
+                    'meal_time' => now()->format('H:i:s'),
+                    'qr_code_scanned' => $qrCode,
+                    'is_security_reward' => true,
+                    'reward_id' => $reward->id,
+                    'meal_type' => 'reward',
+                    'unit_id' => $employee->unit_id,
+                    'scan_data' => json_encode([
+                        'scanned_at' => now()->toDateTimeString(),
+                        'employee_name' => $employee->formal_name,
+                        'employee_code' => $employee->employee_code,
+                        'amount' => 200.00,
+                        'is_reward' => true,
+                        'reward_reason' => $reward->reason
+                    ])
+                ]);
+
+                $reward->markAsClaimed($transaction->id);
+                $message = 'Employee awarded 200 KES. Meal recorded successfully.';
+                $amount = 200.00;
+                $isReward = true;
+            } else {
+                $transaction = $employee->recordMeal($vendor->id, $qrCode);
+                $message = 'Meal recorded successfully.';
+                $amount = $transaction->amount;
+                $isReward = false;
+            }
 
             DB::commit();
 
-            Log::info('Meal transaction created successfully', [
-                'transaction_code' => $transaction->transaction_code,
-                'employee_id' => $employee->id,
-                'employee_name' => $employee->formal_name,
-                'amount' => $transaction->amount,
-                'method' => $extractionMethod
-            ]);
-
             return response()->json([
                 'success' => true,
-                'message' => 'Meal recorded successfully!',
+                'message' => $message,
+                'is_reward' => $isReward,
+                'amount' => $amount,
                 'transaction' => [
                     'code' => $transaction->transaction_code,
                     'employee_name' => $employee->formal_name,
                     'employee_code' => $employee->employee_code,
                     'department' => $employee->department->name ?? 'N/A',
-                    'amount' => $transaction->amount,
+                    'amount' => $amount,
                     'time' => $transaction->meal_time,
-                    'date' => $transaction->meal_date,
+                    'date' => $transaction->meal_date
                 ]
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('QR Scan Processing Error: ' . $e->getMessage(), [
-                'qr_code' => $qrCode,
-                'vendor_id' => $vendor->id,
-                'exception' => $e,
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error('QR Scan Processing Error: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
@@ -292,15 +258,10 @@ class VendorController extends Controller
         }
     }
 
-    /**
-     * Extract employee code from text QR code
-     */
     private function extractEmployeeCodeFromText(string $qrText): ?string
     {
         if (preg_match('/Employee No:\s*([A-Za-z0-9]+)/i', $qrText, $matches)) {
-            $code = trim($matches[1]);
-            Log::info('Extracted employee code using pattern 1:', ['code' => $code]);
-            return $code;
+            return trim($matches[1]);
         }
 
         $lines = explode("\n", $qrText);
@@ -308,39 +269,23 @@ class VendorController extends Controller
             if (strpos($lines[$i], 'Employee No:') !== false && isset($lines[$i + 1])) {
                 $potentialCode = trim($lines[$i + 1]);
                 if (preg_match('/^[A-Za-z0-9]{3,20}$/', $potentialCode)) {
-                    Log::info('Extracted employee code using pattern 2:', ['code' => $potentialCode]);
                     return $potentialCode;
                 }
             }
         }
 
         if (preg_match('/Employee No[^A-Za-z0-9]*([A-Za-z0-9]{3,20})/i', $qrText, $matches)) {
-            $code = trim($matches[1]);
-            Log::info('Extracted employee code using pattern 3:', ['code' => $code]);
-            return $code;
+            return trim($matches[1]);
         }
-
-        Log::warning('Could not extract employee code from text QR', [
-            'text_preview' => substr($qrText, 0, 100),
-            'lines' => $lines
-        ]);
 
         return null;
     }
 
-    /**
-     * Get scan history
-     */
     public function getScanHistory(Request $request)
     {
         try {
             $vendor = Auth::user();
             $date = $request->get('date', today()->format('Y-m-d'));
-
-            Log::info('Fetching scan history for vendor', [
-                'vendor_id' => $vendor->id,
-                'date' => $date
-            ]);
 
             $query = MealTransaction::where('vendor_id', $vendor->id)
                 ->with(['employee.department', 'employee.unit']);
@@ -352,31 +297,21 @@ class VendorController extends Controller
             $perPage = $request->get('per_page', 50);
             $transactions = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-            Log::info('Found transactions', [
-                'count' => $transactions->count(),
-                'vendor_id' => $vendor->id,
-                'date' => $date
-            ]);
-
             $formattedTransactions = $transactions->map(function ($transaction) {
                 $employee = $transaction->employee;
-
                 return [
                     'id' => $transaction->id,
                     'transaction_code' => $transaction->transaction_code ?? 'N/A',
                     'employee' => [
                         'formal_name' => $employee->formal_name ?? 'N/A',
                         'employee_code' => $employee->employee_code ?? 'N/A',
-                        'department' => [
-                            'name' => $employee->department->name ?? 'N/A'
-                        ],
-                        'unit' => [
-                            'name' => $employee->unit->name ?? 'N/A'
-                        ]
+                        'department' => ['name' => $employee->department->name ?? 'N/A'],
+                        'unit' => ['name' => $employee->unit->name ?? 'N/A']
                     ],
                     'amount' => floatval($transaction->amount ?? 0),
                     'meal_time' => $transaction->meal_time ?? 'N/A',
                     'meal_date' => $transaction->meal_date ? $transaction->meal_date->format('Y-m-d') : 'N/A',
+                    'is_reward' => $transaction->is_security_reward ?? false,
                     'created_at' => $transaction->created_at ? $transaction->created_at->format('H:i:s') : 'N/A',
                 ];
             });
@@ -401,10 +336,7 @@ class VendorController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error in getScanHistory: ' . $e->getMessage(), [
-                'exception' => $e->getTraceAsString()
-            ]);
-
+            Log::error('Error in getScanHistory: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to load history. Please try again.'
@@ -412,9 +344,6 @@ class VendorController extends Controller
         }
     }
 
-    /**
-     * Get dashboard stats
-     */
     public function getDashboardStats()
     {
         try {
@@ -457,38 +386,25 @@ class VendorController extends Controller
         }
     }
 
-    /**
-     * Show history page
-     */
     public function history()
     {
         return view('reeds.vendor.history');
     }
 
-    /**
-     * Show performance analytics page
-     */
     public function performance()
     {
         return view('reeds.vendor.performance');
     }
 
-    /**
-     * Show invoices page
-     */
     public function invoices()
     {
         return view('reeds.vendor.invoices');
     }
 
-    /**
-     * Get periods data
-     */
     public function getPeriods()
     {
         try {
             $periods = $this->periodService->getAllPeriodsFor2026();
-
             return response()->json([
                 'success' => true,
                 'current' => $this->periodService->getCurrentPeriod(),
@@ -505,31 +421,22 @@ class VendorController extends Controller
         }
     }
 
-    /**
-     * Get invoices data with pagination and filtering
-     */
     public function invoicesData(Request $request)
     {
         try {
             $vendor = Auth::user();
-
-            $query = VendorInvoice::with('vendor.profile')
-                ->withCount('items')
-                ->where('vendor_id', $vendor->id)
-                ->orderBy('created_at', 'desc');
+            $query = VendorInvoice::with('vendor.profile')->withCount('items')
+                ->where('vendor_id', $vendor->id)->orderBy('created_at', 'desc');
 
             if ($request->has('status') && $request->status !== 'all') {
                 $query->where('status', $request->status);
             }
-
             if ($request->has('date_from') && $request->has('date_to')) {
                 $query->whereBetween('invoice_date', [$request->date_from, $request->date_to]);
             }
-
             if ($request->has('cycle') && $request->cycle !== 'all') {
                 $query->where('cycle_number', $request->cycle);
             }
-
             if ($request->has('search') && !empty($request->search)) {
                 $query->where('invoice_number', 'like', '%' . $request->search . '%');
             }
@@ -538,18 +445,12 @@ class VendorController extends Controller
             $invoices = $query->paginate($perPage);
 
             $stats = [
-                'pending_invoices' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'pending')->count(),
-                'paid_invoices' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'paid')->count(),
-                'overdue_invoices' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'overdue')->count(),
-                'total_revenue' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'paid')->sum('total_amount'),
-                'total_pending_amount' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'pending')->sum('total_amount'),
-                'total_overdue_amount' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'overdue')->sum('total_amount')
+                'pending_invoices' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'pending')->count(),
+                'paid_invoices' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'paid')->count(),
+                'overdue_invoices' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'overdue')->count(),
+                'total_revenue' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'paid')->sum('total_amount'),
+                'total_pending_amount' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'pending')->sum('total_amount'),
+                'total_overdue_amount' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'overdue')->sum('total_amount')
             ];
 
             return response()->json([
@@ -587,10 +488,7 @@ class VendorController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error loading invoices: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-
+            Log::error('Error loading invoices: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to load invoices. Please try again.'
@@ -598,18 +496,12 @@ class VendorController extends Controller
         }
     }
 
-    /**
-     * Get invoice details for modal view
-     */
     public function getInvoiceDetails($id)
     {
         try {
             $vendor = Auth::user();
-
             $invoice = VendorInvoice::with(['items', 'vendor.profile'])
-                ->where('id', $id)
-                ->where('vendor_id', $vendor->id)
-                ->firstOrFail();
+                ->where('id', $id)->where('vendor_id', $vendor->id)->firstOrFail();
 
             return response()->json([
                 'success' => true,
@@ -649,11 +541,6 @@ class VendorController extends Controller
                 ]
             ]);
 
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invoice not found or you do not have permission to view it.'
-            ], 404);
         } catch (\Exception $e) {
             Log::error('Error loading invoice details: ' . $e->getMessage());
             return response()->json([
@@ -663,61 +550,31 @@ class VendorController extends Controller
         }
     }
 
-    /**
-     * View invoice
-     */
     public function viewInvoice($id)
     {
         try {
             $vendor = Auth::user();
-
             $invoice = VendorInvoice::with(['items', 'vendor.profile'])
-                ->where('id', $id)
-                ->where('vendor_id', $vendor->id)
-                ->firstOrFail();
-
+                ->where('id', $id)->where('vendor_id', $vendor->id)->firstOrFail();
             return view('reeds.vendor.invoice-view', compact('invoice'));
-
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return redirect()->route('vendor.invoices')
-                ->with('error', 'Invoice not found or you do not have permission to view it.');
         } catch (\Exception $e) {
-            Log::error('Error viewing invoice: ' . $e->getMessage());
-            return redirect()->route('vendor.invoices')
-                ->with('error', 'Failed to load invoice.');
+            return redirect()->route('vendor.invoices')->with('error', 'Invoice not found.');
         }
     }
 
-    /**
-     * Download invoice PDF
-     */
     public function downloadInvoice($id)
     {
         try {
             $vendor = Auth::user();
-
             $invoice = VendorInvoice::with(['items', 'vendor.profile'])
-                ->where('id', $id)
-                ->where('vendor_id', $vendor->id)
-                ->firstOrFail();
-
+                ->where('id', $id)->where('vendor_id', $vendor->id)->firstOrFail();
             $pdf = Pdf::loadView('reeds.vendor.invoice-pdf', compact('invoice'));
-
             return $pdf->download('invoice-' . $invoice->invoice_number . '.pdf');
-
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            return redirect()->route('vendor.invoices')
-                ->with('error', 'Invoice not found or you do not have permission to download it.');
         } catch (\Exception $e) {
-            Log::error('PDF generation failed: ' . $e->getMessage());
-            return redirect()->route('vendor.invoices')
-                ->with('error', 'Failed to generate PDF. Please try again.');
+            return redirect()->route('vendor.invoices')->with('error', 'Failed to generate PDF.');
         }
     }
 
-    /**
-     * Generate test invoice with validation
-     */
     public function generateTestInvoice(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -727,130 +584,52 @@ class VendorController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
+            return response()->json(['success' => false, 'message' => 'Validation failed'], 422);
         }
 
         try {
             $vendor = Auth::user();
-
-            // Special case for first period test (Feb 2-14, 2026)
             if ($request->period === 'first_period') {
                 $invoice = $this->invoiceService->generateFirstPeriodTestInvoice($vendor);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'First period test invoice generated successfully (Feb 2-14, 2026)',
-                    'invoice' => [
-                        'id' => $invoice->id,
-                        'invoice_number' => $invoice->invoice_number
-                    ]
-                ]);
+                return response()->json(['success' => true, 'message' => 'Test invoice generated', 'invoice' => ['id' => $invoice->id, 'invoice_number' => $invoice->invoice_number]]);
             }
-
-            // Check if test invoice already exists for this period
             if ($request->period === 'custom') {
                 $startDate = Carbon::parse($request->start_date);
                 $endDate = Carbon::parse($request->end_date);
-
-                $existingTest = VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('is_test', true)
-                    ->whereDate('period_start', $startDate)
-                    ->whereDate('period_end', $endDate)
-                    ->first();
-
-                if ($existingTest) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'A test invoice already exists for this period. Please use a different date range.'
-                    ], 422);
-                }
-
                 $invoice = $this->invoiceService->generateTestInvoice($vendor, $startDate, $endDate);
             } else {
                 $invoice = $this->invoiceService->generateTestInvoice($vendor);
             }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Test invoice generated successfully',
-                'invoice' => [
-                    'id' => $invoice->id,
-                    'invoice_number' => $invoice->invoice_number
-                ]
-            ]);
-
+            return response()->json(['success' => true, 'message' => 'Test invoice generated', 'invoice' => ['id' => $invoice->id, 'invoice_number' => $invoice->invoice_number]]);
         } catch (\Exception $e) {
-            Log::error('Test invoice generation failed: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to generate test invoice. Please try again.'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to generate test invoice.'], 500);
         }
     }
 
-    /**
-     * Get invoice statistics for dashboard
-     */
     public function getInvoiceStats()
     {
         try {
             $vendor = Auth::user();
-
             $stats = [
-                'pending_count' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'pending')->count(),
-                'pending_amount' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'pending')->sum('total_amount'),
-                'paid_count' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'paid')->count(),
-                'paid_amount' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'paid')->sum('total_amount'),
-                'overdue_count' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'overdue')->count(),
-                'overdue_amount' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'overdue')->sum('total_amount'),
-                'last_invoice_date' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->latest()->value('invoice_date'),
-                'next_due_date' => VendorInvoice::where('vendor_id', $vendor->id)
-                    ->where('status', 'pending')
-                    ->orderBy('due_date')
-                    ->value('due_date')
+                'pending_count' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'pending')->count(),
+                'pending_amount' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'pending')->sum('total_amount'),
+                'paid_count' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'paid')->count(),
+                'paid_amount' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'paid')->sum('total_amount'),
+                'overdue_count' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'overdue')->count(),
+                'overdue_amount' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'overdue')->sum('total_amount'),
+                'last_invoice_date' => VendorInvoice::where('vendor_id', $vendor->id)->latest()->value('invoice_date'),
+                'next_due_date' => VendorInvoice::where('vendor_id', $vendor->id)->where('status', 'pending')->orderBy('due_date')->value('due_date')
             ];
-
-            return response()->json([
-                'success' => true,
-                'stats' => $stats
-            ]);
-
+            return response()->json(['success' => true, 'stats' => $stats]);
         } catch (\Exception $e) {
-            Log::error('Error fetching invoice stats: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to load invoice statistics'
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to load statistics.'], 500);
         }
     }
 
-    /**
-     * Automated invoice generation command (to be run via scheduler)
-     */
     public function generateBiWeeklyInvoices()
     {
         Log::warning('generateBiWeeklyInvoices called via HTTP - should use command line');
-
         $results = $this->invoiceService->generateAllInvoices();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Invoice generation completed',
-            'results' => $results
-        ]);
+        return response()->json(['success' => true, 'message' => 'Invoice generation completed', 'results' => $results]);
     }
 }

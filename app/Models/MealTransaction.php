@@ -35,7 +35,15 @@ class MealTransaction extends Model
     {
         return $this->belongsTo(Employee::class);
     }
+public function reward()
+{
+    return $this->belongsTo(Reward::class);
+}
 
+public function isRewardMeal()
+{
+    return $this->is_security_reward === true;
+}
     /**
      * Generate unique transaction code
      */
