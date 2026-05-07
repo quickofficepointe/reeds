@@ -105,7 +105,7 @@
     // Configuration
     const CONFIG = {
         SCAN_ENDPOINT: '{{ route("vendor.process-scan") }}',
-        SCAN_HISTORY_ENDPOINT: '{{ route("vendor.scan-history") }}',
+        SCAN_HISTORY_ENDPOINT: '{{ route("vendor.history.data") }}',
         CSRF_TOKEN: '{{ csrf_token() }}',
         DEBUG_MODE: {{ config('app.debug') ? 'true' : 'false' }}
     };

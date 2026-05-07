@@ -139,6 +139,7 @@
         </div>
     </div>
 <!-- Security Rewards Section -->
+<!-- Security Rewards Section -->
 <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-8">
     <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold text-text-black">Security Rewards</h2>
@@ -148,29 +149,42 @@
     </div>
 
     @php
-        $todayReward = \App\Models\Reward::getTodayReward();
+        $todayRewards = \App\Models\Reward::getTodayRewards();
         $weekRewards = \App\Models\Reward::where('reward_date', '>=', now()->startOfWeek())->count();
         $claimedRewards = \App\Models\Reward::where('status', 'claimed')->where('reward_date', '>=', now()->startOfMonth())->count();
         $totalRewards = \App\Models\Reward::where('reward_date', '>=', now()->startOfMonth())->count();
+        $todayRewardsCount = $todayRewards->count();
+        $todayRewardsTotal = $todayRewards->sum('amount');
     @endphp
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Today's Reward -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Today's Rewards (Multiple) -->
         <div class="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg p-4">
-            <div class="text-yellow-100 text-sm uppercase tracking-wide">Today's Security Reward</div>
-            @if($todayReward)
-                <div class="text-white text-2xl font-bold mt-2">{{ $todayReward->employee->formal_name }}</div>
-                <div class="text-yellow-100 text-sm">{{ $todayReward->employee->employee_code }}</div>
-                <div class="mt-3 flex space-x-2">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-yellow-800">
-                        {{ ucfirst($todayReward->status) }}
-                    </span>
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-orange-800">
-                        200 KES
-                    </span>
+            <div class="text-yellow-100 text-sm uppercase tracking-wide">Today's Security Rewards</div>
+
+            @if($todayRewardsCount > 0)
+                <div class="text-white text-2xl font-bold mt-2">{{ $todayRewardsCount }} Reward(s)</div>
+                <div class="text-yellow-100 text-sm">Total: KSh {{ number_format($todayRewardsTotal, 2) }}</div>
+
+                <div class="mt-3 space-y-2 max-h-40 overflow-y-auto">
+                    @foreach($todayRewards as $reward)
+                    <div class="bg-white/20 rounded p-2">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="text-white text-sm font-medium">{{ $reward->employee->formal_name }}</span>
+                                <span class="text-yellow-100 text-xs ml-2">({{ $reward->unit->name }})</span>
+                            </div>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-yellow-800">
+                                {{ ucfirst($reward->status) }}
+                            </span>
+                        </div>
+                        <div class="text-yellow-100 text-xs">{{ $reward->employee->employee_code }}</div>
+                    </div>
+                    @endforeach
                 </div>
             @else
-                <div class="text-white text-xl mt-2">No reward assigned for today</div>
+                <div class="text-white text-xl mt-2">No rewards assigned for today</div>
+                <div class="text-yellow-100 text-sm mt-1">Click "Manage Rewards" to award</div>
             @endif
         </div>
 
@@ -184,9 +198,13 @@
                 <p class="text-2xl font-bold text-green-600">{{ $claimedRewards }}/{{ $totalRewards }}</p>
                 <p class="text-xs text-gray-600">Claimed This Month</p>
             </div>
+            <div class="text-center p-3 bg-blue-50 rounded-lg col-span-2">
+                <p class="text-2xl font-bold text-blue-600">{{ $todayRewardsCount }}</p>
+                <p class="text-xs text-gray-600">Units Rewarded Today</p>
+            </div>
         </div>
     </div>
-</div><!-- Card for Scan Data Export -->
+</div>
 <a href="{{ route('admin.employees.scan-data.export') }}"
    class="block bg-white rounded-xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition duration-150">
     <div class="flex items-center justify-between">
@@ -319,7 +337,7 @@
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-xl font-bold text-text-black">Unit Performance</h2>
-                <a href="{{ route('admin.analytics') }}" class="text-sm text-secondary-blue hover:text-blue-600">
+                <a href="" class="text-sm text-secondary-blue hover:text-blue-600">
                     View Details →
                 </a>
             </div>
@@ -469,7 +487,7 @@
     <div class="mt-8 bg-white rounded-xl shadow-md border border-gray-100 p-6">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-bold text-text-black">Recent Transactions</h2>
-            <a href="{{ route('admin.analytics') }}" class="text-sm text-secondary-blue hover:text-blue-600">
+            <a href="" class="text-sm text-secondary-blue hover:text-blue-600">
                 View All Transactions →
             </a>
         </div>

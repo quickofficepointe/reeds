@@ -16,8 +16,8 @@
         </div>
 
         <div class="p-6">
-           <form id="exportForm" action="{{ route('admin.employees.scan-data.download') }}" method="GET" target="_blank">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <form id="exportForm" action="{{ route('admin.employees.scan-data.download') }}" method="GET" target="_blank">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
                         <input type="date"
@@ -33,6 +33,17 @@
                                id="end_date"
                                value="{{ $endDate }}"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Unit (Optional)</label>
+                        <select name="unit_id" id="unit_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">All Units</option>
+                            @foreach($units as $unit)
+                                <option value="{{ $unit->id }}" {{ request('unit_id') == $unit->id ? 'selected' : '' }}>
+                                    {{ $unit->name }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
 
@@ -101,6 +112,7 @@
                                 <th class="px-3 py-2 border">Employee Name</th>
                                 <th class="px-3 py-2 border">Employee Code</th>
                                 <th class="px-3 py-2 border">Department</th>
+                                <th class="px-3 py-2 border">Unit</th>
                                 <th class="px-3 py-2 border">Normal Scans</th>
                                 <th class="px-3 py-2 border">Reward Scans</th>
                                 <th class="px-3 py-2 border">Total Scans</th>
@@ -114,73 +126,15 @@
                                 <td class="px-3 py-2 border">John Doe</td>
                                 <td class="px-3 py-2 border">EMP001</td>
                                 <td class="px-3 py-2 border">IT</td>
+                                <td class="px-3 py-2 border">Head Office</td>
                                 <td class="px-3 py-2 border text-center">15</td>
                                 <td class="px-3 py-2 border text-center">2</td>
                                 <td class="px-3 py-2 border text-center">17</td>
                                 <td class="px-3 py-2 border text-center">KES 1,700</td>
                                 <td class="px-3 py-2 border text-center">_________</td>
                             </tr>
-                            <tr>
-                                <td class="px-3 py-2 border text-center">2</td>
-                                <td class="px-3 py-2 border">Jane Smith</td>
-                                <td class="px-3 py-2 border">EMP002</td>
-                                <td class="px-3 py-2 border">HR</td>
-                                <td class="px-3 py-2 border text-center">12</td>
-                                <td class="px-3 py-2 border text-center">1</td>
-                                <td class="px-3 py-2 border text-center">13</td>
-                                <td class="px-3 py-2 border text-center">KES 1,300</td>
-                                <td class="px-3 py-2 border text-center">_________</td>
-                            </tr>
                         </tbody>
                     </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Stats Card -->
-    <div class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-500 text-sm">Total Employees</p>
-                    <p class="text-2xl font-bold">{{ \App\Models\Employee::where('is_active', true)->count() }}</p>
-                </div>
-                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-users text-blue-600"></i>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-500 text-sm">Total Scans (This Month)</p>
-                    <p class="text-2xl font-bold">{{ \App\Models\MealTransaction::whereMonth('meal_date', now()->month)->count() }}</p>
-                </div>
-                <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-utensils text-green-600"></i>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-500 text-sm">Reward Scans (This Month)</p>
-                    <p class="text-2xl font-bold">{{ \App\Models\MealTransaction::whereMonth('meal_date', now()->month)->where('is_security_reward', true)->count() }}</p>
-                </div>
-                <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-trophy text-yellow-600"></i>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-gray-500 text-sm">Total Amount (This Month)</p>
-                    <p class="text-2xl font-bold text-green-600">KES {{ number_format(\App\Models\MealTransaction::whereMonth('meal_date', now()->month)->sum('amount'), 2) }}</p>
-                </div>
-                <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-money-bill-wave text-purple-600"></i>
                 </div>
             </div>
         </div>

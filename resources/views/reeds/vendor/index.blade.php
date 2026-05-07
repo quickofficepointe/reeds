@@ -271,7 +271,7 @@
 
     // Load recent scans
     function loadRecentScans() {
-        fetch('{{ route("vendor.scan-history") }}')
+   fetch('{{ route("vendor.history.data") }}')
             .then(response => response.json())
             .then(data => {
                 const container = document.getElementById('recentScansContainer');
@@ -324,7 +324,7 @@
         modal.classList.remove('hidden');
 
         // Load history
-        fetch('{{ route("vendor.scan-history") }}?date=all')
+        fetch('{{ route("vendor.history.data") }}?date=all')
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.transactions.length > 0) {

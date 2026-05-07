@@ -278,8 +278,8 @@
                     <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider section-header">Analytics</p>
                 </li>
                 <li>
-                    <a href="{{ route('admin.analytics') }}"
-                       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('admin.analytics') || request()->routeIs('admin.analytics.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.analytics.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('admin.analytics.index') || request()->routeIs('admin.analytics.index.*') ? 'active' : '' }}">
                         <i class="fas fa-chart-bar mr-3 w-5 text-center"></i>
                         Analytics Dashboard
                     </a>

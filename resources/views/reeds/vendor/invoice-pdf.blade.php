@@ -430,7 +430,7 @@
             <p style="font-size: 9px; color: #999;">Invoice #{{ $invoice->invoice_number }} | Cycle {{ $invoice->cycle_number ?? 'N/A' }}</p>
             @if($invoice->is_test)
                 <p style="color: #ff0000; font-weight: bold; font-size: 14px; margin-top: 10px;">
-                  
+
                 </p>
             @endif
         </div>

@@ -77,25 +77,37 @@ class AdminController extends Controller
 public function rewardToday(Request $request)
 {
     $request->validate([
+        'unit_id' => 'required|exists:units,id',  // CHANGED: from employee_id to unit_id
         'employee_id' => 'required|exists:employees,id'
     ]);
 
     try {
         $employee = Employee::findOrFail($request->employee_id);
 
-        // Check if there's already a reward for today
-        $existingToday = Reward::whereDate('reward_date', today())->first();
-        if ($existingToday) {
+        // ADD: Verify employee belongs to the unit
+        if ($employee->unit_id != $request->unit_id) {
             return response()->json([
                 'success' => false,
-                'message' => 'There is already a reward for today. Only one reward per day is allowed.'
+                'message' => 'Employee does not belong to this unit'
             ], 422);
         }
 
-        // Create reward for today
+        // ADD: Check if this unit already has a reward for today
+        $existingToday = Reward::whereDate('reward_date', today())
+            ->where('unit_id', $request->unit_id)
+            ->first();
+
+        if ($existingToday) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This unit already has a reward for today. Each unit can have only one reward per day.'
+            ], 422);
+        }
+
+        // Create reward
         $reward = Reward::create([
             'employee_id' => $employee->id,
-            'unit_id' => $employee->unit_id,
+            'unit_id' => $request->unit_id,  // ADDED: unit_id
             'reward_date' => today(),
             'amount' => 200.00,
             'reason' => 'Manual reward by admin',
@@ -103,12 +115,11 @@ public function rewardToday(Request $request)
             'sent_by' => auth()->id()
         ]);
 
-        // Send SMS immediately
         $this->sendRewardSms($reward);
 
         return response()->json([
             'success' => true,
-            'message' => $employee->formal_name . ' has been awarded 200 KES for today! SMS sent.'
+            'message' => $employee->formal_name . ' from ' . $employee->unit->name . ' has been awarded 200 KES for today! SMS sent.'
         ]);
 
     } catch (\Exception $e) {
@@ -116,7 +127,69 @@ public function rewardToday(Request $request)
         return response()->json(['success' => false, 'message' => 'Failed to award reward: ' . $e->getMessage()], 500);
     }
 }
+public function rewardMultipleUnits(Request $request)
+{
+    $request->validate([
+        'rewards' => 'required|array',
+        'rewards.*.unit_id' => 'required|exists:units,id',
+        'rewards.*.employee_id' => 'required|exists:employees,id'
+    ]);
 
+    try {
+        DB::beginTransaction();
+
+        $createdCount = 0;
+        $errors = [];
+
+        foreach ($request->rewards as $rewardData) {
+            $employee = Employee::find($rewardData['employee_id']);
+
+            if (!$employee) {
+                $errors[] = "Employee not found";
+                continue;
+            }
+
+            if ($employee->unit_id != $rewardData['unit_id']) {
+                $errors[] = "Employee {$employee->formal_name} does not belong to selected unit";
+                continue;
+            }
+
+            $existing = Reward::whereDate('reward_date', today())
+                ->where('unit_id', $rewardData['unit_id'])
+                ->first();
+
+            if ($existing) {
+                $errors[] = "Unit {$employee->unit->name} already has a reward today";
+                continue;
+            }
+
+            $reward = Reward::create([
+                'employee_id' => $employee->id,
+                'unit_id' => $rewardData['unit_id'],
+                'reward_date' => today(),
+                'amount' => 200.00,
+                'reason' => 'Bulk reward by admin',
+                'status' => 'pending',
+                'sent_by' => auth()->id()
+            ]);
+
+            $this->sendRewardSms($reward);
+            $createdCount++;
+        }
+
+        DB::commit();
+
+        return response()->json([
+            'success' => $createdCount > 0,
+            'message' => $createdCount . ' reward(s) awarded successfully.' . (count($errors) > 0 ? ' Errors: ' . implode(', ', $errors) : '')
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Multiple rewards failed: ' . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Failed to award rewards: ' . $e->getMessage()], 500);
+    }
+}
 /**
  * Schedule reward for tomorrow (optional)
  */
@@ -457,7 +530,7 @@ public function getVendorMonthData(Request $request, $vendorId, $year, $month)
             }], 'amount')
             ->with(['profile'])
             ->orderBy('total_scans', 'desc')
-            ->take(6)
+            ->take(8)
             ->get()
             ->map(function($vendor) use ($monthStart) {
                 // Calculate additional metrics
@@ -987,8 +1060,8 @@ public function get30DayTrends(Request $request)
             $alerts[] = [
                 'type' => 'danger',
                 'message' => "Low employee participation rate: {$participationRate}%",
-                'action' => route('admin.analytics'),
-                'action_text' => 'View Analytics'
+           'action' => route('admin.analytics.index'),
+                'action_text' => 'View Analytics',
             ];
         }
 
@@ -3250,11 +3323,14 @@ public function updateEmailRecipients(Request $request)
 }
 public function rewardsIndex()
 {
-    $todayReward = Reward::getTodayReward();
+    // CHANGE: Get ALL rewards for today (not just one)
+    $todayRewards = Reward::getTodayRewards(); // Was: Reward::getTodayReward()
+
     $tomorrowReward = Reward::whereDate('reward_date', now()->addDay())->first();
 
     $rewards = Reward::with(['employee', 'employee.department', 'employee.unit', 'mealTransaction'])
         ->orderBy('reward_date', 'desc')
+        ->orderBy('created_at', 'desc')
         ->paginate(20);
 
     $stats = [
@@ -3268,8 +3344,11 @@ public function rewardsIndex()
 
     $availableEmployees = Reward::getAvailableEmployeesForReward();
 
+    // ADD: Get all active units
+    $units = Unit::active()->get();
+
     return view('reeds.admin.rewards.index', compact(
-        'todayReward', 'tomorrowReward', 'rewards', 'stats', 'availableEmployees'
+        'todayRewards', 'tomorrowReward', 'rewards', 'stats', 'availableEmployees', 'units'
     ));
 }
 
@@ -3278,27 +3357,64 @@ public function rewardsIndex()
  */
 public function getTodayReward()
 {
-    $reward = Reward::getTodayReward();
+    // CHANGE: Get all rewards for today
+    $rewards = Reward::with(['employee', 'employee.unit'])
+        ->whereDate('reward_date', today())
+        ->get();
 
-    if (!$reward) {
-        return response()->json(['success' => false, 'message' => 'No reward assigned for today']);
+    if ($rewards->isEmpty()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No rewards assigned for today'
+        ]);
     }
 
     return response()->json([
         'success' => true,
-        'reward' => [
-            'id' => $reward->id,
-            'employee_name' => $reward->employee->formal_name,
-            'employee_code' => $reward->employee->employee_code,
-            'department' => $reward->employee->department->name ?? 'N/A',
-            'unit' => $reward->employee->unit->name ?? 'N/A',
-            'amount' => $reward->formatted_amount,
-            'status' => $reward->status,
-            'date' => $reward->reward_date->format('F j, Y')
-        ]
+        'rewards' => $rewards->map(function($reward) {
+            return [
+                'id' => $reward->id,
+                'employee_name' => $reward->employee->formal_name,
+                'employee_code' => $reward->employee->employee_code,
+                'department' => $reward->employee->department->name ?? 'N/A',
+                'unit' => $reward->employee->unit->name ?? 'N/A',
+                'amount' => $reward->formatted_amount,
+                'status' => $reward->status,
+                'date' => $reward->reward_date->format('F j, Y')
+            ];
+        })
     ]);
 }
+public function getAvailableEmployeesForUnit(Unit $unit)
+{
+    $recentWinners = Reward::where('reward_date', '>=', now()->subDays(7))
+        ->where('unit_id', $unit->id)
+        ->pluck('employee_id')
+        ->toArray();
 
+    $employees = Employee::where('is_active', true)
+        ->where('unit_id', $unit->id)
+        ->whereNotIn('id', $recentWinners)
+        ->get();
+
+    if ($employees->isEmpty()) {
+        $employees = Employee::where('is_active', true)
+            ->where('unit_id', $unit->id)
+            ->get();
+    }
+
+    return response()->json([
+        'success' => true,
+        'employees' => $employees->map(function($employee) {
+            return [
+                'id' => $employee->id,
+                'name' => $employee->formal_name,
+                'code' => $employee->employee_code,
+                'department' => $employee->department->name ?? 'N/A'
+            ];
+        })
+    ]);
+}
 /**
  * Generate reward for tomorrow
  */

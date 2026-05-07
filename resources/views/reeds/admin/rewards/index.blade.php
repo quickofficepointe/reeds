@@ -1,3 +1,5 @@
+{{-- resources/views/reeds/admin/rewards/index.blade.php --}}
+
 @extends('reeds.admin.layout.adminlayout')
 
 @section('content')
@@ -5,44 +7,57 @@
     <!-- Header -->
     <div class="mb-8">
         <h1 class="text-2xl font-bold text-gray-900">Security Rewards Program</h1>
-        <p class="text-gray-600">Manually award 200 KES security reward to employees</p>
+        <p class="text-gray-600">Award 200 KES security rewards to employees (one per unit per day)</p>
     </div>
 
-    <!-- Today's Reward Card -->
-    <div class="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg shadow-lg mb-8 overflow-hidden">
-        <div class="p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <div class="text-yellow-100 text-sm uppercase tracking-wide">Today's Security Reward</div>
-                    <div class="text-white text-3xl font-bold mt-2">
-                        {{ $todayReward?->employee?->formal_name ?? 'Not Awarded Yet' }}
-                    </div>
-                    <div class="text-yellow-100 mt-1">
-                        {{ $todayReward?->employee?->employee_code ?? 'No reward for today' }}
-                    </div>
-                    @if($todayReward)
-                        <div class="mt-3 flex space-x-2">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white text-yellow-800">
-                                {{ ucfirst($todayReward->status) }}
-                            </span>
-                            @if($todayReward->sms_sent)
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    SMS Sent
-                                </span>
-                            @endif
+    <!-- Today's Rewards Cards -->
+    <div class="mb-8">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Today's Security Rewards</h2>
+
+        @if($todayRewards->count() > 0)
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach($todayRewards as $reward)
+                <div class="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg shadow-lg overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-yellow-100 text-xs uppercase tracking-wide">{{ $reward->unit->name }}</div>
+                                <div class="text-white text-xl font-bold mt-1">{{ $reward->employee->formal_name }}</div>
+                                <div class="text-yellow-100 text-sm">{{ $reward->employee->employee_code }}</div>
+                                <div class="mt-2 flex space-x-2">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-yellow-800">
+                                        {{ ucfirst($reward->status) }}
+                                    </span>
+                                    @if($reward->sms_sent)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            SMS Sent
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-white text-3xl font-bold">{{ $reward->formatted_amount }}</div>
+                                <div class="text-yellow-100 text-xs">Security Reward</div>
+                                @if($reward->status == 'pending')
+                                    <button onclick="resendSms({{ $reward->id }})" class="mt-2 text-white text-xs hover:underline">
+                                        Resend SMS
+                                    </button>
+                                @endif
+                            </div>
                         </div>
-                    @endif
+                    </div>
                 </div>
-                <div class="text-right">
-                    <div class="text-white text-4xl font-bold">200 KES</div>
-                    <div class="text-yellow-100 text-sm">Security Reward</div>
-                </div>
+                @endforeach
             </div>
-        </div>
+        @else
+            <div class="bg-gray-50 rounded-lg p-8 text-center">
+                <p class="text-gray-500">No rewards awarded for today</p>
+            </div>
+        @endif
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="bg-white rounded-lg shadow p-4">
             <div class="text-gray-500 text-sm">Total Rewards Issued</div>
             <div class="text-2xl font-bold">{{ $stats['total_rewards_issued'] }}</div>
@@ -57,58 +72,79 @@
         </div>
         <div class="bg-white rounded-lg shadow p-4">
             <div class="text-gray-500 text-sm">Total Distributed</div>
-            <div class="text-2xl font-bold text-yellow-600">{{ number_format($stats['total_amount_distributed'], 2) }}</div>
+            <div class="text-2xl font-bold text-yellow-600">KSh {{ number_format($stats['total_amount_distributed'], 2) }}</div>
         </div>
     </div>
 
-    <!-- Award Today's Reward (Manual) -->
+    <!-- Award Single Reward -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Award Today's Security Reward</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Award Security Reward</h2>
 
-        @if($todayReward)
-            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-green-800 font-medium">Reward Already Awarded for Today</div>
-                        <div class="text-green-600">Employee: {{ $todayReward->employee->formal_name }}</div>
-                        <div class="text-green-600 text-sm">Code: {{ $todayReward->employee->employee_code }}</div>
-                        <div class="text-green-600 text-sm">Unit: {{ $todayReward->employee->unit->name ?? 'N/A' }}</div>
-                        @if($todayReward->sms_sent)
-                            <div class="text-green-500 text-xs mt-1">SMS sent at {{ $todayReward->sms_sent_at?->format('h:i A') }}</div>
-                        @endif
-                    </div>
-                    <div class="text-right">
-                        <div class="text-green-800 font-bold">{{ $todayReward->formatted_amount }}</div>
-                        <div class="text-green-600 text-sm">{{ $todayReward->reward_date->format('F j, Y') }}</div>
-                        <button onclick="resendSms({{ $todayReward->id }})" class="mt-2 text-blue-600 text-sm hover:underline">Resend SMS</button>
-                    </div>
-                </div>
-            </div>
-        @else
-            <form id="rewardTodayForm" class="space-y-4">
-                @csrf
+        <form id="rewardTodayForm" class="space-y-4">
+            @csrf
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Employee to Award 200 KES Today</label>
-                    <select name="employee_id" id="rewardTodayEmployee" class="w-full rounded-lg border-gray-300 focus:border-yellow-500 focus:ring focus:ring-yellow-200" required>
-                        <option value="">-- Select Employee --</option>
-                        @foreach($availableEmployees as $employee)
-                            <option value="{{ $employee->id }}">
-                                {{ $employee->formal_name }} ({{ $employee->employee_code }}) - {{ $employee->unit->name ?? 'No Unit' }} - {{ $employee->department->name ?? 'N/A' }}
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Unit</label>
+                    <select name="unit_id" id="rewardUnit" class="w-full rounded-lg border-gray-300 focus:border-yellow-500 focus:ring focus:ring-yellow-200" required>
+                        <option value="">-- Select Unit --</option>
+                        @foreach($units as $unit)
+                            <option value="{{ $unit->id }}" data-unit-name="{{ $unit->name }}">
+                                {{ $unit->name }}
                             </option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-gray-500 mt-1">Selected employee will receive 200 KES meal today. SMS will be sent immediately.</p>
                 </div>
-                <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-6 rounded-lg transition">
-                    Award 200 KES Reward for Today
-                </button>
-            </form>
-        @endif
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Employee</label>
+                    <select name="employee_id" id="rewardEmployee" class="w-full rounded-lg border-gray-300 focus:border-yellow-500 focus:ring focus:ring-yellow-200" required disabled>
+                        <option value="">-- First Select Unit --</option>
+                    </select>
+                </div>
+            </div>
+            <p class="text-xs text-gray-500">Selected employee will receive 200 KES meal today. SMS will be sent immediately. Each unit can receive only one reward per day.</p>
+            <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-6 rounded-lg transition">
+                Award 200 KES Reward
+            </button>
+        </form>
     </div>
 
-    <!-- Award Tomorrow's Reward (Optional - Manual) -->
+    <!-- Bulk Award (Multiple Units) -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Schedule Tomorrow's Reward (Optional)</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Bulk Award (Multiple Units)</h2>
+        <p class="text-sm text-gray-600 mb-4">Award 200 KES to multiple units at once</p>
+
+        <div id="bulkRewardsContainer">
+            <div class="bulk-reward-item grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <select name="bulk_unit_id[]" class="bulk-unit-select w-full rounded-lg border-gray-300" required>
+                    <option value="">-- Select Unit --</option>
+                    @foreach($units as $unit)
+                        <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+                    @endforeach
+                </select>
+                <div class="flex gap-2">
+                    <select name="bulk_employee_id[]" class="bulk-employee-select w-full rounded-lg border-gray-300" required disabled>
+                        <option value="">-- First Select Unit --</option>
+                    </select>
+                    <button type="button" class="remove-bulk-item text-red-500 hover:text-red-700 px-3 py-2 border rounded-lg">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex space-x-3 mt-4">
+            <button type="button" id="addBulkReward" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
+                <i class="fas fa-plus mr-1"></i> Add Another Unit
+            </button>
+            <button type="button" id="submitBulkRewards" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg">
+                Award All Selected Units
+            </button>
+        </div>
+    </div>
+
+    <!-- Schedule Tomorrow's Reward -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Schedule Tomorrow's Reward</h2>
 
         @if($tomorrowReward)
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -117,6 +153,7 @@
                         <div class="text-blue-800 font-medium">Reward Already Scheduled for Tomorrow</div>
                         <div class="text-blue-600">Employee: {{ $tomorrowReward->employee->formal_name }}</div>
                         <div class="text-blue-600 text-sm">Code: {{ $tomorrowReward->employee->employee_code }}</div>
+                        <div class="text-blue-600 text-sm">Unit: {{ $tomorrowReward->unit->name ?? 'N/A' }}</div>
                     </div>
                     <div class="text-right">
                         <div class="text-blue-800 font-bold">{{ $tomorrowReward->formatted_amount }}</div>
@@ -129,16 +166,16 @@
             <form id="rewardTomorrowForm" class="space-y-4">
                 @csrf
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Employee for Tomorrow's Reward (Optional)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Employee for Tomorrow's Reward</label>
                     <select name="employee_id" id="rewardTomorrowEmployee" class="w-full rounded-lg border-gray-300 focus:border-yellow-500 focus:ring focus:ring-yellow-200">
-                        <option value="">-- Select Employee (leave empty if not scheduling) --</option>
+                        <option value="">-- Select Employee --</option>
                         @foreach($availableEmployees as $employee)
-                            <option value="{{ $employee->id }}">
+                            <option value="{{ $employee->id }}" data-unit-id="{{ $employee->unit_id }}" data-unit-name="{{ $employee->unit->name ?? 'No Unit' }}">
                                 {{ $employee->formal_name }} ({{ $employee->employee_code }}) - {{ $employee->unit->name ?? 'No Unit' }}
                             </option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-gray-500 mt-1">If selected, SMS will be sent tonight at 10 PM. Leave empty to not schedule.</p>
+                    <p class="text-xs text-gray-500 mt-1">SMS will be sent tonight at 10 PM.</p>
                 </div>
                 <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition">
                     Schedule Reward for Tomorrow
@@ -160,13 +197,12 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SMS</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Claimed At</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Awarded By</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -176,11 +212,13 @@
                             {{ $reward->reward_date->format('M d, Y') }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                {{ $reward->unit->name ?? 'N/A' }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">{{ $reward->employee->formal_name }}</div>
                             <div class="text-sm text-gray-500">{{ $reward->employee->employee_code }}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ $reward->employee->unit->name ?? 'N/A' }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-yellow-600">
                             {{ $reward->formatted_amount }}
@@ -202,13 +240,10 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $reward->mealTransaction?->created_at?->format('M d, Y H:i') ?? '-' }}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ $reward->sender?->name ?? 'Admin' }}
-                        </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-8 text-center text-gray-500">
+                        <td colspan="7" class="px-6 py-8 text-center text-gray-500">
                             No rewards issued yet
                         </td>
                     </tr>
@@ -223,14 +258,45 @@
 </div>
 
 <script>
-// Award today's reward
+// Load employees when unit is selected (Single Award)
+document.getElementById('rewardUnit')?.addEventListener('change', async function() {
+    const unitId = this.value;
+    const employeeSelect = document.getElementById('rewardEmployee');
+
+    if (!unitId) {
+        employeeSelect.innerHTML = '<option value="">-- First Select Unit --</option>';
+        employeeSelect.disabled = true;
+        return;
+    }
+
+    employeeSelect.innerHTML = '<option value="">Loading employees...</option>';
+    employeeSelect.disabled = true;
+
+    try {
+        const response = await fetch(`/admin/units/${unitId}/available-employees`);
+        const data = await response.json();
+
+        if (data.success && data.employees.length > 0) {
+            employeeSelect.innerHTML = '<option value="">-- Select Employee --</option>' +
+                data.employees.map(emp => `<option value="${emp.id}">${emp.name} (${emp.code}) - ${emp.department}</option>`).join('');
+            employeeSelect.disabled = false;
+        } else {
+            employeeSelect.innerHTML = '<option value="">No employees available for this unit</option>';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        employeeSelect.innerHTML = '<option value="">Error loading employees</option>';
+    }
+});
+
+// Single award form submission
 document.getElementById('rewardTodayForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    const employeeId = formData.get('employee_id');
+    const unitId = document.getElementById('rewardUnit').value;
+    const employeeId = document.getElementById('rewardEmployee').value;
 
-    if (!employeeId) {
-        alert('Please select an employee');
+    if (!unitId || !employeeId) {
+        alert('Please select both unit and employee');
         return;
     }
 
@@ -247,7 +313,7 @@ document.getElementById('rewardTodayForm')?.addEventListener('submit', async (e)
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ employee_id: employeeId })
+            body: JSON.stringify({ unit_id: unitId, employee_id: employeeId })
         });
 
         const data = await response.json();
@@ -266,11 +332,147 @@ document.getElementById('rewardTodayForm')?.addEventListener('submit', async (e)
     }
 });
 
+// Bulk award functionality
+function attachBulkEventListeners(container) {
+    const unitSelect = container.querySelector('.bulk-unit-select');
+    const employeeSelect = container.querySelector('.bulk-employee-select');
+    const removeBtn = container.querySelector('.remove-bulk-item');
+
+    if (unitSelect) {
+        unitSelect.addEventListener('change', async function() {
+            const unitId = this.value;
+
+            if (!unitId) {
+                employeeSelect.innerHTML = '<option value="">-- First Select Unit --</option>';
+                employeeSelect.disabled = true;
+                return;
+            }
+
+            employeeSelect.innerHTML = '<option value="">Loading employees...</option>';
+            employeeSelect.disabled = true;
+
+            try {
+                const response = await fetch(`/admin/units/${unitId}/available-employees`);
+                const data = await response.json();
+
+                if (data.success && data.employees.length > 0) {
+                    employeeSelect.innerHTML = '<option value="">-- Select Employee --</option>' +
+                        data.employees.map(emp => `<option value="${emp.id}">${emp.name} (${emp.code}) - ${emp.department}</option>`).join('');
+                    employeeSelect.disabled = false;
+                } else {
+                    employeeSelect.innerHTML = '<option value="">No employees available</option>';
+                }
+            } catch (error) {
+                employeeSelect.innerHTML = '<option value="">Error loading employees</option>';
+            }
+        });
+    }
+
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function() {
+            container.remove();
+        });
+    }
+}
+
+// Initialize existing bulk items
+document.querySelectorAll('.bulk-reward-item').forEach(item => {
+    attachBulkEventListeners(item);
+});
+
+// Add new bulk reward row
+document.getElementById('addBulkReward')?.addEventListener('click', () => {
+    const container = document.getElementById('bulkRewardsContainer');
+    const newItem = document.createElement('div');
+    newItem.className = 'bulk-reward-item grid grid-cols-1 md:grid-cols-2 gap-4 mb-4';
+    newItem.innerHTML = `
+        <select name="bulk_unit_id[]" class="bulk-unit-select w-full rounded-lg border-gray-300" required>
+            <option value="">-- Select Unit --</option>
+            @foreach($units as $unit)
+                <option value="{{ $unit->id }}">{{ $unit->name }}</option>
+            @endforeach
+        </select>
+        <div class="flex gap-2">
+            <select name="bulk_employee_id[]" class="bulk-employee-select w-full rounded-lg border-gray-300" required disabled>
+                <option value="">-- First Select Unit --</option>
+            </select>
+            <button type="button" class="remove-bulk-item text-red-500 hover:text-red-700 px-3 py-2 border rounded-lg">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    container.appendChild(newItem);
+    attachBulkEventListeners(newItem);
+});
+
+// Submit bulk rewards
+document.getElementById('submitBulkRewards')?.addEventListener('click', async () => {
+    const unitSelects = document.querySelectorAll('.bulk-unit-select');
+    const employeeSelects = document.querySelectorAll('.bulk-employee-select');
+
+    const rewards = [];
+    let hasError = false;
+
+    for (let i = 0; i < unitSelects.length; i++) {
+        const unitId = unitSelects[i].value;
+        const employeeId = employeeSelects[i].value;
+
+        if (!unitId || !employeeId) {
+            alert(`Please complete row ${i + 1}`);
+            hasError = true;
+            break;
+        }
+
+        rewards.push({ unit_id: unitId, employee_id: employeeId });
+    }
+
+    if (hasError) return;
+    if (rewards.length === 0) {
+        alert('No rewards to submit');
+        return;
+    }
+
+    const button = document.getElementById('submitBulkRewards');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Awarding...';
+    button.disabled = true;
+
+    try {
+        const response = await fetch('{{ route("admin.rewards.multiple-units") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ rewards: rewards })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert(data.message || 'Failed to award some rewards');
+        }
+    } catch (error) {
+        alert('Failed to award rewards. Please try again.');
+    } finally {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+});
+
 // Schedule tomorrow's reward
 document.getElementById('rewardTomorrowForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    const employeeId = formData.get('employee_id');
+    const employeeId = document.getElementById('rewardTomorrowEmployee').value;
+
+    if (!employeeId) {
+        alert('Please select an employee');
+        return;
+    }
 
     const button = e.target.querySelector('button[type="submit"]');
     const originalText = button.innerHTML;
@@ -304,6 +506,7 @@ document.getElementById('rewardTomorrowForm')?.addEventListener('submit', async 
     }
 });
 
+// Resend SMS
 function resendSms(rewardId) {
     fetch(`/admin/rewards/${rewardId}/resend-sms`, {
         method: 'POST',
@@ -326,6 +529,7 @@ function resendSms(rewardId) {
     });
 }
 
+// Cancel reward
 function cancelReward(rewardId) {
     if (confirm('Are you sure you want to cancel this reward?')) {
         fetch(`/admin/rewards/${rewardId}/cancel`, {
