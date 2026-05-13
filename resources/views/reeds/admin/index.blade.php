@@ -984,17 +984,174 @@ function loadOverviewTab() {
 function loadDailyScansTab() {
     const data = window.currentVendorData;
     const dailyScans = data.daily_scans || {};
-    let content = `<div class="space-y-6"><div class="bg-white p-4 rounded-lg border shadow-sm"><h4 class="font-semibold">Daily Scans</h4><p class="text-sm text-gray-500">Period: ${escapeHtml(data.date_range?.start || 'N/A')} to ${escapeHtml(data.date_range?.end || 'N/A')}</p></div>`;
+
+    let content = `
+        <div class="space-y-6">
+            <div class="bg-white p-4 rounded-lg border shadow-sm">
+                <h4 class="font-semibold text-lg mb-2">Employee Daily Scans</h4>
+                <p class="text-sm text-gray-500">Period: ${escapeHtml(data.date_range?.start || 'N/A')} to ${escapeHtml(data.date_range?.end || 'N/A')}</p>
+                <p class="text-xs text-gray-400 mt-1">Showing detailed scan records with employee information and scan times</p>
+            </div>
+    `;
 
     if (Object.keys(dailyScans).length === 0) {
-        content += `<div class="text-center py-8 text-gray-500">No scans found for this period</div>`;
+        content += `<div class="text-center py-8 text-gray-500">
+            <i class="fas fa-calendar-day text-4xl mb-3"></i>
+            <p>No scans found for this period</p>
+        </div>`;
     } else {
-        Object.entries(dailyScans).forEach(([date, transactions]) => {
-            const totalAmount = Array.isArray(transactions) ? transactions.reduce((sum, t) => sum + toNumber(t.amount, 0), 0) : 0;
-            content += `<div class="border rounded-lg overflow-hidden"><div class="bg-gray-50 px-4 py-2 font-semibold">${new Date(date).toLocaleDateString()}</div><div class="p-3">${transactions.length} scans • KSh ${totalAmount.toFixed(2)}</div></div>`;
+        // Sort dates in descending order (most recent first)
+        const sortedDates = Object.keys(dailyScans).sort().reverse();
+
+        sortedDates.forEach((date) => {
+            const transactions = dailyScans[date];
+
+            // Calculate totals
+            let totalAmount = 0;
+            let regularScans = 0;
+            let rewardScans = 0;
+
+            transactions.forEach(t => {
+                totalAmount += t.amount;
+                if (t.is_reward) {
+                    rewardScans++;
+                } else {
+                    regularScans++;
+                }
+            });
+
+            const totalScans = transactions.length;
+
+            // Format date nicely
+            const formattedDate = new Date(date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            content += `
+                <div class="border rounded-lg overflow-hidden shadow-sm">
+                    <div class="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 flex justify-between items-center cursor-pointer hover:from-gray-100 hover:to-gray-200 transition-all" onclick="toggleDailyDate('${date}')">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-calendar-alt text-blue-600"></i>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-gray-800">${formattedDate}</span>
+                                <div class="text-sm text-gray-500">
+                                    <span class="inline-flex items-center">
+                                        <i class="fas fa-users mr-1"></i>${totalScans} scans
+                                    </span>
+                                    <span class="mx-2">•</span>
+                                    <span class="text-green-600 font-medium">KSh ${totalAmount.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="text-right hidden md:block">
+                                <span class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">Regular: ${regularScans}</span>
+                                <span class="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full ml-2">Reward: ${rewardScans}</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-gray-400 transition-transform duration-200" id="icon-${date}"></i>
+                        </div>
+                    </div>
+                    <div id="details-${date}" class="hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department / Unit</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scan Time</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+            `;
+
+            transactions.forEach((transaction) => {
+                const type = transaction.is_reward ? 'Reward 🎖️' : 'Regular 🍽️';
+                const typeClass = transaction.is_reward ? 'text-purple-600' : 'text-green-600';
+                const amount = transaction.amount;
+
+                content += `
+                    <tr class="hover:bg-blue-50 transition duration-150">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center">
+                                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                                    <i class="fas fa-user text-blue-600 text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="font-medium text-gray-900 text-sm">${escapeHtml(transaction.employee_name)}</p>
+                                    <p class="text-xs text-gray-500">${escapeHtml(transaction.employee_code)}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <p class="text-sm text-gray-800">${escapeHtml(transaction.department)}</p>
+                            <p class="text-xs text-gray-500">${escapeHtml(transaction.unit)}</p>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-6 h-6 bg-purple-100 rounded flex items-center justify-center">
+                                    <i class="fas fa-store text-purple-600 text-xs"></i>
+                                </div>
+                                <span class="text-sm text-gray-800 font-medium">${escapeHtml(transaction.vendor_name)}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center">
+                                <i class="fas fa-clock text-gray-400 text-xs mr-2"></i>
+                                <span class="text-sm text-gray-700">${transaction.scan_time}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${typeClass} bg-opacity-10">
+                                ${type}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="font-semibold ${typeClass}">KSh ${amount.toFixed(2)}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            content += `
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="bg-gray-50 px-4 py-2 text-right border-t">
+                            <span class="text-sm text-gray-600">Total for ${formattedDate}:</span>
+                            <span class="font-semibold text-green-600 ml-2">KSh ${totalAmount.toFixed(2)}</span>
+                            <span class="text-gray-400 mx-2">|</span>
+                            <span class="text-sm text-gray-600">${totalScans} scans</span>
+                        </div>
+                    </div>
+                </div>
+            `;
         });
     }
-    document.getElementById('tabContent').innerHTML = content + '</div>';
+
+    content += `</div>`;
+    document.getElementById('tabContent').innerHTML = content;
+}
+
+// Add this helper function if not already present
+function toggleDailyDate(date) {
+    const detailsDiv = document.getElementById(`details-${date}`);
+    const icon = document.getElementById(`icon-${date}`);
+
+    if (detailsDiv) {
+        detailsDiv.classList.toggle('hidden');
+        if (icon) {
+            icon.classList.toggle('fa-chevron-down');
+            icon.classList.toggle('fa-chevron-up');
+        }
+    }
 }
 
 function loadWeeklyActivityTab() {

@@ -106,16 +106,16 @@ class AdminController extends Controller
     ->map(function($vendor) use ($monthStart) {
         $transactions = $vendor->mealTransactions;
         $totalScans = $transactions->count();
-        
+
         // Calculate regular and reward scans
         $regularScans = 0;
         $rewardScans = 0;
         $totalRevenue = 0;
-        
+
         foreach ($transactions as $meal) {
             $scanData = $meal->scan_data;
             $isReward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
-            
+
             if ($isReward) {
                 $rewardScans++;
                 $totalRevenue += 200.00;
@@ -124,7 +124,7 @@ class AdminController extends Controller
                 $totalRevenue += 65.00;
             }
         }
-        
+
         $vendor->total_scans = $totalScans;
         $vendor->regular_scans = $regularScans;
         $vendor->reward_scans = $rewardScans;
@@ -912,16 +912,16 @@ class AdminController extends Controller
     ->map(function($vendor) {
         $transactions = $vendor->mealTransactions;
         $totalScans = $transactions->count();
-        
+
         // Calculate regular and reward scans
         $regularScans = 0;
         $rewardScans = 0;
         $totalRevenue = 0;
-        
+
         foreach ($transactions as $meal) {
             $scanData = $meal->scan_data;
             $isReward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
-            
+
             if ($isReward) {
                 $rewardScans++;
                 $totalRevenue += 200.00;
@@ -930,7 +930,7 @@ class AdminController extends Controller
                 $totalRevenue += 65.00;
             }
         }
-        
+
         $vendor->total_scans = $totalScans;
         $vendor->regular_scans = $regularScans;
         $vendor->reward_scans = $rewardScans;
@@ -1723,27 +1723,48 @@ return [
             });
     }
 
-    private function getVendorDailyScans($vendor, $startDate, $endDate)
-    {
-        $scans = MealTransaction::where('vendor_id', $vendor->id)
-            ->whereBetween('meal_date', [$startDate, $endDate])
-            ->with(['employee.department', 'employee.unit'])
-            ->orderBy('meal_date', 'desc')
-            ->orderBy('meal_time', 'desc')
-            ->get()
-            ->groupBy(function($transaction) {
-                return $transaction->meal_date->format('Y-m-d');
-            })
-            ->map(function($transactions, $date) {
-                return $transactions->map(function($transaction) {
-                    $scanData = $transaction->scan_data;
-                    $transaction->is_reward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
-                    return $transaction;
-                });
-            });
+   private function getVendorDailyScans($vendor, $startDate, $endDate)
+{
+    $scans = MealTransaction::where('vendor_id', $vendor->id)
+        ->whereBetween('meal_date', [$startDate, $endDate])
+        ->with(['employee.department', 'employee.unit'])
+        ->orderBy('meal_date', 'desc')
+        ->orderBy('meal_time', 'desc')
+        ->get()
+        ->groupBy(function($transaction) {
+            return $transaction->meal_date instanceof Carbon
+                ? $transaction->meal_date->format('Y-m-d')
+                : date('Y-m-d', strtotime($transaction->meal_date));
+        })
+        ->map(function($transactions, $date) use ($vendor) {
+            return $transactions->map(function($transaction) use ($vendor) {
+                $scanData = $transaction->scan_data;
+                $isReward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
 
-        return $scans;
-    }
+                // Safely get scan time
+                $scanTime = 'N/A';
+                if ($transaction->meal_time) {
+                    $scanTime = date('H:i:s', strtotime($transaction->meal_time));
+                } elseif ($transaction->created_at) {
+                    $scanTime = date('H:i:s', strtotime($transaction->created_at));
+                }
+
+                return [
+                    'id' => $transaction->id,
+                    'employee_name' => $transaction->employee->formal_name ?? 'Unknown',
+                    'employee_code' => $transaction->employee->employee_number ?? '',
+                    'department' => $transaction->employee->department->name ?? 'N/A',
+                    'unit' => $transaction->employee->unit->name ?? 'N/A',
+                    'vendor_name' => $vendor->name,
+                    'scan_time' => $scanTime,
+                    'is_reward' => $isReward,
+                    'amount' => $isReward ? 200.00 : 65.00,
+                ];
+            });
+        });
+
+    return $scans;
+}
 
     private function getWeeklyActivity($vendor, $startDate, $endDate)
     {
