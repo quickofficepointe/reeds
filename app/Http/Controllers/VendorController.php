@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/VendorController.php
 
 namespace App\Http\Controllers;
 
@@ -37,27 +36,41 @@ class VendorController extends Controller
             $vendor = Auth::user();
             $today = now()->format('Y-m-d');
 
-            $todayStats = MealTransaction::where('vendor_id', $vendor->id)
+            $todayTransactions = MealTransaction::where('vendor_id', $vendor->id)
                 ->whereDate('meal_date', $today)
-                ->select(
-                    DB::raw('COUNT(*) as total_meals'),
-                    DB::raw('SUM(amount) as total_amount')
-                )
-                ->first();
+                ->get();
 
-            $totalStats = MealTransaction::where('vendor_id', $vendor->id)
-                ->select(
-                    DB::raw('COUNT(*) as total_meals'),
-                    DB::raw('SUM(amount) as total_amount')
-                )
-                ->first();
+            $todayStats = (object)[
+                'total_meals' => $todayTransactions->count(),
+                'total_amount' => $todayTransactions->sum(function($meal) {
+                    $scanData = $meal->scan_data;
+                    $isReward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
+                    return $isReward ? 200.00 : 65.00;
+                })
+            ];
+
+            $totalTransactions = MealTransaction::where('vendor_id', $vendor->id)->get();
+
+            $totalStats = (object)[
+                'total_meals' => $totalTransactions->count(),
+                'total_amount' => $totalTransactions->sum(function($meal) {
+                    $scanData = $meal->scan_data;
+                    $isReward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
+                    return $isReward ? 200.00 : 65.00;
+                })
+            ];
 
             $recentTransactions = MealTransaction::with('employee.department')
                 ->where('vendor_id', $vendor->id)
                 ->whereDate('meal_date', $today)
                 ->orderBy('created_at', 'desc')
                 ->take(5)
-                ->get();
+                ->get()
+                ->map(function($transaction) {
+                    $scanData = $transaction->scan_data;
+                    $transaction->is_reward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
+                    return $transaction;
+                });
 
             return view('reeds.vendor.index', compact('todayStats', 'totalStats', 'recentTransactions'));
 
@@ -82,7 +95,12 @@ class VendorController extends Controller
                 ->whereDate('meal_date', today())
                 ->latest()
                 ->take(10)
-                ->get();
+                ->get()
+                ->map(function($transaction) {
+                    $scanData = $transaction->scan_data;
+                    $transaction->is_reward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
+                    return $transaction;
+                });
 
             return view('reeds.vendor.scan', compact('vendor', 'recentScans'));
 
@@ -92,6 +110,9 @@ class VendorController extends Controller
         }
     }
 
+    /**
+     * Process QR scan - FIXED VERSION with reward handling and 65 KES regular meals
+     */
     public function processScan(Request $request)
     {
         Log::info('QR Scan Request Received', [
@@ -126,37 +147,29 @@ class VendorController extends Controller
         DB::beginTransaction();
         try {
             $employee = null;
-            $extractionMethod = 'unknown';
 
+            // Try direct employee code match
             $employee = Employee::where('employee_code', $qrCode)
                 ->where('is_active', true)
-                ->with('department')
+                ->with(['department', 'unit'])
                 ->first();
 
-            if ($employee) {
-                $extractionMethod = 'direct_employee_code';
-            }
-
+            // Try QR code match
             if (!$employee) {
                 $employee = Employee::where('qr_code', $qrCode)
                     ->where('is_active', true)
-                    ->with('department')
+                    ->with(['department', 'unit'])
                     ->first();
-                if ($employee) {
-                    $extractionMethod = 'qr_code_match';
-                }
             }
 
+            // Try text extraction from QR
             if (!$employee && strpos($qrCode, 'REEDS AFRICA CONSULT') !== false) {
                 $employeeCode = $this->extractEmployeeCodeFromText($qrCode);
                 if ($employeeCode) {
                     $employee = Employee::where('employee_code', $employeeCode)
                         ->where('is_active', true)
-                        ->with('department')
+                        ->with(['department', 'unit'])
                         ->first();
-                    if ($employee) {
-                        $extractionMethod = 'text_extraction';
-                    }
                 }
             }
 
@@ -194,8 +207,9 @@ class VendorController extends Controller
                 ], 200);
             }
 
-            // Create transaction based on reward
+            // Create transaction based on reward or regular
             if ($hasReward) {
+                // REWARD MEAL - 200 KES
                 $transaction = MealTransaction::create([
                     'vendor_id' => $vendor->id,
                     'employee_id' => $employee->id,
@@ -203,28 +217,55 @@ class VendorController extends Controller
                     'meal_date' => today(),
                     'meal_time' => now()->format('H:i:s'),
                     'qr_code_scanned' => $qrCode,
-                    'is_security_reward' => true,
-                    'reward_id' => $reward->id,
-                    'meal_type' => 'reward',
-                    'unit_id' => $employee->unit_id,
                     'scan_data' => json_encode([
+                        'is_reward' => true,
+                        'reward_id' => $reward->id,
+                        'reward_amount' => 200.00,
+                        'regular_amount' => 65.00,
                         'scanned_at' => now()->toDateTimeString(),
                         'employee_name' => $employee->formal_name,
                         'employee_code' => $employee->employee_code,
-                        'amount' => 200.00,
-                        'is_reward' => true,
-                        'reward_reason' => $reward->reason
+                        'department' => $employee->department->name ?? 'N/A',
+                        'unit_name' => $employee->unit->name ?? 'N/A',
+                        'unit_id' => $employee->unit_id,
+                        'department_id' => $employee->department_id,
+                        'reward_reason' => $reward->reason,
+                        'reward_date' => $reward->reward_date->format('Y-m-d'),
+                        'vendor_name' => $vendor->name,
+                        'vendor_id' => $vendor->id
                     ])
                 ]);
 
                 $reward->markAsClaimed($transaction->id);
-                $message = 'Employee awarded 200 KES. Meal recorded successfully.';
+                $message = '🎖️ REWARD: Employee awarded 200 KES! Meal recorded successfully.';
                 $amount = 200.00;
                 $isReward = true;
+
             } else {
-                $transaction = $employee->recordMeal($vendor->id, $qrCode);
-                $message = 'Meal recorded successfully.';
-                $amount = $transaction->amount;
+                // REGULAR MEAL - 65 KES
+                $transaction = MealTransaction::create([
+                    'vendor_id' => $vendor->id,
+                    'employee_id' => $employee->id,
+                    'amount' => 65.00,
+                    'meal_date' => today(),
+                    'meal_time' => now()->format('H:i:s'),
+                    'qr_code_scanned' => $qrCode,
+                    'scan_data' => json_encode([
+                        'is_reward' => false,
+                        'scanned_at' => now()->toDateTimeString(),
+                        'employee_name' => $employee->formal_name,
+                        'employee_code' => $employee->employee_code,
+                        'department' => $employee->department->name ?? 'N/A',
+                        'unit_name' => $employee->unit->name ?? 'N/A',
+                        'unit_id' => $employee->unit_id,
+                        'department_id' => $employee->department_id,
+                        'vendor_name' => $vendor->name,
+                        'vendor_id' => $vendor->id,
+                        'amount' => 65.00
+                    ])
+                ]);
+                $message = 'Meal recorded successfully (65 KES).';
+                $amount = 65.00;
                 $isReward = false;
             }
 
@@ -242,18 +283,21 @@ class VendorController extends Controller
                     'department' => $employee->department->name ?? 'N/A',
                     'amount' => $amount,
                     'time' => $transaction->meal_time,
-                    'date' => $transaction->meal_date
+                    'date' => $transaction->meal_date,
+                    'is_reward' => $isReward
                 ]
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('QR Scan Processing Error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
 
             return response()->json([
                 'success' => false,
                 'message' => 'A system error occurred while processing the scan. Please try again.',
-                'error_type' => 'system_error'
+                'error_type' => 'system_error',
+                'debug_message' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
     }
@@ -299,6 +343,10 @@ class VendorController extends Controller
 
             $formattedTransactions = $transactions->map(function ($transaction) {
                 $employee = $transaction->employee;
+                $scanData = $transaction->scan_data;
+                $isReward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
+                $effectiveAmount = $isReward ? 200.00 : 65.00;
+
                 return [
                     'id' => $transaction->id,
                     'transaction_code' => $transaction->transaction_code ?? 'N/A',
@@ -308,16 +356,16 @@ class VendorController extends Controller
                         'department' => ['name' => $employee->department->name ?? 'N/A'],
                         'unit' => ['name' => $employee->unit->name ?? 'N/A']
                     ],
-                    'amount' => floatval($transaction->amount ?? 0),
+                    'amount' => floatval($effectiveAmount),
                     'meal_time' => $transaction->meal_time ?? 'N/A',
                     'meal_date' => $transaction->meal_date ? $transaction->meal_date->format('Y-m-d') : 'N/A',
-                    'is_reward' => $transaction->is_security_reward ?? false,
+                    'is_reward' => $isReward,
                     'created_at' => $transaction->created_at ? $transaction->created_at->format('H:i:s') : 'N/A',
                 ];
             });
 
-            $totalScans = $transactions->total();
-            $totalRevenue = $transactions->sum('amount');
+            $totalScans = $formattedTransactions->count();
+            $totalRevenue = $formattedTransactions->sum('amount');
 
             return response()->json([
                 'success' => true,
@@ -350,30 +398,29 @@ class VendorController extends Controller
             $vendor = Auth::user();
             $today = now()->format('Y-m-d');
 
-            $todayStats = MealTransaction::where('vendor_id', $vendor->id)
+            $todayTransactions = MealTransaction::where('vendor_id', $vendor->id)
                 ->whereDate('meal_date', $today)
-                ->select(
-                    DB::raw('COUNT(*) as total_meals'),
-                    DB::raw('SUM(amount) as total_amount')
-                )
-                ->first();
+                ->get();
 
-            $totalStats = MealTransaction::where('vendor_id', $vendor->id)
-                ->select(
-                    DB::raw('COUNT(*) as total_meals'),
-                    DB::raw('SUM(amount) as total_amount')
-                )
-                ->first();
+            $totalTransactions = MealTransaction::where('vendor_id', $vendor->id)->get();
 
             return response()->json([
                 'success' => true,
                 'today' => [
-                    'scans' => $todayStats->total_meals ?? 0,
-                    'revenue' => $todayStats->total_amount ?? 0
+                    'scans' => $todayTransactions->count(),
+                    'revenue' => $todayTransactions->sum(function($meal) {
+                        $scanData = $meal->scan_data;
+                        $isReward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
+                        return $isReward ? 200.00 : 65.00;
+                    })
                 ],
                 'total' => [
-                    'scans' => $totalStats->total_meals ?? 0,
-                    'revenue' => $totalStats->total_amount ?? 0
+                    'scans' => $totalTransactions->count(),
+                    'revenue' => $totalTransactions->sum(function($meal) {
+                        $scanData = $meal->scan_data;
+                        $isReward = $scanData && isset($scanData['is_reward']) && $scanData['is_reward'] === true;
+                        return $isReward ? 200.00 : 65.00;
+                    })
                 ]
             ]);
 

@@ -6,6 +6,7 @@
     window.dashboardTrendData = @json($trendData['daily_scans_7d']);
     window.dashboardTrendData30d = @json($trendData['daily_scans_30d'] ?? []);
 </script>
+
 <div class="max-w-7xl mx-auto">
     <!-- Header with Stats Summary -->
     <div class="mb-8">
@@ -138,86 +139,88 @@
             </div>
         </div>
     </div>
-<!-- Security Rewards Section -->
-<!-- Security Rewards Section -->
-<div class="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-8">
-    <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-bold text-text-black">Security Rewards</h2>
-        <a href="{{ route('admin.rewards.index') }}" class="text-sm text-secondary-blue hover:text-blue-600">
-            Manage Rewards →
-        </a>
-    </div>
 
-    @php
-        $todayRewards = \App\Models\Reward::getTodayRewards();
-        $weekRewards = \App\Models\Reward::where('reward_date', '>=', now()->startOfWeek())->count();
-        $claimedRewards = \App\Models\Reward::where('status', 'claimed')->where('reward_date', '>=', now()->startOfMonth())->count();
-        $totalRewards = \App\Models\Reward::where('reward_date', '>=', now()->startOfMonth())->count();
-        $todayRewardsCount = $todayRewards->count();
-        $todayRewardsTotal = $todayRewards->sum('amount');
-    @endphp
+    <!-- Security Rewards Section -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold text-text-black">Security Rewards</h2>
+            <a href="{{ route('admin.rewards.index') }}" class="text-sm text-secondary-blue hover:text-blue-600">
+                Manage Rewards →
+            </a>
+        </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Today's Rewards (Multiple) -->
-        <div class="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg p-4">
-            <div class="text-yellow-100 text-sm uppercase tracking-wide">Today's Security Rewards</div>
+        @php
+            $todayRewards = \App\Models\Reward::getTodayRewards();
+            $weekRewards = \App\Models\Reward::where('reward_date', '>=', now()->startOfWeek())->count();
+            $claimedRewards = \App\Models\Reward::where('status', 'claimed')->where('reward_date', '>=', now()->startOfMonth())->count();
+            $totalRewards = \App\Models\Reward::where('reward_date', '>=', now()->startOfMonth())->count();
+            $todayRewardsCount = $todayRewards->count();
+            $todayRewardsTotal = $todayRewards->sum('amount');
+        @endphp
 
-            @if($todayRewardsCount > 0)
-                <div class="text-white text-2xl font-bold mt-2">{{ $todayRewardsCount }} Reward(s)</div>
-                <div class="text-yellow-100 text-sm">Total: KSh {{ number_format($todayRewardsTotal, 2) }}</div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Today's Rewards (Multiple) -->
+            <div class="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg p-4">
+                <div class="text-yellow-100 text-sm uppercase tracking-wide">Today's Security Rewards</div>
 
-                <div class="mt-3 space-y-2 max-h-40 overflow-y-auto">
-                    @foreach($todayRewards as $reward)
-                    <div class="bg-white/20 rounded p-2">
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <span class="text-white text-sm font-medium">{{ $reward->employee->formal_name }}</span>
-                                <span class="text-yellow-100 text-xs ml-2">({{ $reward->unit->name }})</span>
+                @if($todayRewardsCount > 0)
+                    <div class="text-white text-2xl font-bold mt-2">{{ $todayRewardsCount }} Reward(s)</div>
+                    <div class="text-yellow-100 text-sm">Total: KSh {{ number_format($todayRewardsTotal, 2) }}</div>
+
+                    <div class="mt-3 space-y-2 max-h-40 overflow-y-auto">
+                        @foreach($todayRewards as $reward)
+                        <div class="bg-white/20 rounded p-2">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <span class="text-white text-sm font-medium">{{ $reward->employee->formal_name }}</span>
+                                    <span class="text-yellow-100 text-xs ml-2">({{ $reward->unit->name }})</span>
+                                </div>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-yellow-800">
+                                    {{ ucfirst($reward->status) }}
+                                </span>
                             </div>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-white text-yellow-800">
-                                {{ ucfirst($reward->status) }}
-                            </span>
+                            <div class="text-yellow-100 text-xs">{{ $reward->employee->employee_code }}</div>
                         </div>
-                        <div class="text-yellow-100 text-xs">{{ $reward->employee->employee_code }}</div>
+                        @endforeach
                     </div>
-                    @endforeach
-                </div>
-            @else
-                <div class="text-white text-xl mt-2">No rewards assigned for today</div>
-                <div class="text-yellow-100 text-sm mt-1">Click "Manage Rewards" to award</div>
-            @endif
-        </div>
+                @else
+                    <div class="text-white text-xl mt-2">No rewards assigned for today</div>
+                    <div class="text-yellow-100 text-sm mt-1">Click "Manage Rewards" to award</div>
+                @endif
+            </div>
 
-        <!-- Reward Stats -->
-        <div class="grid grid-cols-2 gap-4">
-            <div class="text-center p-3 bg-yellow-50 rounded-lg">
-                <p class="text-2xl font-bold text-yellow-600">{{ $weekRewards }}</p>
-                <p class="text-xs text-gray-600">This Week</p>
-            </div>
-            <div class="text-center p-3 bg-green-50 rounded-lg">
-                <p class="text-2xl font-bold text-green-600">{{ $claimedRewards }}/{{ $totalRewards }}</p>
-                <p class="text-xs text-gray-600">Claimed This Month</p>
-            </div>
-            <div class="text-center p-3 bg-blue-50 rounded-lg col-span-2">
-                <p class="text-2xl font-bold text-blue-600">{{ $todayRewardsCount }}</p>
-                <p class="text-xs text-gray-600">Units Rewarded Today</p>
+            <!-- Reward Stats -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="text-center p-3 bg-yellow-50 rounded-lg">
+                    <p class="text-2xl font-bold text-yellow-600">{{ $weekRewards }}</p>
+                    <p class="text-xs text-gray-600">This Week</p>
+                </div>
+                <div class="text-center p-3 bg-green-50 rounded-lg">
+                    <p class="text-2xl font-bold text-green-600">{{ $claimedRewards }}/{{ $totalRewards }}</p>
+                    <p class="text-xs text-gray-600">Claimed This Month</p>
+                </div>
+                <div class="text-center p-3 bg-blue-50 rounded-lg col-span-2">
+                    <p class="text-2xl font-bold text-blue-600">{{ $todayRewardsCount }}</p>
+                    <p class="text-xs text-gray-600">Units Rewarded Today</p>
+                </div>
             </div>
         </div>
     </div>
-</div>
-<a href="{{ route('admin.employees.scan-data.export') }}"
-   class="block bg-white rounded-xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition duration-150">
-    <div class="flex items-center justify-between">
-        <div>
-            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-                <i class="fas fa-file-export text-blue-600 text-xl"></i>
+
+    <a href="{{ route('admin.employees.scan-data.export') }}"
+       class="block bg-white rounded-xl shadow-md border border-gray-100 p-6 hover:shadow-lg transition duration-150">
+        <div class="flex items-center justify-between">
+            <div>
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                    <i class="fas fa-file-export text-blue-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900">Employee Scan Data Export</h3>
+                <p class="text-sm text-gray-500 mt-1">Export detailed scan reports with date range</p>
             </div>
-            <h3 class="text-lg font-semibold text-gray-900">Employee Scan Data Export</h3>
-            <p class="text-sm text-gray-500 mt-1">Export detailed scan reports with date range</p>
+            <i class="fas fa-chevron-right text-gray-400"></i>
         </div>
-        <i class="fas fa-chevron-right text-gray-400"></i>
-    </div>
-</a>
+    </a>
+
     <!-- Main Metrics Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Total Employees -->
@@ -379,51 +382,61 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead>
                             <tr class="bg-gray-50">
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scans</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg/Day</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Retention</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
+<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Scans</th>
+<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Regular (65)</th>
+<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Reward (200)</th>
+<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Total Revenue</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Avg/Day</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Retention</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
                             @foreach($topVendors as $vendor)
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 transition duration-150">
                                 <td class="px-4 py-3">
                                     <div class="flex items-center space-x-3">
-                                        <div class="w-8 h-8 bg-secondary-blue rounded-full flex items-center justify-center">
+                                        <div class="w-10 h-10 bg-gradient-to-br from-secondary-blue to-blue-600 rounded-full flex items-center justify-center shadow-sm">
                                             <i class="fas fa-store text-white text-xs"></i>
                                         </div>
                                         <div>
                                             <p class="font-medium text-text-black text-sm">{{ $vendor->name }}</p>
-                                            <p class="text-xs text-gray-500">{{ $vendor->email }}</p>
+                                            <p class="text-xs text-gray-500 truncate max-w-[200px]">{{ $vendor->email }}</p>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3">
-                                    <p class="font-semibold">{{ $vendor->total_scans }}</p>
+                                <td class="px-4 py-3 text-center">
+    <span class="font-semibold text-gray-900">{{ number_format($vendor->total_scans) }}</span>
+</td>
+<td class="px-4 py-3 text-center">
+    <span class="font-semibold text-green-600">{{ number_format($vendor->regular_scans ?? 0) }}</span>
+</td>
+<td class="px-4 py-3 text-center">
+    <span class="font-semibold text-purple-600">{{ number_format($vendor->reward_scans ?? 0) }}</span>
+</td>
+<td class="px-4 py-3 text-center">
+    <span class="font-semibold text-green-600">KSh {{ number_format($vendor->total_revenue, 2) }}</span>
+</td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="text-sm text-gray-700">{{ number_format($vendor->avg_daily_scans, 1) }}</span>
                                 </td>
                                 <td class="px-4 py-3">
-                                    <p class="font-semibold text-green-600">KSh {{ number_format($vendor->total_revenue, 2) }}</p>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <p class="text-sm">{{ $vendor->avg_daily_scans }}</p>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center">
-                                        <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                            <div class="bg-green-600 h-2 rounded-full"
-                                                 style="width: {{ $vendor->customer_retention }}%"></div>
+                                    <div class="flex items-center justify-center">
+                                        <div class="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                                            <div class="bg-green-500 h-2 rounded-full transition-all duration-300"
+                                                 style="width: {{ min(100, $vendor->customer_retention) }}%"></div>
                                         </div>
-                                        <span class="text-xs">{{ $vendor->customer_retention }}%</span>
+                                        <span class="text-xs font-medium {{ $vendor->customer_retention >= 70 ? 'text-green-600' : ($vendor->customer_retention >= 50 ? 'text-yellow-600' : 'text-red-600') }}">
+                                            {{ number_format($vendor->customer_retention, 1) }}%
+                                        </span>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3">
-                                    <button class="vendor-analytics-btn px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded hover:bg-blue-200"
+                                <td class="px-4 py-3 text-center">
+                                    <button class="vendor-analytics-btn px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg hover:bg-blue-100 transition duration-150 shadow-sm"
                                             data-vendor-id="{{ $vendor->id }}"
                                             data-vendor-name="{{ $vendor->name }}">
-                                        View Analytics
+                                        <i class="fas fa-chart-line mr-1"></i> View Analytics
                                     </button>
                                 </td>
                             </tr>
@@ -498,6 +511,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendor</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
                     </tr>
@@ -527,9 +541,20 @@
                             <p class="text-sm">{{ $transaction->meal_time }}</p>
                             <p class="text-xs text-gray-500">{{ $transaction->meal_date }}</p>
                         </td>
-                        <td class="px-4 py-3">
-                            <p class="font-semibold text-green-600">KSh {{ $transaction->amount }}</p>
-                        </td>
+                       <td class="px-4 py-3">
+    @if(isset($transaction->is_reward) && $transaction->is_reward)
+        <p class="font-semibold text-purple-600">KSh 200.00 🎖️</p>
+    @else
+        <p class="font-semibold text-green-600">KSh 65.00</p>
+    @endif
+</td>
+<td class="px-4 py-3">
+    @if(isset($transaction->is_reward) && $transaction->is_reward)
+        <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800"><i class="fas fa-star mr-1"></i>Reward</span>
+    @else
+        <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800"><i class="fas fa-utensils mr-1"></i>Regular</span>
+    @endif
+</td>
                     </tr>
                     @empty
                     <tr>
@@ -553,36 +578,57 @@
             <h3 class="text-2xl font-bold text-text-black" id="vendorModalTitle"></h3>
             <button class="modal-close-btn text-gray-400 hover:text-gray-600 text-3xl">&times;</button>
         </div>
-
         <!-- Modal body -->
-        <div id="vendorAnalyticsContent" class="py-4">
-            <!-- Content will be loaded via AJAX -->
-        </div>
+        <div id="vendorAnalyticsContent" class="py-4"></div>
     </div>
 </div>
 
 <script>
+// =============================================
+// GLOBAL VARIABLES
+// =============================================
+let scanTrendsChart = null;
+let timeSeriesChart = null;
+let departmentChart = null;
+
+// =============================================
+// HELPER FUNCTIONS
+// =============================================
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+function toNumber(value, defaultValue = 0) {
+    const num = parseFloat(value);
+    return isNaN(num) ? defaultValue : num;
+}
+
+function toInt(value, defaultValue = 0) {
+    const num = parseInt(value);
+    return isNaN(num) ? defaultValue : num;
+}
+
+// =============================================
+// DOCUMENT READY
+// =============================================
 document.addEventListener('DOMContentLoaded', function() {
     const modal = document.getElementById('vendorAnalyticsModal');
-    const modalTitle = document.getElementById('vendorModalTitle');
     const modalContent = document.getElementById('vendorAnalyticsContent');
     const closeBtns = document.querySelectorAll('.modal-close-btn');
 
-    // Get CSRF token for AJAX requests
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-
-    // Open modal when clicking on vendor analytics buttons
     document.querySelectorAll('.vendor-analytics-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
-            const vendorId = this.dataset.vendorId;
-            const vendorName = this.dataset.vendorName;
-
-            loadVendorAnalytics(vendorId, vendorName);
+            loadVendorAnalytics(this.dataset.vendorId, this.dataset.vendorName);
         });
     });
 
-    // Close modal
     closeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             modal.classList.add('hidden');
@@ -590,7 +636,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Close modal when clicking outside
     window.addEventListener('click', (e) => {
         if (e.target === modal) {
             modal.classList.add('hidden');
@@ -598,7 +643,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Escape key to close modal
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
             modal.classList.add('hidden');
@@ -606,20 +650,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Initialize dashboard chart with 7-day data
     initializeDashboardChart();
 
-    // Auto-refresh every 2 minutes for real-time updates
     setInterval(() => {
         updateDashboardStats();
     }, 120000);
 });
 
 // =============================================
-// CHART FUNCTIONS - UPDATED FOR 30 DAYS
+// CHART FUNCTIONS
 // =============================================
 
-// Initialize main dashboard chart with data from PHP
 function initializeDashboardChart() {
     const ctx = document.getElementById('scanTrendsChart');
     if (!ctx) {
@@ -627,37 +668,21 @@ function initializeDashboardChart() {
         return;
     }
 
-    // Use 7-day data by default
     if (typeof window.dashboardTrendData === 'undefined' || !Array.isArray(window.dashboardTrendData) || window.dashboardTrendData.length === 0) {
-        console.warn('No valid trend data');
         showNoChartData();
         return;
     }
 
     const trendData = window.dashboardTrendData;
-
-    // Prepare data
     const labels = trendData.map(day => day.date || day.day || 'Unknown');
-    const scans = trendData.map(day => day.scans || 0);
+    const scans = trendData.map(day => toInt(day.scans, 0));
 
-    // Update button states
-    document.querySelectorAll('.period-btn').forEach(btn => {
-        if (btn.dataset.period === '7d') {
-            btn.classList.remove('bg-gray-100', 'text-gray-800');
-            btn.classList.add('bg-blue-100', 'text-blue-800');
-        } else {
-            btn.classList.remove('bg-blue-100', 'text-blue-800');
-            btn.classList.add('bg-gray-100', 'text-gray-800');
-        }
-    });
-
-    // Check if we already have a chart instance and destroy it properly
-    if (window.scanTrendsChart && typeof window.scanTrendsChart.destroy === 'function') {
-        window.scanTrendsChart.destroy();
+    if (scanTrendsChart && typeof scanTrendsChart.destroy === 'function') {
+        scanTrendsChart.destroy();
     }
 
     try {
-        window.scanTrendsChart = new Chart(ctx.getContext('2d'), {
+        scanTrendsChart = new Chart(ctx.getContext('2d'), {
             type: 'line',
             data: {
                 labels: labels,
@@ -679,87 +704,31 @@ function initializeDashboardChart() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `Scans: ${context.parsed.y}`;
-                            }
-                        }
-                    }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            drawBorder: false,
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            stepSize: 1,
-                            callback: function(value) {
-                                if (Math.floor(value) === value) {
-                                    return value;
-                                }
-                            }
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    }
+                    y: { beginAtZero: true, grid: { drawBorder: false }, ticks: { stepSize: 1 } },
+                    x: { grid: { display: false } }
                 }
             }
         });
-
-        console.log('Dashboard chart created successfully');
     } catch (error) {
         console.error('Error creating dashboard chart:', error);
         showNoChartData();
     }
 }
 
-// Show placeholder when no chart data
 function showNoChartData() {
     const chartContainer = document.getElementById('chartContainer');
     if (chartContainer) {
-        chartContainer.innerHTML = `
-            <div class="flex items-center justify-center h-full">
-                <div class="text-center">
-                    <i class="fas fa-chart-bar text-gray-300 text-4xl mb-3"></i>
-                    <p class="text-gray-500">No chart data available</p>
-                </div>
-            </div>
-        `;
+        chartContainer.innerHTML = `<div class="flex items-center justify-center h-full"><div class="text-center"><i class="fas fa-chart-bar text-gray-300 text-4xl mb-3"></i><p class="text-gray-500">No chart data available</p></div></div>`;
     }
 }
 
-// Load 7-day chart
 function load7DayChart() {
-    console.log('Loading 7-day chart...');
-
-    // Recreate canvas if it was replaced
     const chartContainer = document.getElementById('chartContainer');
     if (!chartContainer.querySelector('canvas')) {
         chartContainer.innerHTML = '<canvas id="scanTrendsChart"></canvas>';
     }
-
-    // Update button states
-    document.querySelectorAll('.period-btn').forEach(btn => {
-        if (btn.dataset.period === '7d') {
-            btn.classList.remove('bg-gray-100', 'text-gray-800');
-            btn.classList.add('bg-blue-100', 'text-blue-800');
-        } else {
-            btn.classList.remove('bg-blue-100', 'text-blue-800');
-            btn.classList.add('bg-gray-100', 'text-gray-800');
-        }
-    });
-
-    // Re-initialize the chart with 7-day data
     if (typeof window.dashboardTrendData !== 'undefined') {
         initializeDashboardChart();
     } else {
@@ -767,93 +736,46 @@ function load7DayChart() {
     }
 }
 
-// Load 30-day chart
 function load30DayChart() {
-    console.log('Loading 30-day chart...');
-
-    // Show loading state
     const chartContainer = document.getElementById('chartContainer');
-    chartContainer.innerHTML = `
-        <div class="flex items-center justify-center h-full">
-            <div class="text-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                <p class="mt-4 text-gray-600">Loading 30-day data...</p>
-                <p class="text-sm text-gray-400 mt-2">Fetching analytics for the last 30 days</p>
-            </div>
-        </div>
-    `;
+    chartContainer.innerHTML = `<div class="flex items-center justify-center h-full"><div class="text-center"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div><p class="mt-4 text-gray-600">Loading 30-day data...</p></div></div>`;
 
-    // Update button states
-    document.querySelectorAll('.period-btn').forEach(btn => {
-        if (btn.dataset.period === '30d') {
-            btn.classList.remove('bg-gray-100', 'text-gray-800');
-            btn.classList.add('bg-blue-100', 'text-blue-800');
-        } else {
-            btn.classList.remove('bg-blue-100', 'text-blue-800');
-            btn.classList.add('bg-gray-100', 'text-gray-800');
-        }
-    });
-
-    // Check if we already have 30-day data from PHP
-    if (typeof window.dashboardTrendData30d !== 'undefined' &&
-        Array.isArray(window.dashboardTrendData30d) &&
-        window.dashboardTrendData30d.length > 0) {
-
-        // Use existing 30-day data
-        setTimeout(() => {
-            render30DayChart(window.dashboardTrendData30d);
-        }, 500);
+    if (window.dashboardTrendData30d && window.dashboardTrendData30d.length > 0) {
+        setTimeout(() => render30DayChart(window.dashboardTrendData30d), 500);
     } else {
-        // Fetch 30-day data from server
-        fetch30DayData();
+        fetch('/admin/analytics/trends/30d', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.trend_data) {
+                render30DayChart(data.trend_data);
+            } else {
+                throw new Error('Failed to load data');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching 30-day data:', error);
+            show30DayPlaceholder();
+        });
     }
 }
 
-// Fetch 30-day data from server
-function fetch30DayData() {
-    fetch('/admin/analytics/trends/30d', {
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success && data.trend_data) {
-            render30DayChart(data.trend_data);
-        } else {
-            throw new Error(data.error || 'Failed to load data');
-        }
-    })
-    .catch(error => {
-        console.error('Error fetching 30-day data:', error);
-        show30DayPlaceholder();
-    });
-}
-
-// Render 30-day chart with data
 function render30DayChart(trendData) {
     const chartContainer = document.getElementById('chartContainer');
     chartContainer.innerHTML = '<canvas id="scanTrendsChart"></canvas>';
-
     const ctx = document.getElementById('scanTrendsChart');
     if (!ctx) return;
 
-    const labels = trendData.map(day => day.date || day.day || 'Unknown');
-    const scans = trendData.map(day => day.scans || 0);
-
-    // Destroy existing chart if it exists
-    if (window.scanTrendsChart && typeof window.scanTrendsChart.destroy === 'function') {
-        window.scanTrendsChart.destroy();
+    if (scanTrendsChart && typeof scanTrendsChart.destroy === 'function') {
+        scanTrendsChart.destroy();
     }
 
+    const labels = trendData.map(day => day.date || day.day || 'Unknown');
+    const scans = trendData.map(day => toInt(day.scans, 0));
+
     try {
-        window.scanTrendsChart = new Chart(ctx.getContext('2d'), {
+        scanTrendsChart = new Chart(ctx.getContext('2d'), {
             type: 'line',
             data: {
                 labels: labels,
@@ -868,51 +790,16 @@ function render30DayChart(trendData) {
                     pointBackgroundColor: '#10b981',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
+                    pointRadius: 3
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `Scans: ${context.parsed.y}`;
-                            }
-                        }
-                    }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            drawBorder: false,
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            stepSize: 1,
-                            callback: function(value) {
-                                if (Math.floor(value) === value) {
-                                    return value;
-                                }
-                            }
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            maxRotation: 45,
-                            minRotation: 45,
-                            maxTicksLimit: 15
-                        }
-                    }
+                    y: { beginAtZero: true },
+                    x: { ticks: { maxRotation: 45, minRotation: 45, maxTicksLimit: 15 } }
                 }
             }
         });
@@ -922,21 +809,9 @@ function render30DayChart(trendData) {
     }
 }
 
-// Show placeholder for 30-day chart
 function show30DayPlaceholder() {
     const chartContainer = document.getElementById('chartContainer');
-    chartContainer.innerHTML = `
-        <div class="flex items-center justify-center h-full">
-            <div class="text-center">
-                <i class="fas fa-chart-line text-blue-300 text-4xl mb-3"></i>
-                <p class="text-gray-500">30-day analytics</p>
-                <p class="text-sm text-gray-400 mt-1 mb-4">Unable to load 30-day data</p>
-                <button onclick="load7DayChart()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm transition duration-150">
-                    <i class="fas fa-arrow-left mr-2"></i> Back to 7-day view
-                </button>
-            </div>
-        </div>
-    `;
+    chartContainer.innerHTML = `<div class="flex items-center justify-center h-full"><div class="text-center"><i class="fas fa-chart-line text-blue-300 text-4xl mb-3"></i><p class="text-gray-500">Unable to load 30-day data</p><button onclick="load7DayChart()" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Back to 7-day view</button></div></div>`;
 }
 
 // =============================================
@@ -944,186 +819,110 @@ function show30DayPlaceholder() {
 // =============================================
 
 function loadVendorAnalytics(vendorId, vendorName) {
-    console.log('Loading analytics for vendor:', vendorId, vendorName);
-
     const modal = document.getElementById('vendorAnalyticsModal');
     const modalTitle = document.getElementById('vendorModalTitle');
     const modalContent = document.getElementById('vendorAnalyticsContent');
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
     modalTitle.textContent = `${vendorName} - Analytics`;
-    modalContent.innerHTML = `
-        <div class="flex justify-center items-center h-64">
-            <div class="text-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-blue mx-auto"></div>
-                <p class="mt-4 text-gray-600">Loading analytics...</p>
-                <p class="text-xs text-gray-400 mt-2">Vendor ID: ${vendorId}</p>
-            </div>
-        </div>
-    `;
-
+    modalContent.innerHTML = `<div class="flex justify-center items-center h-64"><div class="text-center"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary-blue mx-auto"></div><p class="mt-4">Loading analytics...</p></div></div>`;
     modal.classList.remove('hidden');
 
-    const url = `/admin/vendor/${vendorId}/analytics?period=month&debug=true`;
-
-    console.log('Fetching from URL:', url);
-
-    fetch(url, {
+    fetch(`/admin/vendor/${vendorId}/analytics?period=month`, {
         headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': csrfToken
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
         }
     })
-        .then(response => {
-            console.log('Response status:', response.status);
-            if (!response.ok) {
-                return response.json().then(err => {
-                    console.error('Response error:', err);
-                    throw new Error(err.error || `HTTP error! status: ${response.status}`);
-                });
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Analytics data received:', data);
-            if (data.success) {
-                renderVendorAnalytics(data);
-            } else {
-                console.error('API returned success:false', data);
-                showError(data.error || 'Failed to load analytics data');
-            }
-        })
-        .catch(error => {
-            console.error('Error loading vendor analytics:', error);
-            showError('Error loading analytics. Please try again.');
-        });
-}
-
-function showError(message) {
-    const modalContent = document.getElementById('vendorAnalyticsContent');
-    modalContent.innerHTML = `
-        <div class="text-center py-8">
-            <i class="fas fa-exclamation-triangle text-yellow-500 text-3xl mb-3"></i>
-            <p class="text-gray-600">${message}</p>
-            <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-secondary-blue text-white rounded hover:bg-blue-600">
-                Retry
-            </button>
-        </div>
-    `;
+    .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            renderVendorAnalytics(data);
+        } else {
+            throw new Error(data.error || 'Failed to load analytics');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading vendor analytics:', error);
+        modalContent.innerHTML = `<div class="text-center py-8 text-red-600">Error loading analytics. Please try again.</div>`;
+    });
 }
 
 function renderVendorAnalytics(data) {
-    const vendor = data.vendor;
-    const stats = data.stats;
     const modalContent = document.getElementById('vendorAnalyticsContent');
-
-    modalContent.innerHTML = `
-        <!-- Analytics Tabs -->
-        <div class="mb-6">
-            <div class="border-b border-gray-200">
-                <nav class="-mb-px flex space-x-8 overflow-x-auto">
-                    <button class="tab-btn py-2 px-1 border-b-2 border-secondary-blue font-medium text-sm text-secondary-blue whitespace-nowrap"
-                            data-tab="overview">
-                        Overview
-                    </button>
-                    <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
-                            data-tab="daily">
-                        Daily Scans
-                    </button>
-                    <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
-                            data-tab="weekly">
-                        Weekly Activity
-                    </button>
-                    <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
-                            data-tab="charts">
-                        Charts & Trends
-                    </button>
-                    <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap"
-                            data-tab="export">
-                        Export & Share
-                    </button>
-                </nav>
-            </div>
-        </div>
-
-        <!-- Tab Content -->
-        <div id="tabContent">
-            <!-- Overview tab will be loaded by default -->
-        </div>
-    `;
-
-    // Store data globally for use in tab functions
     window.currentVendorData = data;
 
-    // Initialize tab switching
+    modalContent.innerHTML = `
+        <div class="mb-6 border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8 overflow-x-auto">
+                <button class="tab-btn py-2 px-1 border-b-2 border-secondary-blue font-medium text-sm text-secondary-blue" data-tab="overview">Overview</button>
+                <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500" data-tab="daily">Daily Scans</button>
+                <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500" data-tab="weekly">Weekly Activity</button>
+                <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500" data-tab="charts">Charts</button>
+                <button class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500" data-tab="export">Export</button>
+            </nav>
+        </div>
+        <div id="tabContent"></div>
+    `;
+
     initializeTabs();
-    // Load overview by default
     loadOverviewTab();
 }
 
 function initializeTabs() {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            // Update active tab
             document.querySelectorAll('.tab-btn').forEach(b => {
                 b.classList.remove('border-secondary-blue', 'text-secondary-blue');
                 b.classList.add('border-transparent', 'text-gray-500');
             });
-
             this.classList.remove('border-transparent', 'text-gray-500');
             this.classList.add('border-secondary-blue', 'text-secondary-blue');
 
-            // Load tab content
             const tab = this.dataset.tab;
-            switch(tab) {
-                case 'overview':
-                    loadOverviewTab();
-                    break;
-                case 'daily':
-                    loadDailyScansTab();
-                    break;
-                case 'weekly':
-                    loadWeeklyActivityTab();
-                    break;
-                case 'charts':
-                    loadChartsTab();
-                    break;
-                case 'export':
-                    loadExportTab();
-                    break;
-            }
+            if (tab === 'overview') loadOverviewTab();
+            else if (tab === 'daily') loadDailyScansTab();
+            else if (tab === 'weekly') loadWeeklyActivityTab();
+            else if (tab === 'charts') loadChartsTab();
+            else if (tab === 'export') loadExportTab();
         });
     });
 }
 
 function loadOverviewTab() {
     const data = window.currentVendorData;
-    const stats = data.stats;
-    const vendor = data.vendor;
+    const stats = data.stats || {};
+    const vendor = data.vendor || {};
 
-    // Safely handle potentially undefined data
+    // Safely convert all values to numbers using helper functions
+    const currentPeriodScans = toInt(stats.current_period_scans, 0);
+    const currentPeriodRevenue = toNumber(stats.current_period_revenue, 0);
+    const avgTransactionValue = toNumber(stats.avg_transaction_value, 0);
+    const previousPeriodScans = toInt(stats.previous_period_scans, 0);
+    const previousPeriodRevenue = toNumber(stats.previous_period_revenue, 0);
     const peakHour = stats.peak_hour || { hour: 'N/A', count: 0 };
     const topDepartments = stats.top_departments || [];
     const topCustomers = stats.top_customers || [];
+
+    // Calculate differences safely
+    const scanDiff = Math.abs(currentPeriodScans - previousPeriodScans);
+    const revenueDiff = Math.abs(currentPeriodRevenue - previousPeriodRevenue);
+    const scanTrend = currentPeriodScans > previousPeriodScans ? '↑' : '↓';
+    const revenueTrend = currentPeriodRevenue > previousPeriodRevenue ? '↑' : '↓';
+    const scanColor = currentPeriodScans > previousPeriodScans ? 'text-green-600' : 'text-red-600';
+    const revenueColor = currentPeriodRevenue > previousPeriodRevenue ? 'text-green-600' : 'text-red-600';
 
     const content = `
         <div class="space-y-6">
             <!-- Vendor Info -->
             <div class="bg-blue-50 p-4 rounded-lg">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <p class="text-sm text-gray-600">Vendor Name</p>
-                        <p class="font-semibold">${vendor.name || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-600">Location</p>
-                        <p class="font-semibold">${vendor.location || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-600">Contact</p>
-                        <p class="font-semibold">${vendor.email || 'N/A'}</p>
-                    </div>
+                    <div><p class="text-sm text-gray-600">Vendor Name</p><p class="font-semibold">${escapeHtml(vendor.name || 'N/A')}</p></div>
+                    <div><p class="text-sm text-gray-600">Location</p><p class="font-semibold">${escapeHtml(vendor.location || 'N/A')}</p></div>
+                    <div><p class="text-sm text-gray-600">Contact</p><p class="font-semibold">${escapeHtml(vendor.email || 'N/A')}</p></div>
                 </div>
             </div>
 
@@ -1131,87 +930,47 @@ function loadOverviewTab() {
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="bg-white p-4 rounded-lg border shadow-sm">
                     <p class="text-sm text-gray-600">Current Period Scans</p>
-                    <p class="text-2xl font-bold text-text-black">${stats.current_period_scans || 0}</p>
-                    ${stats.previous_period_scans ? `
-                    <p class="text-xs ${stats.current_period_scans > stats.previous_period_scans ? 'text-green-600' : 'text-red-600'}">
-                        ${stats.current_period_scans > stats.previous_period_scans ? '↑' : '↓'}
-                        ${Math.abs((stats.current_period_scans || 0) - (stats.previous_period_scans || 0))} vs previous period
-                    </p>
-                    ` : ''}
+                    <p class="text-2xl font-bold text-text-black">${currentPeriodScans.toLocaleString()}</p>
+                    ${previousPeriodScans ? `<p class="text-xs ${scanColor}">${scanTrend} ${scanDiff} vs previous period</p>` : ''}
                 </div>
-
                 <div class="bg-white p-4 rounded-lg border shadow-sm">
                     <p class="text-sm text-gray-600">Current Period Revenue</p>
-                    <p class="text-2xl font-bold text-green-600">KSh ${parseFloat(stats.current_period_revenue || 0).toFixed(2)}</p>
-                    ${stats.previous_period_revenue ? `
-                    <p class="text-xs ${stats.current_period_revenue > stats.previous_period_revenue ? 'text-green-600' : 'text-red-600'}">
-                        ${stats.current_period_revenue > stats.previous_period_revenue ? '↑' : '↓'}
-                        KSh ${Math.abs((parseFloat(stats.current_period_revenue || 0) - parseFloat(stats.previous_period_revenue || 0))).toFixed(2)}
-                    </p>
-                    ` : ''}
+                    <p class="text-2xl font-bold text-green-600">KSh ${currentPeriodRevenue.toFixed(2)}</p>
+                    ${previousPeriodRevenue ? `<p class="text-xs ${revenueColor}">${revenueTrend} KSh ${revenueDiff.toFixed(2)} vs previous period</p>` : ''}
                 </div>
-
                 <div class="bg-white p-4 rounded-lg border shadow-sm">
                     <p class="text-sm text-gray-600">Avg. Transaction</p>
-                    <p class="text-2xl font-bold text-text-black">KSh ${parseFloat(stats.avg_transaction_value || 0).toFixed(2)}</p>
+                    <p class="text-2xl font-bold text-text-black">KSh ${avgTransactionValue.toFixed(2)}</p>
                     <p class="text-xs text-gray-500">Per scan</p>
                 </div>
-
                 <div class="bg-white p-4 rounded-lg border shadow-sm">
                     <p class="text-sm text-gray-600">Peak Hour</p>
-                    <p class="text-2xl font-bold text-text-black">${peakHour.hour}</p>
-                    <p class="text-xs text-gray-500">${peakHour.count || 0} scans</p>
+                    <p class="text-2xl font-bold text-text-black">${escapeHtml(peakHour.hour)}</p>
+                    <p class="text-xs text-gray-500">${toInt(peakHour.count, 0)} scans</p>
                 </div>
             </div>
 
-            <!-- Top Departments -->
             ${topDepartments.length > 0 ? `
             <div class="bg-white p-4 rounded-lg border shadow-sm">
                 <h4 class="font-semibold mb-3">Top Departments</h4>
                 <div class="space-y-2">
                     ${topDepartments.map(dept => {
-                        const revenue = parseFloat(dept.revenue) || 0;
-                        const scans = parseInt(dept.scans) || 0;
-                        const departmentName = dept.department || 'Unknown';
-
-                        return `
-                            <div class="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                <span>${departmentName}</span>
-                                <div class="flex items-center space-x-4">
-                                    <span class="text-sm text-gray-600">${scans} scans</span>
-                                    <span class="text-sm font-semibold text-green-600">KSh ${revenue.toFixed(2)}</span>
-                                </div>
-                            </div>
-                        `;
+                        const revenue = toNumber(dept.revenue, 0);
+                        const scans = toInt(dept.scans, 0);
+                        return `<div class="flex justify-between items-center p-2 hover:bg-gray-50 rounded"><span>${escapeHtml(dept.department || 'Unknown')}</span><div class="flex items-center space-x-4"><span class="text-sm text-gray-600">${scans.toLocaleString()} scans</span><span class="text-sm font-semibold text-green-600">KSh ${revenue.toFixed(2)}</span></div></div>`;
                     }).join('')}
                 </div>
             </div>
             ` : ''}
 
-            <!-- Top Customers -->
             ${topCustomers.length > 0 ? `
             <div class="bg-white p-4 rounded-lg border shadow-sm">
                 <h4 class="font-semibold mb-3">Top Customers</h4>
                 <div class="space-y-2">
                     ${topCustomers.slice(0, 5).map(customer => {
-                        const visits = parseInt(customer.visits) || 0;
-                        const totalSpent = parseFloat(customer.total_spent) || 0;
-                        const avgSpent = parseFloat(customer.avg_spent) || 0;
-                        const formalName = customer.formal_name || 'Unknown';
-                        const employeeNumber = customer.employee_number || '';
-
-                        return `
-                            <div class="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                <div>
-                                    <p class="font-medium">${formalName}</p>
-                                    <p class="text-xs text-gray-500">${employeeNumber}</p>
-                                </div>
-                                <div class="text-right">
-                                    <p class="text-sm font-semibold">${visits} visits</p>
-                                    <p class="text-xs text-green-600">KSh ${totalSpent.toFixed(2)}</p>
-                                </div>
-                            </div>
-                        `;
+                        const visits = toInt(customer.visits, 0);
+                        const totalSpent = toNumber(customer.total_spent, 0);
+                        return `<div class="flex justify-between items-center p-2 hover:bg-gray-50 rounded"><div><p class="font-medium">${escapeHtml(customer.formal_name || 'Unknown')}</p><p class="text-xs text-gray-500">${escapeHtml(customer.employee_number || '')}</p></div><div class="text-right"><p class="text-sm font-semibold">${visits.toLocaleString()} visits</p><p class="text-xs text-green-600">KSh ${totalSpent.toFixed(2)}</p></div></div>`;
                     }).join('')}
                 </div>
             </div>
@@ -1225,731 +984,135 @@ function loadOverviewTab() {
 function loadDailyScansTab() {
     const data = window.currentVendorData;
     const dailyScans = data.daily_scans || {};
+    let content = `<div class="space-y-6"><div class="bg-white p-4 rounded-lg border shadow-sm"><h4 class="font-semibold">Daily Scans</h4><p class="text-sm text-gray-500">Period: ${escapeHtml(data.date_range?.start || 'N/A')} to ${escapeHtml(data.date_range?.end || 'N/A')}</p></div>`;
 
-    let content = '<div class="space-y-6">';
-
-    // Date filter
-    content += `
-        <div class="bg-white p-4 rounded-lg border shadow-sm">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h4 class="font-semibold">Daily Scans</h4>
-                    <p class="text-sm text-gray-500">Showing scans from ${data.date_range?.start || 'N/A'} to ${data.date_range?.end || 'N/A'}</p>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Daily scans table
-    if (Object.keys(dailyScans).length > 0) {
-        Object.entries(dailyScans).forEach(([date, transactions]) => {
-            const totalAmount = Array.isArray(transactions)
-                ? transactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
-                : 0;
-
-            content += `
-                <div class="bg-white rounded-lg border shadow-sm overflow-hidden">
-                    <div class="bg-gray-50 px-4 py-3 border-b">
-                        <h5 class="font-semibold">${new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h5>
-                        <p class="text-sm text-gray-500">${Array.isArray(transactions) ? transactions.length : 0} scans • KSh ${totalAmount.toFixed(2)} total</p>
-                    </div>
-                    ${Array.isArray(transactions) && transactions.length > 0 ? `
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-200">
-                                ${transactions.map(transaction => {
-                                    const amount = parseFloat(transaction.amount) || 0;
-                                    const employeeName = transaction.employee?.formal_name || 'Unknown';
-                                    const employeeNumber = transaction.employee?.employee_number || '';
-                                    const departmentName = transaction.employee?.department?.name || 'N/A';
-                                    const unitName = transaction.employee?.unit?.name || '';
-                                    const mealTime = transaction.meal_time || '';
-
-                                    return `
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="px-4 py-3">
-                                                <p class="font-medium">${employeeName}</p>
-                                                <p class="text-xs text-gray-500">${employeeNumber}</p>
-                                            </td>
-                                            <td class="px-4 py-3">
-                                                <p class="text-sm">${departmentName}</p>
-                                                <p class="text-xs text-gray-500">${unitName}</p>
-                                            </td>
-                                            <td class="px-4 py-3">
-                                                <p class="text-sm">${mealTime}</p>
-                                            </td>
-                                            <td class="px-4 py-3">
-                                                <p class="font-semibold text-green-600">KSh ${amount.toFixed(2)}</p>
-                                            </td>
-                                        </tr>
-                                    `;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    ` : `
-                    <div class="p-8 text-center text-gray-500">
-                        <i class="fas fa-clipboard-list text-3xl mb-2"></i>
-                        <p>No transactions for this day</p>
-                    </div>
-                    `}
-                </div>
-            `;
-        });
+    if (Object.keys(dailyScans).length === 0) {
+        content += `<div class="text-center py-8 text-gray-500">No scans found for this period</div>`;
     } else {
-        content += `
-            <div class="text-center py-8">
-                <i class="fas fa-clipboard-list text-gray-400 text-3xl mb-3"></i>
-                <p class="text-gray-500">No scans found for this period</p>
-            </div>
-        `;
+        Object.entries(dailyScans).forEach(([date, transactions]) => {
+            const totalAmount = Array.isArray(transactions) ? transactions.reduce((sum, t) => sum + toNumber(t.amount, 0), 0) : 0;
+            content += `<div class="border rounded-lg overflow-hidden"><div class="bg-gray-50 px-4 py-2 font-semibold">${new Date(date).toLocaleDateString()}</div><div class="p-3">${transactions.length} scans • KSh ${totalAmount.toFixed(2)}</div></div>`;
+        });
     }
-
-    content += '</div>';
-    document.getElementById('tabContent').innerHTML = content;
+    document.getElementById('tabContent').innerHTML = content + '</div>';
 }
 
 function loadWeeklyActivityTab() {
-    const data = window.currentVendorData;
-    const weeklyActivity = data.weekly_activity || [];
-
-    const totalScans = weeklyActivity.reduce((sum, day) => sum + (day.scans || 0), 0);
-    const avgScans = weeklyActivity.length > 0 ? totalScans / weeklyActivity.length : 0;
-
-    const content = `
-        <div class="space-y-6">
-            <div class="bg-white p-6 rounded-lg border shadow-sm">
-                <h4 class="font-semibold mb-4">Weekly Activity</h4>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Day</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scans</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg. per Scan</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Performance</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            ${weeklyActivity.map(day => {
-                                const performance = (day.scans || 0) > avgScans ? 'Above Average' : 'Below Average';
-                                const performanceColor = (day.scans || 0) > avgScans ? 'text-green-600 bg-green-50' : 'text-yellow-600 bg-yellow-50';
-
-                                return `
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-4 py-3">
-                                            <p class="font-medium">${day.day || 'N/A'}</p>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <p class="text-lg font-semibold">${day.scans || 0}</p>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <p class="text-lg font-semibold text-green-600">KSh ${(day.revenue || 0).toFixed(2)}</p>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <p class="text-sm">KSh ${(day.avg_per_scan || 0).toFixed(2)}</p>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <span class="px-2 py-1 rounded-full text-xs ${performanceColor}">
-                                                ${performance}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+    const weekly = window.currentVendorData.weekly_activity || [];
+    document.getElementById('tabContent').innerHTML = `
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left">Day</th><th class="px-4 py-2 text-left">Scans</th><th class="px-4 py-2 text-left">Revenue</th></tr></thead>
+            <tbody>${weekly.map(w => `<tr><td class="px-4 py-2">${escapeHtml(w.day)}</td><td class="px-4 py-2">${toInt(w.scans, 0).toLocaleString()}</td><td class="px-4 py-2">KSh ${toNumber(w.revenue, 0).toFixed(2)}</td></tr>`).join('')}</tbody>
+        </table>
     `;
-
-    document.getElementById('tabContent').innerHTML = content;
 }
 
 function loadChartsTab() {
     const data = window.currentVendorData;
-
-    const content = `
+    const hasData = (data.time_series_data?.length > 0) || (data.department_distribution?.length > 0);
+    document.getElementById('tabContent').innerHTML = `
         <div class="space-y-6">
-            <div class="bg-white p-6 rounded-lg border shadow-sm">
-                <h4 class="font-semibold mb-4">Analytics Charts</h4>
-                <p class="text-gray-500 mb-4">Visual representation of vendor performance data</p>
-
-                ${(!data.time_series_data || data.time_series_data.length === 0) &&
-                  (!data.department_distribution || data.department_distribution.length === 0) ? `
-                <div class="text-center py-12">
-                    <i class="fas fa-chart-line text-gray-300 text-4xl mb-3"></i>
-                    <p class="text-gray-500">No chart data available for this period</p>
-                </div>
-                ` : `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h5 class="font-medium mb-2">Scans Over Time</h5>
-                        <div class="h-64">
-                            <canvas id="timeSeriesChart"></canvas>
-                        </div>
-                    </div>
-                    <div>
-                        <h5 class="font-medium mb-2">Department Distribution</h5>
-                        <div class="h-64">
-                            <canvas id="departmentChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-                `}
-            </div>
+            ${!hasData ? '<div class="text-center py-12 text-gray-500">No chart data available</div>' : `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><h5 class="font-medium mb-2">Scans Over Time</h5><div class="h-64"><canvas id="timeSeriesChart"></canvas></div></div>
+                <div><h5 class="font-medium mb-2">Department Distribution</h5><div class="h-64"><canvas id="departmentChart"></canvas></div></div>
+            </div>`}
         </div>
     `;
-
-    document.getElementById('tabContent').innerHTML = content;
-
-    // Initialize charts after a short delay
-    setTimeout(() => {
-        if (data.time_series_data && data.time_series_data.length > 0) {
-            initializeTimeSeriesChart(data.time_series_data);
-        }
-
-        if (data.department_distribution && data.department_distribution.length > 0) {
-            initializeDepartmentChart(data.department_distribution);
-        }
-    }, 100);
+    if (hasData) {
+        if (data.time_series_data?.length) initializeTimeSeriesChart(data.time_series_data);
+        if (data.department_distribution?.length) initializeDepartmentChart(data.department_distribution);
+    }
 }
 
 function initializeTimeSeriesChart(timeSeriesData) {
     const ctx = document.getElementById('timeSeriesChart');
-    if (!ctx) {
-        console.error('Canvas element not found for time series');
-        return;
-    }
-
-    if (window.timeSeriesChart && typeof window.timeSeriesChart.destroy === 'function') {
-        window.timeSeriesChart.destroy();
-    }
-
-    const labels = timeSeriesData.map(item => {
-        if (item.date) {
-            const date = new Date(item.date);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        }
-        return item.period || 'Unknown';
+    if (!ctx) return;
+    if (timeSeriesChart && typeof timeSeriesChart.destroy === 'function') timeSeriesChart.destroy();
+    timeSeriesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: timeSeriesData.map(d => d.date ? new Date(d.date).toLocaleDateString() : d.period),
+            datasets: [{ label: 'Scans', data: timeSeriesData.map(d => toInt(d.scans, 0)), borderColor: '#2596be', fill: true }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
     });
-
-    const scans = timeSeriesData.map(item => item.scans || 0);
-
-    try {
-        window.timeSeriesChart = new Chart(ctx.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Number of Scans',
-                    data: scans,
-                    borderColor: '#2596be',
-                    backgroundColor: 'rgba(37, 150, 190, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            drawBorder: false
-                        },
-                        ticks: {
-                            stepSize: 1
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    }
-                }
-            }
-        });
-    } catch (error) {
-        console.error('Error creating time series chart:', error);
-    }
 }
 
 function initializeDepartmentChart(departmentData) {
     const ctx = document.getElementById('departmentChart');
     if (!ctx) return;
-
-    if (window.departmentChart) {
-        window.departmentChart.destroy();
-    }
-
-    const sortedData = departmentData
-        .sort((a, b) => (b.scans || 0) - (a.scans || 0))
-        .slice(0, 5);
-
-    const labels = sortedData.map(dept => dept.department || 'Unknown');
-    const scans = sortedData.map(dept => dept.scans || 0);
-
-    const colors = [
-        '#e92c2a', '#2596be', '#10b981', '#f59e0b', '#8b5cf6',
-        '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7'
-    ];
-
-    window.departmentChart = new Chart(ctx.getContext('2d'), {
+    if (departmentChart && typeof departmentChart.destroy === 'function') departmentChart.destroy();
+    const sorted = [...departmentData].sort((a, b) => (toInt(b.scans, 0) - toInt(a.scans, 0))).slice(0, 5);
+    departmentChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels,
-            datasets: [{
-                label: 'Scans per Department',
-                data: scans,
-                backgroundColor: colors.slice(0, labels.length),
-                borderColor: colors.slice(0, labels.length).map(color => color + 'CC'),
-                borderWidth: 1,
-                borderRadius: 4
-            }]
+            labels: sorted.map(d => d.department || 'Unknown'),
+            datasets: [{ label: 'Scans', data: sorted.map(d => toInt(d.scans, 0)), backgroundColor: '#2596be' }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        drawBorder: false
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
-                    }
-                }
-            }
-        }
+        options: { responsive: true, maintainAspectRatio: false }
     });
 }
 
-// ENHANCED EXPORT TAB WITH MONTH SELECTOR
-// ENHANCED EXPORT TAB WITH CUSTOM DATE RANGE
 function loadExportTab() {
-    const data = window.currentVendorData;
-    const vendor = data.vendor;
-
-    // Generate month options for the last 12 months
-    const monthOptions = [];
+    const vendor = window.currentVendorData.vendor;
+    const months = [];
     for (let i = 0; i < 12; i++) {
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        const value = `${year}-${month}`;
-        monthOptions.push({ value, name: monthName });
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        months.push({ value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, name: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) });
     }
 
-    const content = `
+    document.getElementById('tabContent').innerHTML = `
         <div class="space-y-6">
-            <div class="bg-white p-6 rounded-lg border shadow-sm">
-                <h4 class="font-semibold mb-4">Export Analytics</h4>
-
-                <!-- Custom Date Range Selection -->
-                <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Custom Date Range</label>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-1">Start Date</label>
-                            <input type="date" id="customStartDate"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-1">End Date</label>
-                            <input type="date" id="customEndDate"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div class="flex items-end">
-                            <button onclick="loadCustomRangeData()"
-                                    class="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-150">
-                                <i class="fas fa-calendar-alt mr-2"></i>Load Range Data
-                            </button>
-                        </div>
-                    </div>
-                    <div class="mt-2 text-xs text-gray-500">
-                        Example: 2026-03-01 to 2026-03-14
-                    </div>
-                    <div class="mt-2 text-sm" id="customRangeStatus"></div>
-                </div>
-
-                <!-- Month Selection (Alternative) -->
-                <div class="mb-6 p-4 bg-gray-50 rounded-lg border-t">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Or Select Month</label>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <select id="exportMonth" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="">Select Month</option>
-                                ${monthOptions.map(option => `
-                                    <option value="${option.value}">${option.name}</option>
-                                `).join('')}
-                            </select>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <button onclick="loadCustomMonthData()"
-                                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-150">
-                                <i class="fas fa-sync-alt mr-2"></i>Load Month Data
-                            </button>
-                            <span class="text-xs text-gray-500" id="monthDataStatus"></span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Export Options -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Excel Export -->
-                    <div class="border rounded-lg p-4 hover:border-secondary-blue transition duration-150">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                                    <i class="fas fa-file-excel text-green-600"></i>
-                                </div>
-                                <div>
-                                    <p class="font-medium">Excel Export</p>
-                                    <p class="text-xs text-gray-500">Detailed spreadsheet with all data</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="space-y-3">
-                            <div class="flex items-center space-x-2">
-                                <input type="radio" name="excelPeriod" id="excelCurrentMonth" value="current" checked class="h-4 w-4 text-blue-600">
-                                <label for="excelCurrentMonth" class="text-sm text-gray-700">Current Month</label>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <input type="radio" name="excelPeriod" id="excelSelectedMonth" value="selected" class="h-4 w-4 text-blue-600">
-                                <label for="excelSelectedMonth" class="text-sm text-gray-700">Selected Month</label>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <input type="radio" name="excelPeriod" id="excelCustomRange" value="custom" class="h-4 w-4 text-blue-600">
-                                <label for="excelCustomRange" class="text-sm text-gray-700">Custom Date Range</label>
-                            </div>
-                            <button onclick="exportVendorData('excel')"
-                                    class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition duration-150">
-                                <i class="fas fa-download mr-2"></i>Export to Excel
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- PDF Export -->
-                    <div class="border rounded-lg p-4 hover:border-secondary-blue transition duration-150">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                                    <i class="fas fa-file-pdf text-red-600"></i>
-                                </div>
-                                <div>
-                                    <p class="font-medium">PDF Report</p>
-                                    <p class="text-xs text-gray-500">Printable summary report</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="space-y-3">
-                            <div class="flex items-center space-x-2">
-                                <input type="radio" name="pdfPeriod" id="pdfCurrentMonth" value="current" checked class="h-4 w-4 text-blue-600">
-                                <label for="pdfCurrentMonth" class="text-sm text-gray-700">Current Month</label>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <input type="radio" name="pdfPeriod" id="pdfSelectedMonth" value="selected" class="h-4 w-4 text-blue-600">
-                                <label for="pdfSelectedMonth" class="text-sm text-gray-700">Selected Month</label>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <input type="radio" name="pdfPeriod" id="pdfCustomRange" value="custom" class="h-4 w-4 text-blue-600">
-                                <label for="pdfCustomRange" class="text-sm text-gray-700">Custom Date Range</label>
-                            </div>
-                            <button onclick="exportVendorData('pdf')"
-                                    class="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition duration-150">
-                                <i class="fas fa-download mr-2"></i>Export to PDF
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Data Preview Section -->
-            <div id="dataPreviewSection" class="bg-white p-6 rounded-lg border shadow-sm hidden">
-                <h4 class="font-semibold mb-4">Data Preview</h4>
-                <div id="dataPreviewContent"></div>
-            </div>
-
-            <div class="bg-white p-6 rounded-lg border shadow-sm">
-                <h4 class="font-semibold mb-4">Share via Email</h4>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Recipient Email</label>
-                        <input type="email" id="recipientEmail"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               placeholder="email@example.com">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                        <input type="text" id="emailSubject"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                               value="${vendor.name} - Analytics Report" placeholder="Report Subject">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Message (Optional)</label>
-                        <textarea id="emailMessage" rows="3"
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  placeholder="Add a custom message..."></textarea>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <div class="flex items-center">
-                            <input type="checkbox" id="includeAttachment" class="h-4 w-4 text-blue-600">
-                            <label for="includeAttachment" class="ml-2 text-sm text-gray-700">Include report as attachment</label>
-                        </div>
-                        <div>
-                            <select id="reportFormat" class="px-3 py-2 border border-gray-300 rounded-md text-sm">
-                                <option value="summary">Summary</option>
-                                <option value="detailed">Detailed</option>
-                                <option value="pdf">PDF</option>
-                                <option value="excel">Excel</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button onclick="shareVendorAnalytics()"
-                            class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition duration-150">
-                        <i class="fas fa-paper-plane mr-2"></i>Send Email
-                    </button>
-                </div>
-            </div>
+            <div class="p-4 bg-gray-50 rounded-lg"><label class="font-medium block mb-2">Custom Date Range</label><div class="grid grid-cols-1 md:grid-cols-3 gap-4"><input type="date" id="customStartDate" class="border rounded p-2"><input type="date" id="customEndDate" class="border rounded p-2"><button onclick="loadCustomRangeData()" class="bg-blue-500 text-white rounded p-2 hover:bg-blue-600">Load Range Data</button></div><div id="customRangeStatus" class="mt-2 text-sm"></div></div>
+            <div class="p-4 bg-gray-50 rounded-lg"><label class="font-medium block mb-2">Select Month</label><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><select id="exportMonth" class="border rounded p-2"><option value="">Select Month</option>${months.map(m => `<option value="${m.value}">${m.name}</option>`).join('')}</select><button onclick="loadCustomMonthData()" class="bg-blue-500 text-white rounded p-2 hover:bg-blue-600">Load Month Data</button></div><div id="monthDataStatus" class="mt-2 text-sm"></div></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="border rounded-lg p-4"><h4 class="font-semibold mb-3">Excel Export</h4><div><label><input type="radio" name="excelPeriod" value="current" checked> Current Month</label></div><div><label><input type="radio" name="excelPeriod" value="selected"> Selected Month</label></div><div><label><input type="radio" name="excelPeriod" value="custom"> Custom Range</label></div><button onclick="exportVendorData('excel')" class="w-full bg-green-500 text-white rounded p-2 mt-3 hover:bg-green-600">Export to Excel</button></div>
+            <div class="border rounded-lg p-4"><h4 class="font-semibold mb-3">PDF Report</h4><div><label><input type="radio" name="pdfPeriod" value="current" checked> Current Month</label></div><div><label><input type="radio" name="pdfPeriod" value="selected"> Selected Month</label></div><div><label><input type="radio" name="pdfPeriod" value="custom"> Custom Range</label></div><button onclick="exportVendorData('pdf')" class="w-full bg-red-500 text-white rounded p-2 mt-3 hover:bg-red-600">Export to PDF</button></div></div>
+            <div id="dataPreviewSection" class="hidden border rounded-lg p-4"><h4 class="font-semibold mb-2">Data Preview</h4><div id="dataPreviewContent"></div></div>
         </div>
     `;
-
-    document.getElementById('tabContent').innerHTML = content;
 }
 
-// NEW FUNCTION: Load custom date range data
 function loadCustomRangeData() {
     const startDate = document.getElementById('customStartDate').value;
     const endDate = document.getElementById('customEndDate').value;
     const statusEl = document.getElementById('customRangeStatus');
-    const previewSection = document.getElementById('dataPreviewSection');
-    const previewContent = document.getElementById('dataPreviewContent');
 
     if (!startDate || !endDate) {
-        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Please select both start and end dates</span>';
+        statusEl.innerHTML = '<span class="text-red-600">Please select both dates</span>';
         return;
     }
-
     if (startDate > endDate) {
-        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Start date cannot be after end date</span>';
+        statusEl.innerHTML = '<span class="text-red-600">Start date cannot be after end date</span>';
         return;
     }
 
-    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading data...';
+    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
 
-    const vendorId = window.currentVendorData?.vendor?.id;
-    if (!vendorId) {
-        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Vendor ID not found</span>';
-        return;
-    }
-
-    // Format dates for display
-    const startDisplay = new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const endDisplay = new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-    // Fetch data for the custom range
-    fetch(`/admin/vendor/${vendorId}/analytics/export?format=summary&start_date=${startDate}&end_date=${endDate}&period=custom`, {
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-        }
+    fetch(`/admin/vendor/${window.currentVendorData.vendor.id}/analytics?period=custom&start_date=${startDate}&end_date=${endDate}`, {
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') }
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
-            statusEl.innerHTML = '<span class="text-green-600"><i class="fas fa-check mr-1"></i>Data loaded for ' + startDisplay + ' to ' + endDisplay + '</span>';
-
-            // Store the range data
-            window.selectedRangeData = data.data || data;
-            window.selectedRange = { start: startDate, end: endDate, startDisplay: startDisplay, endDisplay: endDisplay };
-
-            // Store in select elements as data attributes
-            const monthSelect = document.getElementById('exportMonth');
-            if (monthSelect) {
-                monthSelect.dataset.selectedRange = startDate + '_to_' + endDate;
-                monthSelect.dataset.selectedRangeName = startDisplay + ' to ' + endDisplay;
-            }
-
-            // Show preview
-            showRangeDataPreview(data.data || data, startDisplay, endDisplay);
-            previewSection.classList.remove('hidden');
+            statusEl.innerHTML = '<span class="text-green-600">Data loaded successfully</span>';
+            const previewRevenue = toNumber(data.stats?.current_period_revenue, 0);
+            document.getElementById('dataPreviewContent').innerHTML = `<div class="bg-blue-50 p-3 rounded"><div class="grid grid-cols-2 md:grid-cols-4 gap-3"><div><b>Scans:</b> ${toInt(data.stats?.current_period_scans, 0).toLocaleString()}</div><div><b>Revenue:</b> KSh ${previewRevenue.toFixed(2)}</div><div><b>Avg per Scan:</b> KSh ${toNumber(data.stats?.avg_transaction_value, 0).toFixed(2)}</div><div><b>Peak Hour:</b> ${escapeHtml(data.stats?.peak_hour?.hour || 'N/A')}</div></div></div>`;
+            document.getElementById('dataPreviewSection').classList.remove('hidden');
         } else {
-            throw new Error(data.error || 'Failed to load data');
+            throw new Error(data.error || 'Failed to load');
         }
     })
     .catch(error => {
-        console.error('Error loading range data:', error);
-        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Failed to load data: ' + error.message + '</span>';
-        previewSection.classList.add('hidden');
+        statusEl.innerHTML = '<span class="text-red-600">Failed to load data</span>';
+        console.error(error);
     });
 }
 
-// NEW FUNCTION: Show custom range data preview
-function showRangeDataPreview(data, startDisplay, endDisplay) {
-    const previewContent = document.getElementById('dataPreviewContent');
-
-    // Check if data has summary
-    const summary = data.summary || data;
-
-    const totalRevenue = new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 2
-    }).format(summary.total_revenue || 0);
-
-    previewContent.innerHTML = `
-        <div class="bg-blue-50 rounded-lg p-4">
-            <h5 class="font-medium text-blue-800 mb-2">${startDisplay} to ${endDisplay} - Summary</h5>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div>
-                    <span class="text-blue-600 block">Total Scans</span>
-                    <span class="font-bold">${summary.total_scans || 0}</span>
-                </div>
-                <div>
-                    <span class="text-blue-600 block">Total Revenue</span>
-                    <span class="font-bold">${totalRevenue}</span>
-                </div>
-                <div>
-                    <span class="text-blue-600 block">Avg per Scan</span>
-                    <span class="font-bold">KES ${summary.avg_transaction || 0}</span>
-                </div>
-                <div>
-                    <span class="text-blue-600 block">Days in Range</span>
-                    <span class="font-bold">${summary.days_in_range || 'N/A'}</span>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-// Updated export function with custom range support
-function exportVendorData(format) {
-    const vendorId = window.currentVendorData?.vendor?.id;
-    if (!vendorId) {
-        alert('No vendor data available');
-        return;
-    }
-
-    let period = 'month';
-    let selectedMonth = '';
-    let startDate = '';
-    let endDate = '';
-
-    if (format === 'excel') {
-        const excelPeriod = document.querySelector('input[name="excelPeriod"]:checked')?.value;
-        if (excelPeriod === 'selected') {
-            const monthSelect = document.getElementById('exportMonth');
-            selectedMonth = monthSelect ? monthSelect.value : '';
-            if (!selectedMonth) {
-                alert('Please select a month first');
-                return;
-            }
-        } else if (excelPeriod === 'custom') {
-            startDate = document.getElementById('customStartDate')?.value;
-            endDate = document.getElementById('customEndDate')?.value;
-            if (!startDate || !endDate) {
-                alert('Please select a custom date range first');
-                return;
-            }
-            if (startDate > endDate) {
-                alert('Start date cannot be after end date');
-                return;
-            }
-            period = 'custom';
-        }
-    } else if (format === 'pdf') {
-        const pdfPeriod = document.querySelector('input[name="pdfPeriod"]:checked')?.value;
-        if (pdfPeriod === 'selected') {
-            const monthSelect = document.getElementById('exportMonth');
-            selectedMonth = monthSelect ? monthSelect.value : '';
-            if (!selectedMonth) {
-                alert('Please select a month first');
-                return;
-            }
-        } else if (pdfPeriod === 'custom') {
-            startDate = document.getElementById('customStartDate')?.value;
-            endDate = document.getElementById('customEndDate')?.value;
-            if (!startDate || !endDate) {
-                alert('Please select a custom date range first');
-                return;
-            }
-            if (startDate > endDate) {
-                alert('Start date cannot be after end date');
-                return;
-            }
-            period = 'custom';
-        }
-    }
-
-    let url = `/admin/vendor/${vendorId}/analytics/export?format=${format}`;
-
-    if (selectedMonth) {
-        const [year, month] = selectedMonth.split('-');
-        const startDateUrl = `${year}-${month}-01`;
-        const endDateUrl = new Date(year, month, 0).toISOString().split('T')[0];
-        url += `&start_date=${startDateUrl}&end_date=${endDateUrl}&period=custom`;
-    } else if (period === 'custom' && startDate && endDate) {
-        url += `&start_date=${startDate}&end_date=${endDate}&period=custom`;
-    } else {
-        url += '&period=month';
-    }
-
-    window.open(url, '_blank');
-}
-
-// Function to load data for selected month
-// Function to load data for selected month - FIXED VERSION
 function loadCustomMonthData() {
     const monthSelect = document.getElementById('exportMonth');
     const statusEl = document.getElementById('monthDataStatus');
-
-    if (!monthSelect) {
-        console.error('Month select element not found');
-        return;
-    }
 
     if (!monthSelect.value) {
         alert('Please select a month first');
@@ -1958,105 +1121,36 @@ function loadCustomMonthData() {
 
     const [year, month] = monthSelect.value.split('-');
     const monthName = monthSelect.options[monthSelect.selectedIndex].text;
+    const lastDayOfMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
 
-    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Loading...';
+    statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
 
-    // Get the vendor ID from current data
-    const vendorId = window.currentVendorData?.vendor?.id;
-    if (!vendorId) {
-        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Vendor ID not found</span>';
-        return;
-    }
-
-    // Fetch data for the selected month
-    fetch(`/admin/vendor/${vendorId}/analytics/month/${year}/${month}`, {
-        headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-        }
+    fetch(`/admin/vendor/${window.currentVendorData.vendor.id}/analytics/month/${year}/${month}`, {
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') }
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
-            statusEl.innerHTML = '<span class="text-green-600"><i class="fas fa-check mr-1"></i>' + monthName + ' data loaded</span>';
-
-            // Store the month data for later use
-            window.selectedMonthData = data.data;
-
-            // Store in a data attribute on the month select instead
-            monthSelect.dataset.selectedMonth = monthSelect.value;
-            monthSelect.dataset.selectedMonthName = monthName;
-
-            // Show summary in a small preview
-            showMonthDataPreview(data.data);
+            statusEl.innerHTML = `<span class="text-green-600">${monthName} data loaded (${lastDayOfMonth} days)</span>`;
+            const summaryRevenue = toNumber(data.data?.summary?.total_revenue, 0);
+            let preview = document.getElementById('monthDataPreview');
+            if (!preview) {
+                preview = document.createElement('div');
+                preview.id = 'monthDataPreview';
+                preview.className = 'mt-4 p-3 bg-blue-50 rounded';
+                document.getElementById('tabContent').appendChild(preview);
+            }
+            preview.innerHTML = `<b>${escapeHtml(data.data.month)}</b> - Scans: ${toInt(data.data.summary.total_scans, 0).toLocaleString()} | Revenue: KSh ${summaryRevenue.toFixed(2)} | Days: ${toInt(data.data.summary.days_in_month, 0)}`;
         } else {
-            throw new Error(data.error || 'Failed to load data');
+            throw new Error(data.error || 'Failed to load');
         }
     })
     .catch(error => {
-        console.error('Error loading month data:', error);
-        statusEl.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Failed to load data</span>';
+        statusEl.innerHTML = '<span class="text-red-600">Failed to load month data</span>';
+        console.error(error);
     });
 }
 
-// Function to show month data preview
-// Function to show month data preview - FIXED VERSION
-function showMonthDataPreview(data) {
-    // Check if preview container exists, if not create it
-    let previewEl = document.getElementById('monthDataPreview');
-
-    // Find the export tab content container
-    const tabContent = document.getElementById('tabContent');
-
-    if (!previewEl) {
-        previewEl = document.createElement('div');
-        previewEl.id = 'monthDataPreview';
-        previewEl.className = 'mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200';
-
-        // Append to tabContent instead of exportTab
-        if (tabContent) {
-            tabContent.appendChild(previewEl);
-        }
-    }
-
-    // Format numbers
-    const totalRevenue = new Intl.NumberFormat('en-KE', {
-        style: 'currency',
-        currency: 'KES',
-        minimumFractionDigits: 2
-    }).format(data.summary.total_revenue);
-
-    previewEl.innerHTML = `
-        <h5 class="font-medium text-blue-800 mb-2">${data.month} - Summary</h5>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div>
-                <span class="text-blue-600 block">Total Scans</span>
-                <span class="font-bold">${data.summary.total_scans}</span>
-            </div>
-            <div>
-                <span class="text-blue-600 block">Total Revenue</span>
-                <span class="font-bold">${totalRevenue}</span>
-            </div>
-            <div>
-                <span class="text-blue-600 block">Avg per Scan</span>
-                <span class="font-bold">KES ${data.summary.avg_transaction}</span>
-            </div>
-            <div>
-                <span class="text-blue-600 block">Days in Month</span>
-                <span class="font-bold">${data.summary.days_in_month}</span>
-            </div>
-        </div>
-    `;
-}
-
-// Updated export function with month selection
-// Updated export function with month selection - FIXED VERSION
 function exportVendorData(format) {
     const vendorId = window.currentVendorData?.vendor?.id;
     if (!vendorId) {
@@ -2064,122 +1158,63 @@ function exportVendorData(format) {
         return;
     }
 
-    // Determine which period to use
-    let period = 'month'; // default
-    let selectedMonth = '';
+    let startDate = '', endDate = '';
 
     if (format === 'excel') {
         const excelPeriod = document.querySelector('input[name="excelPeriod"]:checked')?.value;
         if (excelPeriod === 'selected') {
-            const monthSelect = document.getElementById('exportMonth');
-            selectedMonth = monthSelect ? monthSelect.value : '';
-            if (!selectedMonth) {
-                alert('Please select a month first');
-                return;
-            }
+            const month = document.getElementById('exportMonth').value;
+            if (!month) { alert('Please select a month first'); return; }
+            const [year, monthNum] = month.split('-');
+            startDate = `${year}-${monthNum}-01`;
+            const lastDay = new Date(parseInt(year), parseInt(monthNum), 0).getDate();
+            endDate = `${year}-${monthNum}-${lastDay}`;
+        } else if (excelPeriod === 'custom') {
+            startDate = document.getElementById('customStartDate')?.value;
+            endDate = document.getElementById('customEndDate')?.value;
+            if (!startDate || !endDate) { alert('Please select custom date range first'); return; }
+            if (startDate > endDate) { alert('Start date cannot be after end date'); return; }
         }
     } else if (format === 'pdf') {
         const pdfPeriod = document.querySelector('input[name="pdfPeriod"]:checked')?.value;
         if (pdfPeriod === 'selected') {
-            const monthSelect = document.getElementById('exportMonth');
-            selectedMonth = monthSelect ? monthSelect.value : '';
-            if (!selectedMonth) {
-                alert('Please select a month first');
-                return;
-            }
+            const month = document.getElementById('exportMonth').value;
+            if (!month) { alert('Please select a month first'); return; }
+            const [year, monthNum] = month.split('-');
+            startDate = `${year}-${monthNum}-01`;
+            const lastDay = new Date(parseInt(year), parseInt(monthNum), 0).getDate();
+            endDate = `${year}-${monthNum}-${lastDay}`;
+        } else if (pdfPeriod === 'custom') {
+            startDate = document.getElementById('customStartDate')?.value;
+            endDate = document.getElementById('customEndDate')?.value;
+            if (!startDate || !endDate) { alert('Please select custom date range first'); return; }
+            if (startDate > endDate) { alert('Start date cannot be after end date'); return; }
         }
     }
 
-    // Build URL with parameters
     let url = `/admin/vendor/${vendorId}/analytics/export?format=${format}`;
-
-    if (selectedMonth) {
-        const [year, month] = selectedMonth.split('-');
-        const startDate = `${year}-${month}-01`;
-        const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // Last day of month
-
-        url += `&start_date=${startDate}&end_date=${endDate}&period=custom`;
+    if (startDate && endDate) {
+        url += `&period=custom&start_date=${startDate}&end_date=${endDate}`;
     } else {
         url += '&period=month';
     }
-
     window.open(url, '_blank');
 }
-// Share function for vendor analytics
-function shareVendorAnalytics() {
-    const vendorId = window.currentVendorData?.vendor?.id;
-    const email = document.getElementById('recipientEmail').value;
-    const subject = document.getElementById('emailSubject').value;
-    const message = document.getElementById('emailMessage').value;
-    const includeAttachment = document.getElementById('includeAttachment').checked;
-    const format = document.getElementById('reportFormat').value;
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-    if (!email) {
-        alert('Please enter recipient email');
-        return;
-    }
-
-    const button = document.querySelector('button[onclick="shareVendorAnalytics()"]');
-    const originalText = button.innerHTML;
-    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
-    button.disabled = true;
-
-    fetch(`/admin/vendor/${vendorId}/analytics/share`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken
-        },
-        body: JSON.stringify({
-            email: email,
-            subject: subject,
-            message: message,
-            include_attachment: includeAttachment,
-            format: format,
-            period: 'month'
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Email sent successfully!');
-            document.getElementById('recipientEmail').value = '';
-            document.getElementById('emailMessage').value = '';
-        } else {
-            alert('Failed to send email: ' + (data.error || 'Unknown error'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to send email. Please try again.');
-    })
-    .finally(() => {
-        button.innerHTML = originalText;
-        button.disabled = false;
-    });
-}
-
-// Dashboard stats update function
 async function updateDashboardStats() {
     try {
         const response = await fetch('/admin/dashboard/stats');
         const data = await response.json();
-
         if (data.success) {
-            updateMetric('today_scans', data.stats.today_scans);
-            updateMetric('total_revenue_today', 'KSh ' + data.stats.total_revenue_today.toLocaleString());
-            updateMetric('employee_participation_rate', data.stats.employee_participation_rate + '%');
+            const todayScansEl = document.getElementById('today_scans');
+            const revenueEl = document.getElementById('total_revenue_today');
+            const participationEl = document.getElementById('employee_participation_rate');
+            if (todayScansEl) todayScansEl.textContent = data.stats.today_scans;
+            if (revenueEl) revenueEl.textContent = 'KSh ' + data.stats.total_revenue_today.toLocaleString();
+            if (participationEl) participationEl.textContent = data.stats.employee_participation_rate + '%';
         }
     } catch (error) {
         console.error('Failed to update dashboard stats:', error);
-    }
-}
-
-function updateMetric(elementId, value) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.textContent = value;
     }
 }
 </script>

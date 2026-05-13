@@ -12,7 +12,6 @@
                 </div>
 
                 @if(Auth::user()->profile && Auth::user()->profile->isVerified())
-                <!-- Quick Scan Button - Always Visible when Verified -->
                 <a href="{{ route('vendor.scan') }}"
                    class="flex items-center space-x-2 px-6 py-3 bg-primary-red text-white rounded-lg hover:bg-red-700 transition duration-150 shadow-md">
                     <i class="fas fa-camera text-white"></i>
@@ -73,34 +72,32 @@
             </div>
         </div>
 
-        <!-- Revenue Card -->
+        <!-- Today's Revenue Card -->
         <div class="bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm font-medium text-gray-600">Today's Revenue</p>
-                    <p class="text-2xl font-bold text-text-black mt-2" id="todayRevenue">Ksh 0</p>
+                    <p class="text-2xl font-bold text-green-600 mt-2" id="todayRevenue">KSh 0</p>
                 </div>
                 <div class="w-12 h-12 bg-green-500 bg-opacity-10 rounded-full flex items-center justify-center">
                     <i class="fas fa-money-bill-wave text-green-500 text-xl"></i>
                 </div>
             </div>
             <div class="mt-4">
-                <span class="text-xs text-gray-500">Based on 70 per scan</span>
+                <span class="text-xs text-gray-500">Regular: 65 KES | Reward: 200 KES</span>
             </div>
         </div>
     </div>
 
-    <!-- Quick Actions - Reordered with Scan First -->
+    <!-- Quick Actions -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         <!-- Main Action Card -->
         <div class="lg:col-span-2 bg-white rounded-xl shadow-md border border-gray-100 p-6">
             <h2 class="text-xl font-bold text-text-black mb-4">Quick Actions</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 @if(Auth::user()->profile && Auth::user()->profile->isVerified())
-                <!-- Primary Scan Action - More Prominent -->
                 <a href="{{ route('vendor.scan') }}"
                    class="p-6 border-2 border-secondary-blue bg-secondary-blue bg-opacity-5 rounded-lg hover:bg-secondary-blue hover:bg-opacity-10 transition duration-150 group relative">
-                    <!-- Highlight Badge -->
                     <div class="absolute -top-2 -right-2 bg-primary-red text-white text-xs px-2 py-1 rounded-full">
                         Quick Scan
                     </div>
@@ -177,7 +174,7 @@
                 <div id="recentScansContainer">
                     <div class="text-center py-8 text-gray-500">
                         <i class="fas fa-history text-3xl mb-2"></i>
-                        <p>No scans today</p>
+                        <p>Loading scans...</p>
                     </div>
                 </div>
             </div>
@@ -207,8 +204,18 @@
                 </div>
 
                 <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span class="text-sm font-medium text-text-black">Regular Meals (65)</span>
+                    <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full" id="statusRegularCount">0</span>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span class="text-sm font-medium text-text-black">Reward Meals (200)</span>
+                    <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full" id="statusRewardCount">0</span>
+                </div>
+
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <span class="text-sm font-medium text-text-black">Total Revenue</span>
-                    <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full" id="statusTotalRevenue">Ksh 0</span>
+                    <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full" id="statusTotalRevenue">KSh 0</span>
                 </div>
             </div>
 
@@ -219,6 +226,7 @@
                     <div>
                         <p class="text-sm font-medium text-text-black">Quick Scan Tip</p>
                         <p class="text-xs text-gray-600 mt-1">Use the "Scan QR" button above for immediate scanning access.</p>
+                        <p class="text-xs text-gray-500 mt-2">Regular meals: 65 KES | Reward meals: 200 KES</p>
                     </div>
                 </div>
             </div>
@@ -251,17 +259,17 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Update stats cards
                     document.getElementById('todayScans').textContent = data.today.scans;
                     document.getElementById('totalScans').textContent = data.total.scans;
-                    document.getElementById('todayRevenue').textContent = 'Ksh ' + (data.today.revenue || 0);
-
-                    // Update status section
+                    document.getElementById('todayRevenue').textContent = 'KSh ' + (data.today.revenue || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 });
                     document.getElementById('statusScansToday').textContent = data.today.scans;
-                    document.getElementById('statusTotalRevenue').textContent = 'Ksh ' + (data.total.revenue || 0);
-
-                    // Update timestamp
+                    document.getElementById('statusTotalRevenue').textContent = 'KSh ' + (data.total.revenue || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 });
                     document.getElementById('todayScansTime').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+
+                    if (data.today.regular_scans !== undefined) {
+                        document.getElementById('statusRegularCount').textContent = data.today.regular_scans;
+                        document.getElementById('statusRewardCount').textContent = data.today.reward_scans || 0;
+                    }
                 }
             })
             .catch(error => {
@@ -271,25 +279,30 @@
 
     // Load recent scans
     function loadRecentScans() {
-   fetch('{{ route("vendor.history.data") }}')
+        fetch('{{ route("vendor.history.data") }}')
             .then(response => response.json())
             .then(data => {
                 const container = document.getElementById('recentScansContainer');
 
-                if (data.success && data.transactions.length > 0) {
+                if (data.success && data.transactions && data.transactions.length > 0) {
                     container.innerHTML = data.transactions.map(transaction => `
                         <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg mb-2 hover:bg-gray-50 transition duration-150">
                             <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                    <i class="fas fa-utensils text-green-600"></i>
+                                <div class="w-10 h-10 ${transaction.is_reward ? 'bg-purple-100' : 'bg-green-100'} rounded-full flex items-center justify-center">
+                                    <i class="fas fa-utensils ${transaction.is_reward ? 'text-purple-600' : 'text-green-600'}"></i>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-text-black">${transaction.employee.formal_name}</p>
-                                    <p class="text-sm text-gray-500">${transaction.employee.employee_code} • ${transaction.employee.department.name}</p>
+                                    <p class="font-semibold text-text-black">${escapeHtml(transaction.employee.formal_name)}</p>
+                                    <p class="text-sm text-gray-500">${escapeHtml(transaction.employee.employee_code)} • ${escapeHtml(transaction.employee.department.name)}</p>
                                 </div>
                             </div>
                             <div class="text-right">
-                                <p class="font-semibold text-green-600">KSh ${transaction.amount}</p>
+                                ${transaction.is_reward ?
+                                    `<p class="font-semibold text-purple-600">KSh 200.00 🎖️</p>
+                                     <p class="text-xs text-purple-500">Reward Meal</p>` :
+                                    `<p class="font-semibold text-green-600">KSh 65.00</p>
+                                     <p class="text-xs text-gray-500">Regular Meal</p>`
+                                }
                                 <p class="text-sm text-gray-500">${transaction.meal_time}</p>
                             </div>
                         </div>
@@ -305,6 +318,12 @@
             })
             .catch(error => {
                 console.error('Error loading recent scans:', error);
+                document.getElementById('recentScansContainer').innerHTML = `
+                    <div class="text-center py-8 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                        <p>Error loading scans</p>
+                    </div>
+                `;
             });
     }
 
@@ -313,7 +332,6 @@
         const modal = document.getElementById('scanHistoryModal');
         const content = document.getElementById('scanHistoryContent');
 
-        // Show loading
         content.innerHTML = `
             <div class="text-center py-8">
                 <i class="fas fa-spinner fa-spin text-2xl text-secondary-blue mb-2"></i>
@@ -323,28 +341,32 @@
 
         modal.classList.remove('hidden');
 
-        // Load history
         fetch('{{ route("vendor.history.data") }}?date=all')
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.transactions.length > 0) {
+                if (data.success && data.transactions && data.transactions.length > 0) {
                     content.innerHTML = `
                         <div class="space-y-3">
                             ${data.transactions.map(transaction => `
                                 <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition duration-150">
                                     <div class="flex items-center space-x-3">
-                                        <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                            <i class="fas fa-utensils text-green-600"></i>
+                                        <div class="w-10 h-10 ${transaction.is_reward ? 'bg-purple-100' : 'bg-green-100'} rounded-full flex items-center justify-center">
+                                            <i class="fas fa-utensils ${transaction.is_reward ? 'text-purple-600' : 'text-green-600'}"></i>
                                         </div>
                                         <div>
-                                            <p class="font-semibold text-text-black">${transaction.employee.formal_name}</p>
-                                            <p class="text-sm text-gray-500">${transaction.employee.employee_code}</p>
+                                            <p class="font-semibold text-text-black">${escapeHtml(transaction.employee.formal_name)}</p>
+                                            <p class="text-sm text-gray-500">${escapeHtml(transaction.employee.employee_code)}</p>
                                             <p class="text-xs text-gray-400">${transaction.meal_date} at ${transaction.meal_time}</p>
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <p class="font-semibold text-green-600">KSh ${transaction.amount}</p>
-                                        <p class="text-xs text-gray-500">${transaction.transaction_code}</p>
+                                        ${transaction.is_reward ?
+                                            `<p class="font-semibold text-purple-600">KSh 200.00 🎖️</p>
+                                             <span class="text-xs text-purple-500">Reward</span>` :
+                                            `<p class="font-semibold text-green-600">KSh 65.00</p>
+                                             <span class="text-xs text-gray-500">Regular</span>`
+                                        }
+                                        <p class="text-xs text-gray-400 mt-1">${transaction.transaction_code}</p>
                                     </div>
                                 </div>
                             `).join('')}
@@ -369,17 +391,13 @@
             });
     }
 
-    // Close scan history modal
     function closeScanHistory() {
         document.getElementById('scanHistoryModal').classList.add('hidden');
     }
 
-    // Refresh stats
     function refreshStats() {
         loadDashboardStats();
         loadRecentScans();
-
-        // Show refresh notification
         Swal.fire({
             icon: 'success',
             title: 'Refreshed!',
@@ -389,12 +407,19 @@
         });
     }
 
-    // Initialize dashboard
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         loadDashboardStats();
         loadRecentScans();
-
-        // Auto-refresh every 30 seconds
         setInterval(loadDashboardStats, 30000);
     });
 </script>
