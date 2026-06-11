@@ -59,9 +59,9 @@
 
             <!-- Manual Input Fallback -->
             <div class="border-t pt-4 mt-4">
-                <p class="text-center text-gray-600 mb-2">Or enter QR code manually:</p>
+                
                 <div class="flex space-x-2 max-w-md mx-auto">
-                    <input type="text" id="manual-qr-input" placeholder="Enter QR code" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary-blue focus:border-transparent">
+
                     <button onclick="processManualQR()" class="bg-secondary-blue text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-600 transition duration-300">
                         Submit
                     </button>

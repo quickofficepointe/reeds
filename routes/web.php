@@ -148,14 +148,24 @@ Route::middleware(['auth', 'verified', 'admin', 'profile.complete'])
     // ====================================
     // MEAL MANAGEMENT
     // ====================================
-    Route::prefix('meals')->name('meals.')->group(function () {
-        Route::get('/manual-entry', [AdminMealController::class, 'showManualEntryForm'])->name('manual-entry');
-        Route::post('/manual-entry', [AdminMealController::class, 'processManualEntry'])->name('manual-entry.process');
-        Route::post('/bulk-manual-entry', [AdminMealController::class, 'bulkManualEntry'])->name('bulk-manual-entry');
-        Route::get('/feb2-report', [AdminMealController::class, 'getFeb2Report'])->name('feb2-report');
-        Route::get('/recent-entries', [AdminMealController::class, 'getRecentEntries'])->name('recent-entries');
-        Route::get('/unfed-employees', [AdminMealController::class, 'getUnfedEmployees'])->name('unfed-employees');
-    });
+Route::prefix('meals')->name('meals.')->group(function () {
+    Route::get('/manual-entry', [AdminMealController::class, 'showManualEntryForm'])->name('manual-entry');
+    Route::post('/manual-entry', [AdminMealController::class, 'processManualEntry'])->name('manual-entry.process');
+    Route::post('/bulk-manual-entry', [AdminMealController::class, 'bulkManualEntry'])->name('bulk-manual-entry');
+
+    // Delete routes
+    Route::delete('/entry/{id}', [AdminMealController::class, 'deleteMealEntry'])->name('delete-entry');
+    Route::post('/bulk-delete', [AdminMealController::class, 'bulkDeleteEntries'])->name('bulk-delete');
+
+    // IMPORTANT: Add this missing route
+    Route::get('/entries-for-date', [AdminMealController::class, 'getEntriesForDate'])->name('entries-for-date');
+
+    // Report routes
+    Route::get('/feb2-report', [AdminMealController::class, 'getFeb2Report'])->name('feb2-report');
+    Route::get('/recent-entries', [AdminMealController::class, 'getRecentEntries'])->name('recent-entries');
+    Route::get('/unfed-employees', [AdminMealController::class, 'getUnfedEmployees'])->name('unfed-employees');
+    Route::get('/date-stats', [AdminMealController::class, 'getDateStats'])->name('date-stats');
+});
 
     // ====================================
     // EMPLOYEE SCAN DATA EXPORT
@@ -311,7 +321,7 @@ Route::middleware(['auth', 'verified', 'vendor', 'profile.complete'])
     Route::get('/history', [VendorController::class, 'history'])->name('history');
     Route::get('/history/data', [VendorController::class, 'getScanHistory'])->name('history.data');
     Route::get('/history/range', [VendorController::class, 'getScanHistoryByRange'])->name('history.range');
-    
+
     // Performance Analytics
     Route::get('/performance', [VendorController::class, 'performance'])->name('performance');
     Route::get('/analytics/daily', [VendorController::class, 'dailyAnalytics'])->name('analytics.daily');

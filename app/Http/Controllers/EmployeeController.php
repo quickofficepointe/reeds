@@ -1654,8 +1654,7 @@ public function generateScanDataReport(Request $request)
     $unitId = $request->get('unit_id');
 
     // Get employees - filter by unit if provided
-    $employeeQuery = Employee::with(['department', 'unit'])
-        ->where('is_active', true);
+    $employeeQuery = Employee::with(['department', 'unit']);
 
     if ($unitId) {
         $employeeQuery->where('unit_id', $unitId);
